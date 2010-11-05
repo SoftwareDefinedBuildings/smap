@@ -1,0 +1,13 @@
+
+sMAP: the Simple Actuation and Measurement Profile
+
+Reference implementation
+
+devices/
+        sMAP gateway implementations for a number of different devices.
+        see devices/test for the simplest instance
+
+newlib/
+        the replacement library implementation, with a much simplified API.
+        See SmapInstance and SmapHttp for examples of creating a smap source.
+
