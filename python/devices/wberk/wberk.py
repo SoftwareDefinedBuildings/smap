@@ -1,6 +1,7 @@
 """sMAP feed polling wunderground data.  Understands the XML spit out
 by their feed API.
 """
+
 import sys
 import logging
 import time
@@ -8,6 +9,7 @@ import threading
 import urllib2
 import rfc822
 from xml.dom.minidom import parse, parseString
+from xml.parsers.expat import ExpatError
 
 
 sys.path.append("../../newlib")
@@ -37,14 +39,29 @@ class UpdateThread(threading.Thread):
                 try:
                     fh = urllib2.urlopen(url, timeout=10)
                 except urllib2.URLError, e:
-                    logging.error("error getting reading: " + str(e))
+                    logging.error("URLError getting reading: [%s, %s]: %s" % (name, url, str(e)))
+                    time.sleep(5)
+                    continue
+                except urllib2.HTTPError, e:
+                    logging.error("HTTP Error: [%s, %s]: %s" % (name, url, str(e)))
                     time.sleep(5)
                     continue
 
-                dom = parse(fh)
+                try:
+                    dom = parse(fh)
+                except ExpatError, e:
+                    logging.error("Exception parsing DOM [%s, %s]: %s" % (name, url, str(e)))
+                    time.sleep(5)
+                    continue
 
-                reading_time = rfc822.parsedate_tz(get_val(dom, "observation_time_rfc822"))
-                reading_time = int(rfc822.mktime_tz(reading_time))
+                try:
+                    reading_time = rfc822.parsedate_tz(get_val(dom, "observation_time_rfc822"))
+                    reading_time = int(rfc822.mktime_tz(reading_time))
+                except Exception, e:
+                    logging.error("Exception finding time [%s, %s]: %s" % (name, url, str(e)))
+                    time.sleep(5)
+                    continue
+                
                 if reading_time > last_time.get(name, 0):
                     data = inst['data'][name]['sensor']
                     data['wind_dir'].add(Reading(time=reading_time, value=get_val(dom, "wind_degrees"),

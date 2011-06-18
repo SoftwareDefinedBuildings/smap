@@ -14,24 +14,23 @@ import SmapInstance
 import SmapPoint
 import SmapHttp
 
-import conf
 import ACmeX2Report
 import MysqlListener
 
 def get_acme_tree():
     return {
         'sensor' : {
-            'true_power' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kW', multipler=None,
+            'true_power' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kW', multiplier=None,
                                                                     divisor=1e6, type='electric',
                                                                     ctype='sensor'),
                                                SmapPoint.Parameter(interval=10, time='second')),
-            'apparent_power' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kVA', multipler=None,
+            'apparent_power' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kVA', multiplier=None,
                                                                         divisor=1e6, type='electric',
                                                                         ctype='sensor'),
                                                    SmapPoint.Parameter(interval=10, time='second'))
             },
         'meter' : {
-            'true_energy' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kWh', multipler=None,
+            'true_energy' : SmapPoint.SmapPoint(SmapPoint.Formatting(unit='kWh', multiplier=None,
                                                                      divisor=1e6, type='electric',
                                                                      ctype='sensor'),
                                                 SmapPoint.Parameter(interval=10, time='second'))
@@ -39,7 +38,7 @@ def get_acme_tree():
         }
 
 class ACmeListener(threading.Thread):
-    def __init__(self, inst, acmeport=7001):
+    def __init__(self, inst, acmeport):
         threading.Thread.__init__(self)
         self.inst = inst
         self.acmeport = acmeport
@@ -75,17 +74,22 @@ class ACmeListener(threading.Thread):
                     SmapPoint.Reading(time=readingTime,
                                       value=rpt.get_readings_averageRealPower()[idx],
                                       min=None, max=None))
-                self.inst['data'][mid]['sensor'].add(
+                self.inst['data'][mid]['sensor']['apparent_power'].add(
                     SmapPoint.Reading(time=readingTime,
                                       value=rpt.get_readings_averageApparentPower()[idx],
                                       min=None, max=None))
                 self.inst.push(dirty_path='~/data/' + mid)
 
 if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        conf = __import__(sys.argv[1])
+    else:
+        import conf
+    
     smaplog.start_log()
 
     inst = SmapInstance.SmapInstance({}, key='acmex2-smap-%i' % conf.PORT)
-    updater = ACmeListener(inst)
+    updater = ACmeListener(inst, conf.ACMEPORT)
     updater.start()
 
     SmapHttp.start_server(inst, port=conf.PORT)

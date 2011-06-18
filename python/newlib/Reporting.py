@@ -32,6 +32,7 @@ class Reporting(threading.Thread):
 
     def __init__(self, resource_root, report_file=None):
         threading.Thread.__init__(self)
+        self.principal = '__reporting__'
 
         if not report_file:
             report_file = '/var/smap/' + '-'.join(sys.argv) + '-reports'
@@ -208,7 +209,7 @@ class Reporting(threading.Thread):
             
             # build the report object we need to pass out
             try:
-                data = SmapHttp.recursive_get(report['ReportResource'],
+                data = SmapHttp.recursive_get(self, report['ReportResource'],
                                               self.resource_root)
             except SmapHttp.SmapHttpException, e:
                 logging.warn("Invalid report resource in push: '%s, %s" %
@@ -230,10 +231,10 @@ class Reporting(threading.Thread):
                 elif request[0] == '*':
                     # we need to filter out everything but the dirty
                     # element, and keep looking
-                    rv = {}
                     if rv_data.has_key(dirty[0]):
-                        rv[dirty[0]] = rv_data[dirty[0]]
-                        return compare_dirty(dirty[1:], request[1:], rv)
+                        return {
+                            dirty[0] : compare_dirty(dirty[1:], request[1:], rv_data[dirty[0]])
+                            }
                     else:
                         return None
                 elif dirty[0] == '*':
@@ -242,7 +243,6 @@ class Reporting(threading.Thread):
                     return None
 
             data = compare_dirty(dirty_path, req_path, data)
-
             # if anything matched, push it onto the queue for delivery
             if data:
                 self.pool.queueTask(self._deliver, args=(key, data))
@@ -274,7 +274,7 @@ class Reporting(threading.Thread):
                     # reports are the same as doing a GET on the
                     # specified resource
                     try:
-                        result = SmapHttp.recursive_get(report['ReportResource'],
+                        result = SmapHttp.recursive_get(self, report['ReportResource'],
                                                         self.resource_root)
                     except SmapHttp.SmapHttpException:
                         self.logger.warn("Invalid resource in periodic report: '%s'" %
@@ -432,14 +432,14 @@ class ReportingHttpCreate:
     def __init__(self, report):
         self.report = report
 
-    def http_post(self, resource, query, postobject):
+    def http_post(self, request, resource, query, postobject):
         return [self.report.create_report(postobject)]
 
 class ReportingHttpCollection:
     def __init__(self, report):
         self.report = report
 
-    def http_get(self, resource, query):
+    def http_get(self, request, resource, query):
         if len(resource) == 0:
             return self.report.report_list()
         else:
@@ -450,7 +450,7 @@ class ReportingHttpCollection:
             report['ReportResource'] = urlparse.urlunparse(report['ReportResource'])
             return report
 
-    def http_post(self, resource, query, postobject):
+    def http_post(self, request, resource, query, postobject):
         if len(resource) != 1:
             # method not available
             raise SmapHttp.SmapHttpException(405)
@@ -460,7 +460,7 @@ class ReportingHttpCollection:
             except KeyError:
                 raise SmapHttp.SmapHttpException(404)
 
-    def http_delete(self, resource, query):
+    def http_delete(self, request, resource, query):
         if len(resource) == 1:
             self.report.delete_report(resource[0])
         elif len(resource) == 0:

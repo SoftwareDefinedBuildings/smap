@@ -13,8 +13,12 @@ import time
 import random
 import threading
 import urllib2
-import json
 import logging
+import socket
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 class RateTimer(threading.Thread):
     """Implements a constant-rate timer: calls fn every period seconds
@@ -35,6 +39,38 @@ class RateTimer(threading.Thread):
                 
             last_exec = time.time()
             self.fn()
+
+class FixedSizeList(list):
+    """
+    A class for keeping a circular buffer with a maximum size.
+    Used for storing a fixed history of "profile" data.
+    """
+    def __init__(self, size=None, sort_profile=False):
+        self.size = size
+        self.sort_profile = sort_profile
+        list.__init__(self)
+    
+    def append(self, val):
+        if self.sort_profile == True:
+            # Find insert point in sorted list
+            idx = bisect.bisect_left([r.time for r in self], val.time)
+            # Ignore duplicate times
+            if idx >= len(self) or self[idx].time != val.time:
+                self.insert(idx, val)
+            else:
+                return False
+        else:
+            list.append(self, val)
+
+        if self.size and len(self) > self.size:
+            self.pop(0)
+
+        return True
+
+    def set_size(self, size):
+        if len(self) > size:
+            self.__delslice__(0, self.size  - size)
+        self.size = size
 
 def http_load(url, data=None, timeout=5):
     """Simplified way to load an HTTP resource which yields a json object,
@@ -63,7 +99,29 @@ def http_load(url, data=None, timeout=5):
         log.warn("HTTP error: " + str(e))
         return None
 
+def dict_filter(fn, d):
+    del_list = []
+    for k,v in d.iteritems():
+        if not fn(k, v):
+            del_list.append(k)
+    map(d.__delitem__, del_list)
             
+class socket_readline(socket.socket):
+    def __init__(self, *args):
+        socket.socket.__init__(self, *args)
+        self.__buf = ""
+        
+    def readline(self, sep='\r\n'):
+        # do a non-blocking read to pick up any buffered bytes
+        self.__buf += self.recv(1024, socket.MSG_DONTWAIT)
+        while self.__buf.find(sep) < 0:
+            self.__buf += self.recv(1024)
+
+        idx = self.__buf.find(sep)
+        rv = self.__buf[:idx]
+        self.__buf = self.__buf[idx+len(sep)+1:]
+        return rv
+
 if __name__ == '__main__':
     t = RateTimer(1, hello)
     t.start()

@@ -31,7 +31,6 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     uint32_t txBufLen;            /* Length of string to echo */
     int bytesRcvd;                /* Bytes read in single recv() */ 
     int bytesReply = MODBUS_MIN_REPLY;           /* Length of reply expected. */
-    int c;
     struct timeval timeout;
     modbus_reply error_reply;
     memset(&error_reply, 0, sizeof(error_reply));

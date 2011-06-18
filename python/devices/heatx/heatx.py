@@ -70,12 +70,13 @@ class HeatX:
             logging.warn("Failed to read device\n");
             return
         s = ""
-        for i in range(0, len(data), 4):
-            s += data[i+1]
-            s += data[i+0]
-            s += data[i+3]
-            s += data[i+2]
+        
         try:
+            for i in range(0, len(data), 4):
+                s += data[i+1]
+                s += data[i+0]
+                s += data[i+3]
+                s += data[i+2]
             vals = struct.unpack("<18f", s)
         except:
             return

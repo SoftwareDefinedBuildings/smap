@@ -4,42 +4,11 @@ import collections
 import bisect
 
 import SmapHttp
+from util import FixedSizeList
 
 Reading    = collections.namedtuple("Reading", "time value min max")
 Formatting = collections.namedtuple("Formatting", "unit multiplier divisor type ctype")
 Parameter  = collections.namedtuple("Parameter", "interval time")
-
-class FixedSizeList(list):
-    """
-    A class for keeping a circular buffer with a maximum size.
-    Used for storing a fixed history of "profile" data.
-    """
-    def __init__(self, size=None, sorted=False):
-        self.size = size
-        self.sorted = sorted
-        list.__init__(self)
-    
-    def append(self, val):
-        if self.sorted:
-            # Find insert point in sorted list
-            idx = bisect.bisect_left([r.time for r in self], val.time)
-            # Ignore duplicate times
-            if idx >= len(self) or self[idx].time != val.time:
-                self.insert(idx, val)
-            else:
-                return False
-        else:
-            list.append(self, val)
-
-        if self.size and len(self) > self.size:
-            self.pop(0)
-
-        return True
-
-    def set_size(self, size):
-        if len(self) > size:
-            self.__delslice__(0, self.size  - size)
-        self.size = size
 
 class SmapPoint:
     """
@@ -48,10 +17,13 @@ class SmapPoint:
     This class is what is found at the leaves of the resource tree
     under data/.
     """
-    def __init__(self, formatting, parameter, extra_parameters=None):
+    def __init__(self, formatting, parameter,
+                 authenticator=None,
+                 extra_parameters=None):
         self.formatting = formatting
         self.parameter = parameter
-        self.profile = FixedSizeList(200, sorted)
+        self.profile = FixedSizeList(200)
+        self.authenticator = authenticator
         self.extra_parameters = extra_parameters
 
     def add(self, reading):
@@ -121,7 +93,7 @@ class SmapPoint:
 
         return obj
 
-    def http_get(self, resource, query=None):
+    def http_get(self, request,  resource, query=None):
         """
         Return a python object corresponding to the resource
         """

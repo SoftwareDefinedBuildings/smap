@@ -32,17 +32,20 @@ def update_field(smap, type_, field, data, mi=None, ma=None):
                                                                  min=None, max=None))
 
 def update(veris, smap):
-    logging.debug("Updating meter readings")
-    current = veris.get_current()
-    update_field(smap, 'sensor', 'current', current)
-    pf = veris.get_powerfactor()
-    update_field(smap, 'sensor', 'pf', pf)
-    power = veris.get_power()
-    update_field(smap, 'sensor', 'power', power)
-    energy = veris.get_energy()
-    update_field(smap, 'meter', 'energy', energy)
-
-    smap.push()
+    try:
+        logging.debug("Updating meter readings")
+        current = veris.get_current()
+        update_field(smap, 'sensor', 'current', current)
+        pf = veris.get_powerfactor()
+        update_field(smap, 'sensor', 'pf', pf)
+        power = veris.get_power()
+        update_field(smap, 'sensor', 'power', power)
+        energy = veris.get_energy()
+        update_field(smap, 'meter', 'energy', energy)
+    except Exception, e:
+        logging.error("Exception updating readings: " + str(e))
+    finally:
+        smap.push()
     
 
 def veris_point():

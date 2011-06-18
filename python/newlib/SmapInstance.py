@@ -4,20 +4,20 @@ import os
 import Reporting
 import SmapStatus
 import SmapContext
+import SmapHttp
 import sys
 
 class SmapInstance(dict):
     """
     Class implementing a single smap "instance"; corresponding to a
-    root with the normal data/, reporting/, status/, and context/
-    resources.  This basically consists of creating a dict with the
-    right sub-classes.
+    root with data/, reporting/, status/, and context/
+    resources.  This is implemented as a nested dict.
 
     Multiple SmpaInstances can be placed in a hierarchy by a
     SmapServer, or a single one can be the root.
 
     To use this class, create a dict with the resource structure you
-    want to use for your resource class.  The objects at teh leaves of
+    want to use for your sMAP server.  The objects at the leaves of
     the tree should be SmapPoints.  For instance, you could do:
 
     data = {
@@ -30,17 +30,17 @@ class SmapInstance(dict):
     This will create the hierarchy /data/0/sensor/0/ with the
     appropriate sMAP resources at the leaves.  The key argument is
     used to name a file for storing reporting instances, and should be
-    different for ever sMAP instance run on the same host.
+    different for every sMAP instance run on the same host.
 
-    You can then add data to the instance by using the SmapPoint.add
+    You can then add data to the instance using the SmapPoint.add
     method; for instance, you could do
 
     inst['data']['0']['sensor']['0'].add(SmapPoint.Reading(time=now, value=0, min=None, max=None))
 
-    After you've added all the data, make sure you call push.  This
-    lets the service know that you have finished adding data which
-    should be sent to any consumers which have registered to receive
-    data whenever new readings are available.
+    After you've added the data making up a single reading, call push.  This lets
+    the service know that the current state of the SmapInstance
+    represents a consistent state, and listeners registered for
+    updates should be sent the new.data.
 
     inst.push()
 
@@ -50,14 +50,16 @@ class SmapInstance(dict):
     inst.push(dirty_path='~/data/0')
 
     This will only push data to clients which have asked for a report
-    overlapping this path.
+    overlapping this path.  The tilde (~) refers to the root of this
+    sMAP instance.
 
-    You may set the local timezone during instantiation -- the value
-    should be a value from the tz database (zone.tab) file.  On many
-    systems, this is available in /usr/share/zoneinfo/zone.tab
-    
+    You may set the local timezone during instantiation using the
+    "timezone" keyword arg -- the value should be a value from the tz
+    database (zone.tab) file.  On many systems, this is available in
+    /usr/share/zoneinfo/zone.tab
     """
     def __init__(self, data_hierarchy, key='SmapInstance', timezone='America/Los_Angeles'):
+        key = key.replace('/', '_')
         self.reporting = Reporting.Reporting(self,
                   report_file=os.path.join('/var/smap/', key + '.reports'))
         # map in the user-provided data resource 
@@ -65,6 +67,8 @@ class SmapInstance(dict):
         self.__setitem__('reporting', Reporting.ReportingHttp(self.reporting))
         self.__setitem__('status', SmapStatus.SmapStatus())
         self.__setitem__('context', SmapContext.SmapContext(timezone))
+
+        SmapHttp.smap_server_init()
 
     def push(self, dirty_path='/'):
         return self.reporting.push(dirty_path)

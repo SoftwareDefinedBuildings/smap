@@ -1,9 +1,4 @@
 #!/usr/bin/env python
-"""sMAP implementation for the PSL PQube electric meter.
-
-Polls the HTML page and screen-scrapes it into a sMAP feed.  Edit
-conf.py to point at your PQube meters.
-"""
 
 import sys
 import logging
@@ -11,6 +6,7 @@ import time
 import calendar
 import threading
 import urllib2
+import httplib
 import urlparse
 import re
 import signal
@@ -114,6 +110,9 @@ def update(meters):
         except IOError, e:
             logging.error("IOError while reading pqube: url: %s exception: %s" % (url, str(e)))
             continue
+        except httplib.HTTPException, e:
+            logging.error("HTTP exception reading pqube: url: %s exception: %s" % (url, str(e)))
+            continue
 
         reading_time = int(time.time())
         # this pulls out a list of all the channel-reading pairs
@@ -178,4 +177,4 @@ if __name__ == '__main__':
     u.start()
 
 
-    SmapHttp.start_server(web_root, port=conf.SMAP_PORT)
+    SmapHttp.start_server(web_root, port=8015)
