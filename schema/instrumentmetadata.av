@@ -1,0 +1,19 @@
+{
+  "name" : "InstrumentMetadata",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A container class containing a single time series",
+  "fields" : [
+    {"name" : "Manufacturer", "type" : ["null", "string"]},
+    {"name" : "Model", "type" : ["null", "string"]},
+    {"name" : "PartNumber", "type" : ["null", "string"]},
+    {"name" : "SerialNumber", "type" : ["null", "string"]},
+    {"name" : "Text", "type" : ["null", "string"]},
+    {"name" : "MinValue", "type" : ["null", "long", "double"]},
+    {"name" : "MaxValue", "type" : ["null", "long", "double"]},
+    {"name" : "Resolution", "type" : ["null", "long", "double"]},
+    {"name" : "Precision", "type" : ["null", "long", "double"]},
+    {"name" : "Accuracy", "type" : ["null", "long", "double"]},
+    {"name" : "SamplingPeriod", "type" : ["null", "Duration"]}
+  ]
+}

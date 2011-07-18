@@ -1,0 +1,840 @@
+\documentclass[10pt,letterpaper]{article}
+%% \usepackage[letterpaper]{anysize}
+
+% \topmargin	=-2.mm		% beyond 25.mm
+% \oddsidemargin	=-2.mm		% beyond 25.mm
+% \evensidemargin	=-2.mm		% beyond 25.mm
+% \headheight	=0.mm
+% \headsep	=0.mm
+% \textheight	=235.mm
+% \textwidth	=169.mm
+
+%% \marginsize{25mm}{25mm}{25mm}{25mm}
+\usepackage{amssymb}
+\usepackage{dsfont}
+\usepackage[]{graphicx}
+\usepackage[small]{subfigure}
+\usepackage{setspace}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{verbatim}
+\newlength\SUBSIZE
+\newcommand{\R}{\mathds{R}}
+\newcommand{\C}{\mathds{C}}
+\newcommand{\Z}{\mathds{Z}}
+\newcommand{\smap}{sMAP}
+\newcommand{\smapversion}{2.0}
+\newcommand{\ie}{\textit{i.e.}}
+
+\begin{document}
+\lstset{language=Java}
+\title{sMAP v\smapversion{} Proposal and Specification}
+\author{Stephen Dawson-Haggerty}
+% \date{}
+\maketitle
+
+Since the initial development in 2009, sMAP has been used to present data from
+various instruments inside and outside of the LoCal project at UC Berkeley.
+Its strengths are that it is easy to consume, easy to implement for
+new device types, and simple to understand.  However, use in the real world
+has also brought out several places where the design was not fully fleshed
+out.  This second version attempts to fix some of these problems, and
+additional codify some of the places where we operate only on convention.
+
+\setcounter{tocdepth}{2}
+\tableofcontents
+
+\section{sMAP Overview}
+
+This section presents an overview of the features of the sMAP profile, as
+currently specified and implemented as a review and to ground the subsequent
+discussion in the current state.
+
+At its core, sMAP specifies an organization of HTTP resources, and the
+contents of these resource as JSON schema.  The four top-level resources in the \smap{} profile are:
+\begin{description}
+  \item[{\tt /data}] contains resources for reading and controlling meters,
+    sensors, and actuators.
+  \item[{\tt /reporting}] allows control of periodic reports for syndication.
+  \item[{\tt /status}] contains a single universal universal field specifying
+    if the device data is valid, as well as instrument-specific codes.
+  \item[{\tt /context}] contains any information about the device's
+    relationship to other devices.  This includes the device's Global Unique
+    Identifier.
+\end{description}
+
+The most-commonly used resources are {\tt data} and {\tt reporting}.  Data is
+organized as three-level deep set of resources, of the form {\tt
+  <point>/<type>/<channel>}.  The {\bf point} corresponds to a physical point
+of instrumentation, such as a particular sensor or weather station.  It is
+common for a single transducer to produce multiple time-series; each of these
+are mapped to channels.  The {\tt type} divides channels into {\tt meters}s,
+{\tt sensor}s, and {\tt actuator}s.  Finally a {\bf channel} is used to
+represent a particular stream of readings; it is a resource containing {\tt
+  reading}, {\tt profile}, {\tt formatting}, and {\tt parameter} JSON objects.
+
+The {\tt reporting} resource allows data consumers to install a listener for
+changes on part of the resource tree.  When new readings are received, a
+\smap{} implementation delivers it to subscribers via an HTTP POST.
+Subscribers specify the set of resources they are interested in via a URL;
+\smap{} sources may deliver either the entire resource or a subset when new
+readings arrive.  
+
+The final resources are {\tt status} and {\tt context}; neither of these are
+currently used in any systematic way.
+
+\smap{} is sometimes run over SSL; when that is the case, we use client
+certificates for authentication.  The authorization database is currently
+static (per-source).
+
+\section{Terminology}
+
+\begin{description}
+\item[Channel] A single timeseries of scalar values produced by a sense point.
+\item[Sense point] A point of physical instrumentation; a single sensor.
+\item[uuid] Universal Unique Identifier.  A practically unique 128-bit
+  identifer generated according to RFC4122.
+\end{description}
+
+\section{Use Cases and Paradigms}
+\label{sec:uses}
+
+In this section we present a study of how sMAP has been applied in practice.
+From these we develop a set of protocol design considerations and
+identify places where sMAP falls short.
+
+\subsection{Instrument Modeling}
+Originally, the intention was that {\it a sMAP source represents an
+  instrument}; that is, each instrument would be present on the network as a
+single sMAP source.  This intuition was correct in many cases; for instance,
+sMAP sources make data from Dent, PQube, and Veris electric meters, Vaisala
+weather stations, HeatX steam gauges, Omega iSeries condensate meters, and
+many others using this model of ``one \smap{} source per instrument.''
+
+There are however nearly equally numerous cases where sMAP was used to
+represent a collection of either homogeneous or inhomogeneous instruments.  In
+the first case we have example like those of the ACme and Hydrowatch nodes.
+These are both embedded devices running the blip 6lowpan/IPv6 stack and
+periodically report readings back to a network entity.  In these cases, sMAP
+is deployed as a single application-layer gateway which reports readings from
+a collection of embedded devices.  One reason for this appears to be that
+since \smap{} does not provide a discovery mechanism, it is easier for new
+streams or channels to appear on an existing well-known \smap{} instance, than to
+inform all consumers that a new sMAP source representing a single ACme.
+
+In the second case of a collection of inhomogeneous instruments, we have have
+the example of providing a \smap{} interface to a much more complicated system
+like a BMS.  In this case, the system is accessed through another
+application-level gateway rather than at a lower level, as is typical in other
+applications.  In this case, there is typically little organization of the
+sMAP feeds along any axis.  Furthermore, it is difficult to derive meaningful
+groupings from the structure of the sMAP hierarchy.
+
+\subsubsection{Takeaways}
+
+\begin{enumerate}
+\item For homogeneous instruments, \smap{} nearly works; however more support is
+needed for identifying individual instruments; the UUID should be a property
+of the sense point rather than the \smap{} instance.
+
+\item For inhomogeneous instruments, and particularly for where a \smap{} gateway is
+placed in front of a more complicated legacy system, it would be useful to be
+able to encapsulate any legacy metadata; both per-sense point and per-channel.
+\end{enumerate}
+
+\subsection{Archival}
+
+Typically the first application of a \smap{} source is to feed the data into
+an archival database for future queries, such as {\tt readingdb6}, OpenTSDB,
+or StreamFS.  These systems have used the subscription functionality available
+through {\tt /reporting}, while ignoring the data FIFO which is present
+per-channel (the {\tt profile} resource).  All of these adaptors expect to
+receive all data as an HTTP POST to a well-known URL, which typically includes
+a component indicating where the data contained in the POST.
+
+The subscription mechanism has been extended to be flexible for partial
+updates of the subscribed ``topic'', although HTTP processing still incurs
+high overhead compared to simpler protocols for sources sampled at a high
+rate.  Archivers typically subscribe to a resource such as {\tt
+ $\sim$/data/*/*/*/reading}, which causes them to receive incremental updates as
+new data is available.  Since data the data transmitted as a result of this
+subscription is a nested JSON object, the consumer must use the string
+components of resource names to identify which timeseries the data belong to.
+
+Another issue of concern is the fact that current implementation practice
+causes archivers to loose data whenever the archive goes down or is restarted;
+i.e. for maintenance.  No attempt is made to use the {\tt profile} resource to
+fill in gaps cause by downtime.
+
+\subsubsection{Takeaways}
+\begin{enumerate}
+\item Since streams are canonically identified by their location in the resource
+tree, it is not possible to rename them.  Thus, in the future, streams should
+either be given identities independent of their location (via a UUID or some
+other mechanism) or their location in the tree should be defined to be static
+and unchanging.
+\item We should examine if better support can be provided for allowing
+  consumers to backfill their databases based on data buffered at the source.
+  For instance, it could be a recommendation to always read part of the {\tt
+    profile} resource at startup to obtain as much missing data as possible.
+\item Finally, support could be added for failing over between multiple data
+  collectors; this could potentially allow data to keep flowing in the face of
+  certain types of failures of the archivers.  It is unclear weather this is
+  necessary as backups could simply install multiple reporting instances.
+\end{enumerate}
+
+\subsection{Residential Deployments}
+
+As part of the MELS collaboration with LBNL, we have conducted a number of
+residential pilot studies using the ACme plug-load metering system.  The
+primary unresolved challenge with using \smap{} in this environment is the
+fact that home Internet connections can be very unreliable.  In one
+deployment, external connectivity was available for only a few hours a day, on
+average.  
+
+In another case, the Center for the Built Environment (CBE) deployed a number
+of sensors on a cart, and included a \smap{} frontend for accessing the data.
+The cart is connected to the Internet via a cellular modem, which its
+associated benefits and problems; the unifying thread here is that a limited
+form of intermittent connectivity is a common use case.
+
+In the case of ACmes, the devices themselves perform no buffering and so the
+\smap{} daemon would be responsible for providing the persistent buffer.  In
+the CBE case, the daemon is in truth sitting in front of a MySQL database, and
+so no data storage is necessary.
+
+\subsubsection{Takeaways}
+\begin{enumerate}
+\item \smap{} should support intermittent connectivity, in the limited sense
+  that a \smap{} instrument may not be able to connect to the Internet for a
+  period of time.  This could be achieved by adding a ``bulk reporting''
+  interface, allowing a \smap{} source to buffer writes and push them out when
+  connectivity is available.
+\item This bulk load interface should be flexibly implemented so it can either
+  provide data storage or interface with an external storage manager like MySQL.
+\end{enumerate}
+
+\subsection{Database-backed Deployments}
+
+Another common use case has been integration or importing pre-existing
+databases.  For instance, the \url{obvius.com} site contains
+whole-building energy data from much of the UC campus from the past several
+years.  It is very typical for implementors to first acquire real-time access
+to the data, and then obtain access to a database which contains historal
+readings.  The current \smap{} protocol is an inefficient way to upload data
+since it essentially requires one HTTP {\tt POST} per data point.
+
+\subsubsection{Takeaways}
+\begin{enumerate}
+\item It should be efficient to bulk-load data via a \smap-like interface
+  into a database without requiring the \smap{} source to be ``online.''
+\end{enumerate}
+
+\subsection{Reusable Experiments}
+
+Another outcome of the CBE implementation is that they have a small set of
+instruments which conduct a large number of short experiments.  This contrasts
+with the more open-ended nature of many of our other deployments, where
+instruments are placed {\it in situ} and then remain there often for years at
+a time collecting data as part of the same logical deployment.
+
+The requirement in the CBE case is for there to be a binding between a subset
+of a timeseries and a logical concept of an ``experiment.''  
+
+\begin{enumerate}
+\item This functionality seems better implemented on top of the durable
+  identifiers \smap{} should provide.  
+\end{enumerate}
+
+\subsection{Actuation}
+
+Although activation was originally envisioned as part of \smap{} (``that's
+what the `A's for!''), it was only recently when any number of actuators
+became present.  The actuation currently present are (a) LabJack devices, (b)
+ACme X1's with a solid-state relay, and (c) Raritan programmable thermostats.  
+%
+To support these we have modeled several types of actuators: binary, N-state,
+and continuous.  Binary actuators have two positions corresponding to
+logically ``on'' and ``off''; N state actuators have a number of discrete
+positions, while continuous actuators can be set to any position within a
+fixed interval.
+
+Aside from the minor detail that the state can be written in addition to read,
+actuators have much in common with other channels; units, a current value.
+It is convenient for each control input to be logged with the same
+subscription framework as is present for other channels. 
+
+\subsubsection{Takeaways}
+\begin{enumerate}
+\item The activation specification should be documented and cleaned up.
+\item The use of SSL to provide authentication, and external databases to
+  provide authorization should be documented.
+\end{enumerate}
+
+\subsection{Discovery, Organization, and Management}
+
+The data sources we deal with are typically very disorganized, and so we have
+not encountered problems where the originating data source's information model
+was so sophisticated that we could not map it onto a \smap{} resource
+hierarchy.  However, the current ``state of the art'' for locating new \smap{}
+sources is to manually enter their IP address into a relational
+database.  The HTTP hierarchy and SSL certificates for a particular \smap{}
+source are manually configured (by the \smap{} source author).
+
+The primary question we face here is whether the current approach is
+sufficient, or if we should specify a more complicated protocol with
+capabilities for discovery and presence detection like XMPP, Zeroconf, or
+SNMP.  Both of these protocols come with both costs and benefits; for instance
+with a Zeroconf-based approach, we could automatically discover the service
+locations of \smap{}
+
+\subsubsection{Takeaways}
+\begin{enumerate}
+\item Include a specification for performing service discovery over Zeroconf.
+  This means defining canonical MDNS names such as \\
+  {\tt Smap Sever 2.\_smap.\_http.\_tcp.berkeley.edu}.
+\item Specify how \smap{} services may be combined via a reverse-proxy
+  mechanism in order to aggragate a large number of \smap{} sources into one
+  logical source.
+\end{enumerate}
+
+\section{Protocol Modifications}
+
+Based on the use cases and recommendations in section \ref{sec:uses}, we make
+the following high-level changes to \smap{}.
+
+\subsection{Data Representation}
+\begin{enumerate}
+\item The primative streams we are representing are Timeseries.  Time series
+  consist of sequences of readings from a single channel of an instrument and
+  associated metadata.
+  Time series may be organized by the \smap{} implementer into Collections,
+  representing logical organizations of the instrumentation; this organization
+  is reflected in the resource heirarchy exposed by the \smap{} HTTP server.
+\item \smap{} \smapversion{} supports adding Metadata to either Timeseries or
+  Collections to better support integrating existing data sources where the
+  Metadata should be transfered along with the data.
+\item The only objects \smap{} represents are Timeseries and Collections.
+  Timeseries are durably identified by {\tt uuid}s.
+% \item \smap{} servers may act as proxies for other \smap{} servers, to allow
+%   them to ``suck up'' a large number of sources exposing a few feeds into a
+%   single source exposing a large number of feeds.
+% \item Modify the fixed-depth hierarchy under {\tt data} to be arbitrary
+%   collections of resources.  Each collection can have elements which is either
+%   another collection, or timeseries.  As a result of this change, we will
+%   introduce a recursive descent URL operator {\tt **}.  Each
+%   ``time-series'' endpoint shall be associated with a unique identifier, which
+%   is present in both the collection resource, and all sub-resources.  Both
+%   collections and timeseries resources have a provision for metadata and
+%   encapsulating other data.
+\item Schemas are expressed as Avro schema.  If clients indicate that they
+  can accept this schema via the Accepts header, servers may return
+  Avro-packed results with the appropriate Content-encoding set.  Clients
+  should be made available to take advantage of this.  This permits the
+  efficient transfer of large numbers of objects.
+% \item The {\tt profile} resource is extended to optionally support time-range
+%   queries via query params.  Clients such as OpenBMS should use this to build
+%   efficient bulk-data-loading interfaces (probably user-controlled).
+% \item Activation is to be represented as an attribute of a time-series.
+% \item TODO : investigate integration with IFC models; perhaps linking sensors
+%   to IFC elements?  Or exposing an IFC representation of the sensor/actuator?
+%   IFC elements are identified by GUID so this should work nicely.
+\end{enumerate}
+
+\subsection{Metadata}
+
+\smap{} v1 supported very limited metadata.  In version \smapversion{}, we
+extend the metadata model in oder to better support integrating existing
+systems, as well as building systems where the implementors have significant
+metadata they wish to tag their data with.  We make several simplifying
+assumptions:
+
+\begin{enumerate}
+\item Metadata only has meaning when it is attached to data, where ``data'' is
+  one or more time-value pairs (data points).  We logically consider each data
+  point to be attached to a full set of metadata.
+\item Metadata is inherited within a \smap{} source: the metadata for any data
+  point consists of the Metadata for that Timeseries, along with the Metadata
+  all Collections in the recursive parent set.  If the same piece of metadata
+  is present at multiple places, the metadata ``closest'' to the Timeseries
+  (\ie, deepest in the tree) is used.
+\end{enumerate}
+
+With this system, we can both efficiently compress the metadata when
+transmitted over the network and also resolve many issues dealing with what
+happens when resources move: we do not need to track the move since instead
+all timeseries which were moved simply receive new metadata.  Since the
+Metadata can only apply to actual data, there is never an ambiguity about which
+piece of metadata applies to a point, and it is always safe to re-send all
+metadata.
+
+\subsection{Reporting}
+\begin{enumerate}
+\item Modify the {\tt reporting} hierarchy to be a collection, and eliminate
+  the {\tt reports} and {\tt create} sub-resources, which are not RESTful.
+\item Reports should allow the provisioning of a list of delivery locations,
+  which will be attempted in order.
+\item Provision should be made for ``reliable reporting,'' when feasible.
+  \smap{} servers should treat the stream of outgoing readings as a log, and
+  only truncate the log when it has been successfully delivered to the
+  endpoint.
+\end{enumerate}
+
+\subsection{Aggregation and Proxies}
+Add the ability for a \smap{} proxy to suck up a bunch of other \smap{}
+sources discovered by Zeroconf and republish them as a single \smap{} feed as
+a reverse proxy.  This ``aggregates'' a large number of small sources into one
+larger one and paves the way for how we would take a large number of, say,
+ACme feeds into a manageable, discoverable number of feeds at the aggregate.
+The proxy should buffer received readings so that it can run its own reporting
+engine.
+
+\section{Detailed Specification}
+
+The root-level resources \smap{} provides are modified to include only:
+\begin{description}
+\item[{\tt /data}] Contain all Timeseries and Collections served by this
+  \smap{} server.
+\item[{\tt /reports}] Resource responsible for exposing reporting instances.
+\item[{\tt /actuate}] If present, the \smap{} source supports actuating
+  multiple points at the same time.
+\end{description}
+
+\subsection{Data Representation}
+
+Each resource returned by a \smap{} server is encoded as a JSON object;
+optionally encoded using Avro. %  Every resource object contains a Unique
+% Universial Identifier ({\tt uuid}) field, which identifies that resource on
+% the server.
+
+\subsection{Timeseries Representation}
+
+Each instrument channel is expressed as a single {\tt Timeseries} object.
+Each time series is placed into the \smap{} resource heirachy in a location
+determined by the \smap{} implementor.
+
+% \begin{figure}
+% \begin{minipage}
+% \scriptsize
+\verbatiminput{schema/timeseries.av}
+% \end{minipage}
+% \caption{Container schema for a {\tt Timeseries}.  A time series represents a
+%   sequence of values from a single channel from an instrument and integrates a
+% durable identifier ({\tt uuid}), display and storage data ({\tt Parameter}),
+% additional optional metadata to be transfered in parallel ({\tt Metadata}),
+% actuation abilities ({\tt Actuator}), and the latest data ({\tt Readings}).
+% }
+% \end{figure}
+\begin{description}
+\item[Description] a string description of the channel.
+\item[Properties] information about the channel required to store or display
+  the data.  This is made up of the data type, engineering units, and time
+  zone.
+\item[Metadata] additional information about the channel which is not
+  necessary to archive or properly display readings.  This is provided to
+  facilitate the integration of existing sources.  The full set of metadata
+  for a timeseries also includes all the metadata for Collections in its
+  recursive parent set.
+\item[Actuator] if present, the channel includes an actuation component.  The
+  object describes what actuation is possible.
+\item[Readings] a vector made up of the latest readings from the instrument.
+  The data type of the {\tt ReadingValue}s must match the type specified in the
+  {\tt Parameter} object.
+\end{description}
+
+\verbatiminput{schema/readingvalue.av}
+
+Individual reading points are made up of {\tt ReadingValue} objects.  Each
+point must include a timestamp, the reading, and an optional sequence number.
+The timestamp must be in units of Unix milliseconds.  
+\footnote{Unix timestamps aren't actually unambiguous, due to complications
+  arising from leap seconds.  It seems like the alternative to using this time
+  representation would be to use the ISO 8601:2004 time format as suggested by
+  RFC3339.  However, these string values are rather large when transfering a
+  large number of readings so it's unclear whether the resulting object would
+  be compact enough to satisfy our needs.  If it is REQUIRED, it additionally
+  imposes higher burden on embedded devices who must maintain a calendar
+  instead of simply a RTC since 1970.}
+%
+Implementations should advance time in increments meaningful to the underlying
+process and taking into account the resolution of the clock source.
+% \begin{verbatim}
+% \end{verbatim}
+% \begin{verbatim}
+% \end{verbatim}
+% \begin{verbatim}
+% \end{verbatim}
+
+\subsection{Collection Representation}
+
+\smap{} \smapversion{} expects implementors to organize the Timeseries into collection
+which reflect properties of the underlying instrumentation.  For instance,
+three-phase electric meters will mostly likely group timeseries by phase,
+while a system collecting data from a large number of ACme plug-load meters
+would group timeseries by individual ACme and also gateway location.
+
+\verbatiminput{schema/collection.av}
+
+The {\tt Collection} object holds information about these collections.  A {\tt
+  Metadata} object may be included to capture metadata which applies to all
+timeseries subordinate to the collection, rather than just one of them.  The
+only other object in the collection is the {\tt Contents} list, contains
+string names of the collection elements.
+
+Clients may fetch the collection elements by adding a string name from the
+{\tt Contents} list to the resource name where the collection is located.  The
+names in the map may not use relative URL operators such as {\tt .} and {\tt
+  ..}, and should be quoted before attempting to fetch the resource.
+
+\subsection{\smap{} URI}
+URIs consist of six components: 
+\begin{verbatim}
+<scheme>://<netloc>/<path>;<params>?<query>#<fragment>
+\end{verbatim}
+%
+\smap{} does not use the {\tt params} or {\tt query} components; the other
+components are used as follows:
+
+\begin{description}
+\item[scheme] Either {\tt http} or {\tt https}, when run over SSL.
+\item[netloc] The network location of the \smap{} server.
+\item[path] The resource path, separated by `/' characters.  Top-level
+  resources are {\tt data}, {\tt reports}, and {\tt status}.
+\item[fragment] Used as a sub-resource selector to select only part of a
+  resource.  For instance, given the fragment {\tt \#Reading}, the \smap{}
+  server should return only the {\tt Reading} key of the JSON resource at the
+  given {\tt path}.  In addition, the {\tt uuid} field of the containing
+  object is also included.
+\end{description}
+
+\subsubsection{Fragment Selection}
+
+Fragment selection can be used to return only part of an at a particular
+resource location.  The fragment component of the URI begins with a hash ({\tt
+  \#}), and consists of a single string keyname.  When in use, the returned
+object includes the all ``required'' keys as determined by the Avro schema, and
+the keys named by the fragment selector.  Support for this feature is optional.
+
+\subsubsection{Recursive Descent}
+
+Individual resources on \smap{} servers may be queried by asking for them by
+their path name; \smap{} implementers are responsible for determing the
+appropriate organization of the resources under {\tt data}.  If a single
+object is identified, that is returned to the client.
+
+\smap{} servers should support a resource to allow clients to efficiently
+collect an entire portion of the resource heirarchy.   The resource in
+question is {\tt +}.  When retrieved, it should return a map of
+all paths on the server recursively found under that resource.
+
+To give an example, consider a \smap{} server with one sensor, located at {\tt
+  /data/sensor0/channel0}.
+
+The result of performing a GET on {\tt /data/+} might be:
+\begin{verbatim}
+{
+  "/" : { "Contents" : ["sensor0"] },
+  "/sensor0" : { "Contents" : ["channel1"] },
+  "/sensor0/channel0" : {
+     "uuid" : "2aa7a830-a348-11e0-87e9-0026bb56ec92",
+     "Readings" : [ {"ReadingTime" : 0, "Reading" : 12.5 } ]
+  }
+}
+\end{verbatim}
+
+Since the entire heirarchy is contained in this resource along with all
+metadata, the client can unambiguously determine which metadata applies to
+each timeseries; in this case no metadata was included for brevity, but it
+could have present in any of the three objects.
+
+If this resource is requested at a subordinate level (for instance {\tt
+  /data/sensor0/+}, the return object's root path should be rooted
+at the relative url ({\tt /data/sensor0}) and implementors should be aware
+that they will not know about any metadata higher in the hierarchy.
+
+\subsection{Reporting}
+The purpose of the reporting is to allow consumers to receive timely
+notifications of changes to the \smap{} tree.  In principle, it should allow
+consumers to receive a copy of every version of an object; however, \smap{}
+servers may choose which changes to publish.
+
+Clients wishing to receive callbacks about changes do so by creating a
+reporting instance.  They do so by posting a reporting object to the {\tt
+  /reports} resource on the server; the schema of the body is 
+
+\verbatiminput{schema/reporting.av}
+% 
+All time fields are specified in millisecond units.  
+\begin{description}
+\item [{\tt ReportResource}] identifies the resource on the server which the
+  client is interested in receiving, relative to the {\tt /data} resource.
+\item[{\tt ReportDeliveryLocation}] is a list of URIs specifying where report
+  data should be delivered to.  The \smap{} server SHOULD continue attempting
+  to deliver data until it recieves an HTTP success response from one of these
+  servers.  It should also attempt delivery to servers in the order they are
+  present in this object.
+\item[{\tt MinPeriod}] specifies the minimum interval between reports.  A
+  \smap{} server should not deliver reports more frequently than this.  If the
+  minimum period is so long as to prevent the \smap{} server from buffering
+  all the data accumulated in the period, it should deliver the latest data.
+  If not included, the default is $0$.
+\item[{\tt MaxPeriod}] specifies the maximum period between reports.  After
+  this much time elapses, the \smap{} server should deliver a report
+  regardless of whether there is new data to indicate liveness.  If not
+  included, the default is $\infty$.
+\item[{\tt ExpireTime}] time in UTC milliseconds after which reports should be
+  stopped, undelivered data dropped, and the report removed.  Default is
+  ``never.''
+\end{description}
+
+A copy of one of these objects installed in a server is known as a {\bf
+  reporting instance}. The most common use case is that a \smap{} client
+subscribes to a resource like {\tt /+} to recieve all new data
+from the source.  \smap{} implementations MAY choose not to deliver the entire
+{\tt Timeseries} object but instead only include keys which have changed --
+typically only {\tt Readings}.  Furthermore, given a series of {\tt
+  ReadingValues}, the server may combine them into any number of deliveries.
+
+{\bf Creating reports} New reports are created by POSTing the above object to
+the {\tt /reports} resource.  The \smap{} server MAY restrict the listing of
+reports ({\tt GET /reports}) to authenticated clients, or not support it at
+all.  If the reporting instance is created successfully, it should be located
+at {\tt /reports/<uuid>}, and can be removed using the HTTP {\tt DELETE} verb.
+The server may support modifying it by PUTing a new copy of the report
+instance to {\tt /reports/<uuid>}.
+
+{\bf Authentication} If authentication and authorization were in use when the
+report was created, the \smap{} source MAY require the same authentication and
+authorization to modify or delete the report.
+
+{\bf Failure} \smap{} servers may implement a number of policies to deal with
+reporting instances where the delivery location is not accessable.  They may
+wish to keep trying for a fixed period of time before removing or deactiving
+the report instance, or to buffer data while the recipient is down and retry
+with all of the accumulated data periodically.  
+
+\subsubsection{Static Report Configuration}
+
+It is intended that \smap{} will mostly be used in an ``online'' setting,
+where sources are automatically discovered and subscribed to by data consumers
+or other \smap{} proxies.  However, there are certain use cases where it is
+desirable for reporting to be configured manually on the \smap{} server,
+rather than using the online system.  For instance, if the \smap{} server is
+behind a NAT, or if the data is actually not online but rather an import of an
+existing database.  In these cases, a \smap{} server may provide a provision
+for configuring report instances via a config file or some other mechanism,
+rather than using the online mechanism.
+
+\subsubsection{Differential Transmission}
+
+When a report instance is created, a sMAP source MUST send the entire resource
+which the report instance refers to.  However, frequently only a small portion
+of the resource changes; for instance, the metadata is often static and only
+the Readings part of a timeseries changes with each reading.  For a particular
+report instance, a source may only send changes once it has successfully
+delivered the entire object.  
+
+\subsection{Metadata}
+Both {\tt Timeseries} and {\tt Collections} support the inclusion of {\tt
+  Metadata} to provide additional information about measurements.  Ideally
+this metadata is pragmatically obtained from an existing system, or entered by
+the implementator; it is not intended that this metadata will change
+frequently.  For convenience, \smap{} \smapversion{} defines two types of metadata to
+facilitate information exchange: {\tt Instrument} and {\tt Location}
+metadata.  All other information must be placed into the {\tt Extra} fields,
+and may encapsulate any other metadata description in use.
+
+\verbatiminput{schema/metadata.av}
+
+The most important simplification to metadata handling in \smap{} is the
+statement that {\it metadata applies to data points}; that is, a metadata
+change to a collection which has no contents has no effect.  The goal of a
+\smap{} server is to allow consumers to compute the full set of metadata which
+applies to any data point.  It is always safe to send all metadata, which is
+included when a client fetches {\tt /data/+}.  To allow compression, a
+consumer of a \smap{} source may never assume that metadata applies to any
+resource out of the document where it was received.
+
+\subsection{Actuation}
+
+If actuation is present, the {\tt Timeseries} resource corresponding to the
+actuator must include a {\tt Actuator} key.  The actuator key models the type
+of actuation supported by the control point.  Three control models are
+supported:
+
+\begin{description}
+\item[binary] actuators have only two positions, corresponding to logical
+  ``on'' and ``off''.  Must use the {\tt long} data type.
+\item[discrete] actuators can take a finite number of values.  May be either
+  {\tt long} or {\tt double} valued.
+\item[continuous] actuators can take any value in a range.  Must be {\tt
+    double} valued.
+\end{description}
+
+\verbatiminput{schema/actuator.av}
+
+For binary actuators, the {\tt Actuator} object should not include any other
+keys.  Discrete actuators define a set of possible values using the union of
+{\tt MinValue}, {\tt MaxValue}, {\tt StepSize}, and the {\tt Values} array.
+%
+\[
+[\mathrm{\texttt{MinValue}}:\mathrm{\texttt{MaxValue}}:\mathrm{\texttt{StepSize}}]
+\cup \mathrm{\texttt{Values}}
+\]
+%
+For continuous actuators, the proceedure is the same with the exception that
+{\tt StepSize} is not used and the interval is treated as continuous.
+
+When a {\tt Timeseries} is used to represent an actuator, the {\tt Readings}
+field should be used to communicate the current actuator position.  The
+\smap{} implementor may choose to only generate a new reading when a control
+input is received, periodically, or when the state of the actuator changes.
+
+\subsubsection{Transmission of Actuation State}
+
+Clients wishing to affect actuator position do so by {\tt POST}ing a {\tt
+  Command} object to the {\tt Timeseries} representing the actuator.  The {\tt
+  uuid} in the {\tt Command} must match the id of the resource.
+
+\smap{} servers providing actuation may also provide the {\tt /actuate}
+resource, which supports only the {\tt POST} verb.  The function of this
+resource is to allow clients to control multiple actuators at the same time,
+by POSTing a list of {\tt Commands}.
+\verbatiminput{schema/command.av}
+
+\subsection{Authentication and Authorization}
+\label{sec:auth}
+
+\smap{} servers may support a variety of schemes for authentication and
+authorization.  Although a detailed specification of how these are to be
+employed, we envision that implementors may want to use mechanisms such as
+HTTP Basic or Digest, HTTPS, or oauth to secure communication with sensors and
+control access to actuation points.
+
+In following good design discipline, \smap{} servers should separate {\it
+  authentication} from {\it authorization}.  For instance, at Berkeley we
+authenticate clients using HTTPS with client certificates to authenticate
+clients, and look up client authorization in a database to provide
+authorization to perform a certain action.  \smap{} servers should use HTTP
+mechanisms to communicate to the client that additional authorization or
+authentication is required to perform an action.
+
+The situation becomes more complicated when proxies are in use -- although
+HTTP allows the Basic and Digest authentication to be passed through a proxy
+within an HTTP session, other mechanisms such as HTTPS may not support this.
+
+\subsection{Avro Transmission over HTTP}
+All content transfered between \smap{} clients and servers must be encoded as
+JSON objects; the appropriate {\tt Content-type} is {\tt application/json}.
+
+If the client explicitly asks for Avro by sending an {\tt Accept-Encoding:}
+HTTP header which includes the {\tt x-avro} encoding type, the \smap{} server
+may reply with a response encoded with Apache Avro.  The server may also apply
+additional compression such as gzip or deflate if support is indicated.
+
+When Apache Avro is returned by a \smap{} server or sent as part of a POST by
+a client, the sender must provide sufficient information to the recipient to
+interpret the response, using HTTP headers.  In particular, the server or
+client must indicate that Avro is in use by adding a {\tt Content-Encoding:
+  x-avro} header in addtion to other encodings present.  The sender must also
+indicate the Avro schema name the content is encoded with by adding an {\tt
+  X-Avro-Schema} header; the value of the header should be the full name of
+the schema in use (namespace and name).
+
+Finally, servers supporting Avro must provide the ability for clients to
+download the set of schemas needed to communicate with the server.  They
+should do this by providing a well-known resource, {\tt /avro-schemas} which
+contains a JSON list of all schemas in use by the server.  Servers may provide
+additional schemas at any level of the resource hierarchy, with these schemas
+being used to interpret responses at any level below the level at with that
+resource is found.  All content transfered between client and server must
+reference a schema found in one of these documents; in particular, if the body
+of a client's HTTP POST is Avro encoded, the schema must be found in one of
+these documents.
+
+The {\tt avro-schemas} resource should never be Avro-encoded, but servers
+SHOULD use HTTP cache-validation mechanisms ({\tt Expires} or {\tt Etags}) so
+clients can avoid excessive transfers of this resource.
+
+\subsection{Proxying of \smap{} Sources}
+
+\subsection{Discovery using Zeroconf}
+
+% \begin{table*}[b!t]
+% \small
+% \centering 
+% \begin{tabular}{|l|l|l|c|c|}
+% \hline
+% Name      &  Sensor Type     &  Physical Layer & Sense Points & Channels \\ 
+% \hline
+% Cory Hall Submetering & Dent 3-Phase & Modbus/Ethernet & 40 & 1600 \\
+% Cory Hall Building Power & ION and PQube & HTTP/Ethernet & 3 & 150 \\
+% Cory Lab Temperature & TelosB \cite{telosb} & 802.15.4 + Ethernet & 4 & 8 \\
+% Cory Lab Machines & ACme \cite{acme} & 802.15.4 + Ethernet & 8 & 16 \\
+% Cory Chilled Water & HeatX Meter & Modbus/Ethernet & 1 & 11 \\
+% Cory Roof Environmental & Hydrowatch Node \cite{hydrowatch} & 802.15.4 +
+% Ethernet & 4 & 36 \\
+% \hline
+% Soda Sun Blackbox & Fan Speed; Environmental & HTTP/Ethernet & 10 & 84 \\
+% Soda Lab Machines & ACme & 802.15.4 + Ethernet & 40 & 80 \\
+% Soda Lab Panel & Veris E30 Meter & Modbus/Ethernet & 1 & 42 \\
+% \hline
+% LBNL Building 90 & ACme & 802.15.4 + Ethernet & 70 & 140 \\
+% \hline
+% Berkeley Weather & {\tt wunderground} and Viasala WXT520 & HTTP + Serial & 2 & 20 \\
+% \hline
+% \end{tabular}
+% \caption{Deployments with data available with sMAP}
+% \label{fig:smapdata}
+% \end{table*}
+
+
+\section*{Revision History}
+\begin{description}
+\item[6/23/2011] Initial revision
+\end{description}
+
+\end{document}
+
+
+%% \begin{figure}[h!tbp]
+%%   \begin{center}
+%%     \setlength\SUBSIZE{0.30\columnwidth}
+%%     \subfigure[{\tt churn} 0]{
+%%       \includegraphics[width=\SUBSIZE]{transition0}}
+%%     \subfigure[{\tt churn} 1]{
+%%       \includegraphics[width=\SUBSIZE]{transition1}}
+%%     \subfigure[{\tt churn} 2]{
+%%       \includegraphics[width=\SUBSIZE]{transition2}}
+%%   \end{center}
+%%   \caption{Associated transition matrices from clustering}
+%%   \label{fig:trans}
+%% \end{figure}
+
+%% \begin{figure}[hbt]
+%% \centering
+%% %\setlength\SUBSIZE{0.2\columnwidth}
+%% \includegraphics[width=4in]{foo.eps}
+%% \caption{}
+%% \end{figure}
+
+%% \renewcommand{\refname}{Publications}
+%% \noindent 
+%% \begin{spacing}{0.9}
+%% \begin{thebibliography}{99.}\setlength{\itemsep}{-6mm}
+%% \end{thebibliography}
+%% \end{spacing}
+
+
+%%   \twocolumn[
+%%     \begin{@twocolumnfalse}
+%%     \maketitle
+
+%% \begin{abstract}
+
+%% \end{abstract}
+%% \vspace{10mm}
+
+%%   \end{@twocolumnfalse}
+%%   ]
+

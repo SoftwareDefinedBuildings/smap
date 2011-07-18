@@ -1,0 +1,11 @@
+{
+  "name" : "Properties",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "Represent paremeters related to the acquisition of data from the transducer",
+  "fields" : [
+     {"name" : "UnitofMeasure", "type" : "string"},
+     {"name" : "ReadingType", "type" : "ReadingType"},
+     {"name" : "Timezone", "type" : ["null", "string"], "default" : "UTC"}
+  ]
+}

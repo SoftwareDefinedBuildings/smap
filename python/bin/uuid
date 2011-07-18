@@ -1,0 +1,5 @@
+#!/usr/bin/python
+# -*- python -*-
+
+import uuid
+print uuid.uuid1()

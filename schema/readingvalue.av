@@ -1,0 +1,11 @@
+{
+ "name" : "ReadingValue",
+ "type" : "record",
+ "namespace" : "edu.berkeley.cs.local",
+ "doc" : "Represent a reading from a single stream",
+ "fields" : [
+   {"name" : "ReadingTime", "type" : "long"},
+   {"name" : "ReadingSequence", "type" : ["null", "long"]},
+   {"name" : "Reading", "type" : ["long", "double", "string"]}
+   ]
+}

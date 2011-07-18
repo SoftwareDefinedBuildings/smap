@@ -1,0 +1,14 @@
+{
+  "name" : "Timeseries",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A container class containing a single time series",
+  "fields" : [
+              {"name" : "uuid", "type" : "uuid"},
+              {"name" : "Description", "type" : ["null", "string"]},
+              {"name" : "Metadata", "type" : ["null", "Metadata"]},
+              {"name" : "Properties", "type" : ["null", "Properties"]},
+              {"name" : "Actuator", "type" : ["null", "Actuator"]},
+              {"name" : "Readings", "type" : ["null", {"type" : "array", "items" : "ReadingValue"}]}
+         ]
+}

@@ -1,0 +1,14 @@
+{
+  "name" : "Actuator",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A representation of the type of actuation possible",
+  "fields" : [
+    {"name" : "ActuatorModel", "type" : {"type" : "enum", "symbols" : ["binary", "discrete", "continuous"], 
+                                         "name" : "ActuatorModels"}},
+    {"name" : "MinValue", "type" : ["null", "long", "double"]},
+    {"name" : "MaxValue", "type" : ["null", "long", "double"]},
+    {"name" : "StepSize", "type" : ["null", "long", "double"], "default": 1},
+    {"name" : "Values", "type" : ["null", {"type" : "array", "items" : ["null", "long", "double"]}]}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name" : "Reporting",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A single report instance",
+  "fields" : [
+              {"name" : "uuid", "type" : "uuid"},
+              {"name" : "ReportResource", "type" : "string"},
+              {"name" : "ReportDeliveryLocation", "type" : {"type" : "array", "items" : "string"}},
+              {"name" : "MinPeriod", "type" : ["null", "long"]},
+              {"name" : "MaxPeriod", "type" : ["null", "long"]},
+              {"name" : "ExpireTime", "type" : ["null", "long"]}
+         ]
+}

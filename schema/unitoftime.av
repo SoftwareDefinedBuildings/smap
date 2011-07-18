@@ -1,0 +1,8 @@
+{ "name" : "UnitofTime",
+  "namespace" : "edu.berkeley.cs.local",
+  "type" : "enum",
+  "symbols" : ["microsecond", "millisecond", "second", "minute",
+               "hour", "day", "week", "fortnight", "month",
+               "year", "decade", "century"
+            ]
+}

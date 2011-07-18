@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+# -*- python -*-
+"""
+jprint
+
+pretty-print json objects, either read from stdin, or read from files
+passed in on the command-line.
+"""
+
+import sys
+import json
+
+def pprint(obj):
+    print json.dumps(obj, sort_keys=True, indent=2)
+
+if len(sys.argv) > 1:
+    for arg in sys.argv[1:]:
+        with open(arg, "r") as fp:
+            obj = json.load(fp)
+            pprint(obj)
+else:
+    obj = json.load(sys.stdin)
+    pprint(obj)
