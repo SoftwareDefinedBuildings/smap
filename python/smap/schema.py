@@ -11,7 +11,7 @@ SCHEMA_DIR = os.path.join(os.path.dirname(__file__), "../../schema")
 SCHEMA_NAMES = schema.Names(default_namespace=NAMESPACE)
 SCHEMAS = [
     # new extension types
-    "uuid", "version",
+    "uuid", 
     "UnitofTime", "Duration", 
     "ReadingType", "ReadingValue",
     

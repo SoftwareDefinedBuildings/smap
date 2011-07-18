@@ -276,7 +276,7 @@ An example configuration file snippet::
 
   [report 0]
   ReportDeliveryLocation = http://jackalope.cs.berkeley.edu/~sdawson/receive.php
-  ReportResource = /+Timeseries
+  ReportResource = /+
 
 Any section starting with the string "report" is treated as a
 reporting instance, and both of these options are required.  The
@@ -288,11 +288,9 @@ The second, ``ReportResource`` tells the library what local resource
 to package up to send out.  It is interpreted relative to the root
 ``/data`` resource -- those are the only things you can subscribe to.
 Any valid resource under ``/data`` can be subscribed to.  Each
-collection additionally contains two special resources,
-``+Timeseries`` and ``+Collections.`` These can be used to subscribe
-to *all* collections or timeseries subordinate to the given resource.
-For instance, subscribing to ``/+Timeseries`` will send that consumer
-all timeseries data from the source.
+collection additionally contains a special resource,
+``+``. This can be used to
+to *all* timeseries subordinate to the given resource.
 
 Buffering
 ~~~~~~~~~
