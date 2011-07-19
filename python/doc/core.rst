@@ -19,7 +19,7 @@ The Core sMAP Library
         ts = inst.add_timeseries('/sensor', 'my sensor key', 'V', data_type='double')
 
       :param path: identifier indicating where to add the new resource.
-      :param string key: local identifier for this timeseries
+      :param string key: `(optional)` local identifier for this timeseries. if not present uses `path`.
       :param string units: set the ``UnitofMeasure`` field for the :py:class:`Timeseries`.
       :param kwargs: additional arguments for the :py:class:`Timeseries` constructor.
       :rtype: :py:class:`Timeseries` instance.
@@ -96,6 +96,8 @@ Utilities
 
 .. autofunction:: smap.loader.dump
 
+.. autofunction:: smap.server.run
+
 .. autofunction:: smap.util.periodicCallInThread
 
-.. autofunction:: smap.server.run
+.. autofunction:: smap.util.periodicSequentialCall

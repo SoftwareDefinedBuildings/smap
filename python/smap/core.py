@@ -44,7 +44,8 @@ class Timeseries(dict):
                  data_type=DEFAULTS['Properties/ReadingType'],
                  timezone=DEFAULTS['Properties/Timezone'],
                  description=None,
-                 buffersz=DEFAULTS['BufferSize']):
+                 buffersz=DEFAULTS['BufferSize'],
+                 milliseconds=False):
         """
 :param new_uuid: a :py:class:`uuid.UUID`
 :param string unit: the engineering units of this timeseries
@@ -52,6 +53,9 @@ class Timeseries(dict):
 :param string timezone: a tzinfo-style timezone.
 :param string description: the value of sMAP Description field.
 :param int buffersz: how many readings to present when the timeseries is retrieved with a ``GET``.
+:param bool milliseconds: if True, then the stream publishes time in
+ units of Unix milliseconds.  Otherwise, normal unix timestamps are
+ assumed
 """
         if isinstance(new_uuid, dict):
             if not schema.validate('Timeseries', new_uuid):
@@ -68,6 +72,7 @@ class Timeseries(dict):
                 self.__setitem__("Description", description)
             reading_init = []
         self.dirty = True
+        self.milliseconds = False
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
 
     def _check_type(self, value):
@@ -105,6 +110,8 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         else:
             raise SmapException("Invalid add arguments: must be (value), "
                                 "(time, value), or (tiem, value, seqno)")
+        if not self.milliseconds:
+            time *= 1000
 
         if not self._check_type(value):
             raise SmapException("Attempted to add " + str(value) + 
@@ -357,12 +364,20 @@ sMAP reporting functionality."""
         recurse = kwargs.pop('recurse', False)
 
         if not ITimeseries.providedBy(args[0]):
-            if not isinstance(args[0], uuid.UUID):
-                id = self.uuid(args[0], namespace=kwargs.get('namespace', None))
+            if len(args) == 2:
+                if not isinstance(args[0], uuid.UUID):
+                    id = self.uuid(args[0], namespace=kwargs.get('namespace', None))
+                else:
+                    id = args[0]
+                args = args[1:]
+            elif len(args) == 1:
+                id = self.uuid(util.norm_path(path), kwargs.get('namespace', None))
             else:
-                id = args[0]
-            if 'namespace' in kwargs:del kwargs['namespace']
-            timeseries = Timeseries(id, *args[1:], **kwargs)
+                raise SmapException("SmapInstance.add_timeseries may only be called "
+                                    "with two or three arguments")
+
+            kwargs.pop('namespace', None)
+            timeseries = Timeseries(id, *args, **kwargs)
             if id != args[0]:
                 setattr(timeseries, "key", args[0])
         else:

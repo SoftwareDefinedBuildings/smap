@@ -115,7 +115,7 @@ class ReportingResource(resource.Resource):
         """In response to a GET, we return a list of the installed reports
         """
         request.setHeader('Content-type', 'application/json')
-        obj = [x['uuid'] for x in self.reports.subscribers]            
+        obj = {'Contents' : [x['uuid'] for x in self.reports.subscribers]}
         d = util.AsyncJSON(obj).startProducing(request)
         d.addBoth(lambda _: request.finish())
         return server.NOT_DONE_YET
@@ -144,7 +144,7 @@ class RootResource(resource.Resource):
         if value:
             self.value = value
         else:
-            self.value = ['data', 'reports']
+            self.value = {'Contents' : ['data', 'reports']}
 
     def getChild(self, name, request):
         if name == '':

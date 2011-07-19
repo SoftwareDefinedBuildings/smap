@@ -14,6 +14,7 @@ from twisted.internet.task import cooperate
 from twisted.internet import task, reactor, threads
 from twisted.python.lockfile import FilesystemLock
 from twisted.web import iweb
+from twisted.python import log
 
 import core
 
@@ -215,7 +216,9 @@ def pickle_dump(filename, obj):
 def periodicCallInThread(fn, *args):
     """Periodically enqueue a task to be run in the ``twisted``
 threadpool (not in the main loop).  You'll need to call the
-``start()`` method on the return.
+``start(interval)`` method on the return.  Multiple copies may run
+concurrently, depending on the thread pool size if you do not finish
+fast enough.
 
 :param fn: the function to be called
 :param args: arguments to be passed to `fn`
@@ -223,3 +226,64 @@ threadpool (not in the main loop).  You'll need to call the
     """
     return task.LoopingCall(lambda: reactor.callInThread(fn, *args))
 
+class PeriodicCaller:
+    """The problem with doing a LoopingCall and then deferring to a
+    thread is that you might have multiple copies of your function
+    running simultaneously.  There are a variety of reasons this might
+    be undesirable, so you can use this class instead, which will wait
+    for a previous invocation to complete before running the next one.
+    """
+    def __init__(self, fn, args):
+        self.fn, self.args = fn, args
+
+    def _go(self):
+        # bad things seem to happen when we throw an exception in the
+        # thread pool... let's catch that and just log it
+        try:
+            self.fn(*self.args)
+        except:
+            log.err()
+        
+    def _run(self):
+        self.last = time.time()
+        d = threads.deferToThread(self._go)
+        d.addCallbacks(self._post_run)
+
+    def _post_run(self, result):
+        now = time.time()
+        sleep_time = self.interval - (now - self.last)
+        if sleep_time < 0:
+            self._run()
+        else:
+            reactor.callLater(sleep_time, self._run)
+
+    def start(self, interval, now=True):
+        self.interval = interval
+        self.last = time.time()
+        if now:
+            self._run()
+        else:
+            reactor.callLater(self.interval, self._post_run, None)
+
+
+def periodicSequentialCall(fn, *args):
+    """Periodically run `fn(*args)` in a threadpool.  unlike
+:py:func:`~smap.util.periodicCallInThread`, will not run your task
+concurrently with itself -- if the last invocation didn't finish in
+time for your next execution, it will wait rather than running it in a
+different thread.
+
+You also need to call `start(interval)` on the result.
+    """
+    return PeriodicCaller(fn, args)
+    
+
+if __name__ == '__main__':
+    import sys
+    log.startLogging(sys.stdout)
+    def cb(st):
+        print "db running, sleeping", st
+        raise Exception('foo')
+        time.sleep(st)
+    periodicSequentialCall(cb, 3).start(2.5)
+    reactor.run()

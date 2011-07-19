@@ -1,0 +1,23 @@
+# -*- python -*-
+
+import sys
+import uuid
+
+from twisted.python import log
+from smap import core, server, driver
+
+if __name__ == '__main__':
+    # start logging, and intercept any messages which are using the
+    # standard library log
+    log.startLogging(sys.stdout)
+    observer = log.PythonLoggingObserver()
+    observer.start()
+
+    inst = core.SmapInstance(uuid.uuid1(), )
+    if len(sys.argv) == 1:
+        print >>sys.stderr, "\n\t%s <classname>\n" % sys.argv[0]
+        sys.exit(1)
+    dmgr = driver.SmapDriverManager.get_driver(sys.argv[1], '/', inst.root_uuid)
+    dmgr.setup(inst)
+    dmgr.start()
+    server.run(inst)

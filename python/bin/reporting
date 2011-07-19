@@ -7,8 +7,8 @@ import pprint
 
 from twisted.internet import reactor, defer
 
-import reporting
-import util
+from smap import reporting
+from smap import util
 
 parser = optparse.OptionParser()
 parser.add_option('-d', '--deliver', dest='deliver', action='store_true',

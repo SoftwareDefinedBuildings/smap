@@ -250,10 +250,10 @@ We can now run this just as easily as before::
   inst = loader.load('conf.ini')
   server.run(inst)
 
-The keys which are used to create timeseries and collections inside of
-a driver only need to be unique within that driver, not the whole sMAP
-source because the keys are combined with the driver's UUID to
-generate their full identifier.
+The keys or paths which are used to create timeseries and collections
+inside of a driver only need to be unique within that driver, not the
+whole sMAP source because the keys are combined with the driver's UUID
+to generate their full identifier.
 
 When created from a config file, the second parameter to setup is a
 dict whose keys are keys from the appropriate section of the
@@ -261,6 +261,21 @@ configuration file, and the corresponding values.  You can use this
 mechanism to pass arguments to your drivers; for instance, tell it how
 to connect to the instrument being proxied.
 
+Running into Production
+~~~~~~~~~~~~~~~~~~~~~~~
+
+As you start to write a lot of sMAP sources, you'll want to be able to
+test your code and then move it into production.  Usually, you'll
+first want to test out your driver; the sMAP distribution provides two
+tools for doing this.
+
+The first, ``run-driver`` will start up a sMAP instance and try to
+load a driver classname passed in on the command line, and map that
+driver in as the resource root.  For instance::
+
+ $ bin/run-driver smap.drivers.caiso.CaIsoDriver
+
+Runs the smap driver for the California ISO.
 
 Data Destination: Where does the Data go?
 -----------------------------------------

@@ -165,8 +165,9 @@ contain a ``uuid`` key to set the root identifier for the source.
             # load a new driver manager layer
             newdrv = driver.SmapDriverManager.get_driver(conf.get(s, 'type'), s, id)
             # create a collection and add it at the attachment point
-            c = core.Collection(s, inst)
-            inst.add_collection(s, c)
+            if not inst.get_collection(s):
+                c = core.Collection(s, inst)
+                inst.add_collection(s, c)
             inst.add_driver(s, newdrv)
 
             # get the driver to add its points
