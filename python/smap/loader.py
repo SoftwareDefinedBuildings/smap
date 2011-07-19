@@ -163,15 +163,14 @@ contain a ``uuid`` key to set the root identifier for the source.
                 raise SmapLoadError("A driver must have a key or uuid to generate a namespace")
             
             # load a new driver manager layer
-            newdrv = driver.SmapDriverManager.get_driver(conf.get(s, 'type'), s, id)
+            newdrv = driver.SmapDriver.get_driver(inst, conf.get(s, 'type'), s, id)
             # create a collection and add it at the attachment point
             if not inst.get_collection(s):
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
-            inst.add_driver(s, newdrv)
 
             # get the driver to add its points
-            newdrv.setup(inst, opts=dict(conf.items(s)))
+            newdrv.setup(dict(conf.items(s)))
 
         # Metadata and Description are shared between both Collections
         # and Timeseries

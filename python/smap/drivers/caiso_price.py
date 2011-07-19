@@ -23,12 +23,11 @@ from operator import itemgetter, attrgetter
 
 from zope.interface import implements
 
-from smap.interface import ISmapDriver
+from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 
-class CaIsoPrice:
-  implements(ISmapDriver)
+class CaIsoPrice(SmapDriver):
 
   MARKETS = [('DAM', 30*60), ('HASP', 10*60), ('RTM', 2*60)]
   FEEDS = [('total_price', '$'),
@@ -37,11 +36,10 @@ class CaIsoPrice:
            ('energy', '$')]
                
 
-  def setup(self, inst, opts):
+  def setup(self, opts):
     # get our location
     self.location = opts.pop('Location', 'OAKLAND_1_N001')
-    self.inst = inst
-    self.inst.get_collection('/')['Metadata'] = {
+    self.get_collection('/')['Metadata'] = {
       'Location' : {
         'Uri' : 'http://oasis.caiso.com/mrtu-oasis/SingleZip'
         },
@@ -54,8 +52,7 @@ class CaIsoPrice:
     for (m, i) in self.MARKETS:
       for (f, u) in self.FEEDS:
         path = '/%s/%s' % (m, f)
-        inst.add_timeseries(path, u, recurse=True, data_type='double')
-    self.inst.get_collection('/').dirty_children()
+        self.add_timeseries(path, u, data_type='double')
 
   def start(self):
     for (market, interval) in self.MARKETS:
@@ -146,7 +143,7 @@ class CaIsoPrice:
           # Add all smap points for this time
           for (k,v) in zip(readings.keys(), vals):
             logging.debug("add /%s/%s: %s" % (market, k, str(v)))
-            self.inst.add('/%s/%s' % (market, k), *v)
+            self.add('/%s/%s' % (market, k), *v)
             
     # Load old data
     if load_old == True:

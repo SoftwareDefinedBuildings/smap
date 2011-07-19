@@ -118,11 +118,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                 " to Timeseries, but " +
                                 "the timeseries type is " + 
                                 self.__getitem__('Properties')['ReadingType'])
-        reading = {
-            "ReadingTime" : time,
-            "Reading" : value,
-            }
-        if seqno: reading["ReadingSequence"] = seqno
+        
+        if seqno: reading = time, value, seqno
+        else: reading = time, value
         self["Readings"].append(reading)
 
         if not hasattr(self, 'inst'): return
@@ -356,12 +354,12 @@ sMAP reporting functionality."""
         :param args[1] and kwargs are arguments passed to the Timeseries constructor.  Therefore you have to include at least the UnitofMeasure
 
         :param boolean replace: (kwarg) replace an existing timeseries at that path instead of throwing an exception
-        :param boolean recurse: recursively create parent collections instead of thrwoing an exception
+        :param boolean recurse: recursively create parent collections instead of thrwoing an exception.  Default is True.
 
         :raises: :py:class:`SmapException` if the parent isn't a collection or the path already exists.
         """
         replace = kwargs.pop('replace', False)
-        recurse = kwargs.pop('recurse', False)
+        recurse = kwargs.pop('recurse', True)
 
         if not ITimeseries.providedBy(args[0]):
             if len(args) == 2:

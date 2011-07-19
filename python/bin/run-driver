@@ -17,7 +17,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         print >>sys.stderr, "\n\t%s <classname>\n" % sys.argv[0]
         sys.exit(1)
-    dmgr = driver.SmapDriverManager.get_driver(sys.argv[1], '/', inst.root_uuid)
+    dmgr = driver.SmapDriver.get_driver(inst, sys.argv[1], '/', inst.root_uuid)
     dmgr.setup(inst)
     dmgr.start()
     server.run(inst)

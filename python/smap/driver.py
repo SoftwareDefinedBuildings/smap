@@ -10,47 +10,44 @@ import util
 import loader
 import server
 
-class SmapDriverManager:
+class SmapDriver:
     # this is actually a shim layer which presents a ISmapInstance to
-    # drivers and a ISmapDriver to instances.
+    # drivers
     implements(ISmapInstance)
-    # implements(ISmapDriver)
 
     @classmethod
-    def get_driver(cls, name, attach_point, namespace):
+    def get_driver(cls, inst, name, attach_point, namespace):
         """Create a managed driver which will manage a driver whose
         implementation is named by "name"
         """
         cmps = name.split('.')
         mod = __import__('.'.join(cmps[:-1]), globals(), locals(), [cmps[-1]]) 
         klass = getattr(mod, cmps[-1])
-        driver = SmapDriverManager(klass, attach_point, namespace)
-#        print driver
-#         if not ISmapDriver.providedBy(driver):
-#             raise core.SmapException('The class %s does not provide ISmapDriver' % name)
+        driver = klass(inst, attach_point, namespace)
+        inst.add_driver(attach_point, driver)
         return driver
+
     flush = lambda self: self.smap_instance.reports.flush()
     _flush = lambda self: self.smap_instance.reports._flush()
 
-    def __init__(self, driver_class, attach_point, namespace):
-        self.driver_class = driver_class
-        self.attach_point = attach_point
-        self.driver = self.driver_class()
+    def __init__(self, smap_instance, attach_point, namespace):
+        self.__inst = smap_instance
+        self.__attach_point = attach_point
         self.namespace = namespace
 
-    def join_id(self, id):
+    def __join_id(self, id):
         if util.is_string(id) and id.startswith('/'):
-            return util.norm_path(self.attach_point + '/' + id)
+            return util.norm_path(self.__attach_point + '/' + id)
         else:
             return id
 
-    def setup(self, inst, opts={}):
-        self.smap_instance = inst
-        col = self.smap_instance.get_collection(self.attach_point)
-        self.driver.setup(self, opts=opts)
+    # override
+    def setup(self, opts={}):
+        pass
 
+    # override
     def start(self):
-        return self.driver.start()
+        pass
 
     # ISmapInstance implementation
 
@@ -62,11 +59,11 @@ class SmapDriverManager:
     # generate their own uuids for their streams based on the uuid in
     # their root collection (inst.get_collection('/')['uuid'])
     def lookup(self, id, **kwargs):
-        return self.smap_instance.lookup(self.join_id(id), **kwargs)
+        return self.__inst.lookup(self.__join_id(id), **kwargs)
     def get_timeseries(self, id):
-        return self.smap_instance.get_timeseries(self.join_id(id))
+        return self.__inst.get_timeseries(self.__join_id(id))
     def get_collection(self, id):
-        return self.smap_instance.get_collection(self.join_id(id))
+        return self.__inst.get_collection(self.__join_id(id))
     def add_timeseries(self, path, *args, **kwargs):
         kwargs['namespace'] = self.namespace
         if len(args) == 1:
@@ -78,29 +75,20 @@ class SmapDriverManager:
             raise core.SmapException("SmapDriverManager.add_timeseries may "
                                      "only be called with two or three "
                                      "positional arguments")
-        return self.smap_instance.add_timeseries(self.join_id(path), key, *args, **kwargs)
+        return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
     def add_collection(self, id, collection):
-        self.smap_instance.add_collection(self.join_id(id), collection, 
+        self.__inst.add_collection(self.__join_id(id), collection, 
                                           namespace=self.namespace)
     def add(self, id, *args):
-        return self.smap_instance.add(self.join_id(id), *args)
+        return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
-        return self.smap_instance._add(self.join_id(id), *args)
+        return self.__inst._add(self.__join_id(id), *args)
 
 
-class BaseDriver:
-    implements(ISmapDriver)
-    def setup(self, inst, opts):
-        # generating uuids like this is guaranteed to give is the same result every time
+class BaseDriver(SmapDriver):
 
-        # because the root (/) uuid is actually the uuid of the
-        # attachment point of the driver.  This uuid should be either
-        # stored in the config file or also generated
-        # deterministically from a root uuid.
-        #
-        # Therefore changing the root uuid will change all the uuids in the tree.
-        self.t = inst.add_timeseries('/sensor0', 'mytimeseries', 'SDH')
-        self.inst = inst
+    def setup(self, opts={}):
+        self.t = self.add_timeseries('/sensor0', 'mytimeseries', 'SDH')
         self.t['Metadata'] = { 
             'Instrument' : {'ModelName' : 'PowerScout 18'},
             'Extra' : { 'ModbusAddr' : opts.get('ModbusAddr', '')}
@@ -108,9 +96,10 @@ class BaseDriver:
 
     def start(self):
         self.counter = 0
-        util.periodicCallInThread(self.read).start(1)
+        util.periodicSequentialCall(self.read).start(1)
 
     def read(self):
+        print "Add", self.counter
         self.t.add(self.counter)
         self.counter += 1
         print self.counter
@@ -122,8 +111,7 @@ if __name__ == '__main__':
     # d.setup(inst)
     import uuid
     inst = core.SmapInstance(uuid.uuid1())
-    bd = BaseDriver()
-    bd.setup(inst, {})
-    inst.start()
+    bd = SmapDriver.get_driver(inst, 'driver.BaseDriver', '/newsensor', None)
+    bd.setup()
 
     server.run(inst)

@@ -7,16 +7,15 @@ import urllib2
 
 from zope.interface import implements
 
-from smap.interface import ISmapDriver
+from smap.driver import SmapDriver
 from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
-class CaIsoDriver:
+class CaIsoDriver(SmapDriver):
     """Periodically scrape the feed from the CAISO site and republish
     it as a sMAP feed.
     """
-    implements(ISmapDriver)
 
     def update(self):
         object_ = {}
@@ -39,9 +38,9 @@ class CaIsoDriver:
                 self.lastProduced = thisTime
             fh.close()
 
-    def setup(self, inst, opts):
+    def setup(self, opts):
         self.lastProduced = None
-        self.t = inst.add_timeseries('/CA', 'caisomain', 'mWh', 
+        self.t = self.add_timeseries('/CA', 'caisomain', 'mWh', 
                                      description='Total demand from the CA ISO')
         self.t['Metadata'] = {
             'Location' : {'State': 'CA', 'Country' : 'USA', 'Area': 'CA ISO',
