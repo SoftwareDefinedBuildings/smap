@@ -1,7 +1,11 @@
 
 import uuid
 import ConfigParser
-import ordereddict
+
+try:
+    import ordereddict
+except ImportError:
+    import collections as ordereddict
 
 import core
 import util
@@ -33,20 +37,6 @@ def _save_path(conf, inst, path):
         if k in ['uuid', 'Readings', 'Proxy', 'Contents']: continue
         for (name, value) in  util.buildkv(k, v):
             conf.set(path, name, value)
-
-# make a nested object from a config file line
-def buildkv(conf, section):
-    rv = {}
-    for k, v in conf.items(section):
-        if k in ['type', 'key', 'uuid']: continue
-        pieces = k.split('/')
-        cur = rv
-        for cmp in pieces[:-1]:
-            if not cur.has_key(cmp):
-                cur[cmp] = {}
-            cur = cur[cmp]
-        cur[pieces[-1]] = v
-    return rv
 
 def dump(inst, file):
     """Dump an existing :py:class:`~smap.core.SmapInstance` object to a conf file
@@ -122,7 +112,7 @@ contain a ``uuid`` key to set the root identifier for the source.
         s = util.norm_path(s)
 
         # build the UUID for the item
-        props = buildkv(conf, s)
+        props = util.build_recursive(dict(conf.items(s)))
         id = None
         if conf.has_option(s, 'uuid'):
             key = None
@@ -165,7 +155,8 @@ contain a ``uuid`` key to set the root identifier for the source.
             # load a new driver manager layer
             newdrv = driver.SmapDriver.get_driver(inst, conf.get(s, 'type'), s, id)
             # create a collection and add it at the attachment point
-            if not inst.get_collection(s):
+            c = inst.get_collection(s)
+            if not c:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
 
@@ -175,7 +166,10 @@ contain a ``uuid`` key to set the root identifier for the source.
         # Metadata and Description are shared between both Collections
         # and Timeseries
         if props.has_key('Metadata'):
-            c['Metadata'] = dict(props['Metadata'])
+            # the driver may have added metadata; however config file
+            # metadata overrides it
+            c['Metadata'] = util.dict_merge(c.get('Metadata', {}),
+                                            props['Metadata'])
         if props.has_key('Description'):
             c['Description'] = props['Description']
         if key:

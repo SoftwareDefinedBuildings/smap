@@ -12,9 +12,9 @@ if __name__ == '__main__':
     # start logging, and intercept any messages which are using the
     # standard library log
     log.startLogging(sys.stdout)
-    observer = log.PythonLoggingObserver()
-    observer.start()
-    logging.basicConfig(screenLevel=logging.INFO)
+#     observer = log.PythonLoggingObserver()
+#     observer.start()
+#     logging.basicConfig(screenLevel=logging.INFO)
 
     if len(sys.argv) == 1:
         print >>sys.stderr, "\n\t%s <conf file>\n" % sys.argv[0]

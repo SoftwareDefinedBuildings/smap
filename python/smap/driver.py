@@ -79,6 +79,8 @@ class SmapDriver:
     def add_collection(self, id, collection):
         self.__inst.add_collection(self.__join_id(id), collection, 
                                           namespace=self.namespace)
+    def set_metadata(self, id, *metadata):
+        return self.__inst.set_metadata(self.__join_id(id), *metadata)
     def add(self, id, *args):
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):

@@ -38,15 +38,12 @@ class CaIsoPrice(SmapDriver):
 
   def setup(self, opts):
     # get our location
-    self.location = opts.pop('Location', 'OAKLAND_1_N001')
-    self.get_collection('/')['Metadata'] = {
-      'Location' : {
-        'Uri' : 'http://oasis.caiso.com/mrtu-oasis/SingleZip'
-        },
-      'Extra' : {
-        'Node' : self.location
-        }
-      }
+    self.location = opts.get('Location', 'OAKLAND_1_N001')
+    self.set_metadata('/', {
+      'Location/Uri' : 'http://oasis.caiso.com/mrtu-oasis/SingleZip',
+      'Extra/IsoNode' : self.location,
+      'Extra/Driver' : 'smap.drivers.caiso_price.CaIsoPrice'
+      })
 
     # add the feeds
     for (m, i) in self.MARKETS:

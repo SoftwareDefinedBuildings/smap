@@ -431,6 +431,13 @@ sMAP reporting functionality."""
         self.reports.update_subscriptions()
         return collection
 
+    def set_metadata(self, path, *metadata):
+        if len(metadata) > 1:
+            metadata = dict([metadata])
+        else: metadata = metadata[0]
+        o = self.lookup(path)
+        o['Metadata'] = util.dict_merge(o.get('Metadata', {}),
+                                        util.build_recursive(metadata))
 
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()

@@ -2,7 +2,7 @@
 import os
 import time
 import re
-import simplejson as json
+import json
 import uuid
 import cPickle as pickle
 import gzip
@@ -58,6 +58,20 @@ def buildkv(fullname, obj):
         return rv
     else:
         return [(fullname, obj)]
+
+# make a nested object from a config file line
+def build_recursive(d):
+    rv = {}
+    for k, v in d.iteritems():
+        if k in ['type', 'key', 'uuid']: continue
+        pieces = k.split('/')
+        cur = rv
+        for cmp in pieces[:-1]:
+            if not cur.has_key(cmp):
+                cur[cmp] = {}
+            cur = cur[cmp]
+        cur[pieces[-1]] = v
+    return rv
 
 def dict_merge(o1, o2):
     """Recursively merge dict o1 into dict o2.  

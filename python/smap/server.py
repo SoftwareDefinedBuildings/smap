@@ -10,7 +10,7 @@ from twisted.internet import reactor, task
 from twisted.python import log
 
 import uuid
-import simplejson as json
+import json
 
 import util
 import core
@@ -31,8 +31,12 @@ class InstanceResource(resource.Resource):
         # assemble the results
         obj = self.inst.lookup(util.join_path(request.postpath))
         # and stream them out using AsyncJSON
-        d = util.AsyncJSON(obj).startProducing(request)
-        d.addBoth(lambda _: request.finish())
+        if obj != None:
+            d = util.AsyncJSON(obj).startProducing(request)
+            d.addBoth(lambda _: request.finish())
+        else:
+            request.setResponseCode(404)
+            request.finish()
         return server.NOT_DONE_YET
 
 def read_report(self, request, duplicate_error=True):
