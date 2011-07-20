@@ -167,6 +167,10 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         else:
             raise KeyError(attr + " can not be set on a Timeseries!")
 
+    def set_metadata(self, metadata):
+        self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
+                                           util.build_recursive(metadata))
+
 class Collection(dict):
     """Represent a collection of sMAP resources"""
     implements(ICollection)
@@ -219,6 +223,12 @@ class Collection(dict):
         if 'Contents' in val:
             del val['Contents']
         dict.update(self, val)
+
+    def set_metadata(self, metadata):
+        self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
+                                           util.build_recursive(metadata))
+        self.dirty_children()
+
 
 class SmapInstance:
     """A sMAP instance is a tree of :py:class:`Collections` and
@@ -436,8 +446,7 @@ sMAP reporting functionality."""
             metadata = dict([metadata])
         else: metadata = metadata[0]
         o = self.lookup(path)
-        o['Metadata'] = util.dict_merge(o.get('Metadata', {}),
-                                        util.build_recursive(metadata))
+        o.set_metadata(metadata)
 
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()

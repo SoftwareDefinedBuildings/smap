@@ -8,7 +8,7 @@ Welcome to the sMAP Library!
 
 This documentation exists to document the sMAP python library.  The
 sMAP library contains utilities and data structures for creating sMAP
-servers which implement the profile as of version 1.1.  By following
+servers which implement the profile as of version 2.  By following
 the introduction and tutorial, you'll be able to learn the basics of
 creating a new sMAP source which can be integrated into a stream
 processing and storage architecture.

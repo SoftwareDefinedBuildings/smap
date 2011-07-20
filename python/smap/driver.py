@@ -88,13 +88,12 @@ class SmapDriver:
 
 
 class BaseDriver(SmapDriver):
-
     def setup(self, opts={}):
         self.t = self.add_timeseries('/sensor0', 'mytimeseries', 'SDH')
-        self.t['Metadata'] = { 
-            'Instrument' : {'ModelName' : 'PowerScout 18'},
-            'Extra' : { 'ModbusAddr' : opts.get('ModbusAddr', '')}
-            }
+        self.set_metadata('/sensor0', { 
+            'Instrument/ModelName' : 'ExampleInstrument',
+            'Extra/ModbusAddr' : opts.get('ModbusAddr', '')
+            })
 
     def start(self):
         self.counter = 0

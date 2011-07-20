@@ -6,7 +6,7 @@ specification for a protocol designed to allow users to expose and
 publish data from a wide variety of sensors simply and flexibly.
 
 The documentation on this web page refers exclusively to the version
-of the specification as of version 1.1.
+of the specification as of version 2.
 
 sMAP Basics
 -----------
@@ -52,3 +52,16 @@ Dependencies
 
 * `python 2.6, 2.7 <http://www.python.org>`_
 * `twisted 11 <http://www.twistedmatrix.com>`_
+* `zope.interface <http://pypi.python.org/pypi/zope.interface>`_
+* `avro <http://avro.apache.org/releases.html>`_
+
+For the Cal ISO driver used in the tutorial, you also need:
+
+* `dateutil <http://pypi.python.org/pypi/python-dateutil>`_
+* `BeautifulSoup <http://www.crummy.com/software/BeautifulSoup/>`_
+
+On debian, you can install nearly all of this with::
+
+ $ apt-get install python python-zopeinterface python-twisted python-dateutil python-beautifulsoup
+
+Unfortunately, you must still install avro by hand.

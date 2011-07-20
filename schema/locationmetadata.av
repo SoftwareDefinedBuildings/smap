@@ -6,8 +6,8 @@
   "fields" : [
     {"name" : "Altitude", "type" : ["null", "long"]},
     {"name" : "Area", "type" : ["null", "string"]},
-    {"name" : "Campus", "type" : ["null", "string"]},
     {"name" : "Building", "type" : ["null", "string"]},
+    {"name" : "Campus", "type" : ["null", "string"]},
     {"name" : "City", "type" : ["null", "string"]},
     {"name" : "Country", "type" : ["null", "string"]},
     {"name" : "Description", "type" : ["null", "string"]},
@@ -16,6 +16,7 @@
     {"name" : "Longitude", "type" : ["null", "double"]},
     {"name" : "Postalcode", "type" : ["null", "string"]},
     {"name" : "Room", "type" : ["null", "string"]},
+    {"name" : "State", "type" : ["null", "string"]},
     {"name" : "Street", "type" : ["null", "string"]},
     {"name" : "Text", "type" : ["null", "string"]},
     {"name" : "Uri", "type" : ["null", "string"]}

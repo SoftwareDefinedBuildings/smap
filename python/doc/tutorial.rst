@@ -3,14 +3,139 @@ Tutorial
 
 In this tutorial you will learn how to:
 
-* Programatically create a simple sMAP source
-* Load an equivalent simple sMAP source from a configuration file
+* Create a simple sMAP source from an existing driver
 * Write a sMAP driver
 * Manage the destination of data using the :py:class:`smap.reporting.Reporting` module
-* Write a sMAP importer
+
 
 Your First sMAP Source
 ----------------------
+.. py:currentmodule:: smap.driver
+
+A common use case is to use an existing sMAP driver to publish data
+from a sensor or actuator.  A list of available sMAP drivers is not
+yet available, but you can look at the modules available in
+``python/smap/drivers``.  In order to start a sMAP source using an
+existing driver, you first create a configuration file and then use
+the sMAP runtime to start the daemon.
+
+One driver which is distributed with the distribution is the
+California ISO price driver.  This driver scrapes price data from the
+the ISO's web site, and republishes it as a sMAP feed.  Drivers are
+implemented by python classes, so the most important thing to know is
+the full name of the driver in question; this one is called
+:py:class:`smap.drivers.caiso_price.CaIsoPrice`.
+
+Once you know the name of the driver, you need to create a
+configuration file which tells the sMAP runtime about the source you
+want to create.  An example which uses this driver is::
+
+ [/]
+ type = Collection
+ uuid = fc778450-b191-11e0-bb60-0026bb56ec92
+ 
+ [/OAKLAND]
+ key = /OAKLAND_1_N001
+ type = smap.drivers.caiso_price.CaIsoPrice
+ Location = OAKLAND_1_N001
+
+We've mapped in the driver under the ``/OAKLAND`` resource; all feeds
+provided by this driver will be underneath that resource.  The
+Location parameter is passed to the driver, and tells it what ISO
+"node" to scrape.  We'll get to what ``uuid`` and ``key`` do later on.
+
+Once you have this config file (available in
+``python/conf/caiso_price.ini``), you can run the source by typing in
+the ``python`` directory::
+
+ $ python bin/run-conf conf/caiso.ini 
+ 2011-07-19 14:20:59-0700 [-] Log opened.
+ 2011-07-19 14:21:00-0700 [-] twisted.web.server.Site starting on 8080
+ 2011-07-19 14:21:00-0700 [-] Starting factory <twisted.web.server.Site instance at 0x901498c>
+ 2011-07-19 14:21:00-0700 [-] get_readings DAM
+
+And that's it!  You're running.  To consume your source, try::
+
+ $ bin/jprint http://localhost:8080/data/+
+
+``jprint`` is a convienient tool which will pretty-print your
+json, but you can also use `curl <http://curl.haxx.se/>`_.
+
+Writing Drivers
+---------------
+
+A common design pattern is to implement a "driver" for a type of
+instrument, and then copy that driver to represent multiple
+instruments of the same class.  For instance, you would want to write
+one driver for the Dent electric meter, and then connect that driver
+to new Dent meters which are mapped into the sMAP hierarchy.
+
+To support this important case, we have provided the
+:py:mod:`smap.driver` module.  Writing a driver is not really any
+harder than not writing a driver, so we strongly encourage you to
+use this framework.
+    
+Conceptually, a "driver" is a place in the resource hierarchy
+under which all the resources are added and implemented
+programmatically.  To be a driver, you need to implement two
+methods; the :py:class:`smap.driver.BaseDriver` class is one
+example::
+    
+  class BaseDriver(driver.SmapDriver):
+      def setup(self, opts):
+          selt.ts = self.add_timeseries('/sensor0', 'V')
+          self.set_metadata('/sensor0', { 
+              'Instrument/ModelName' : 'ExampleInstrument'
+              })
+
+      def start(self):
+          self.counter = 0
+          util.periodicSequentialCall(self.read).start(1)
+
+      def read(self):
+          self.t.add(self.counter)
+          self.counter += 1
+
+To start a sMAP instance which exposes only this driver, you can use
+the ``run-driver`` tool; this example is available as
+:py:class:`smap.driver.BaseDriver`::
+
+ $ python bin/run-driver smap.driver.BaseDriver
+
+We can also have this all done from a config file.  Typically, you
+would debug your driver first inside of ``run-driver`` before
+inflicting it on the wider world.  Let's modify the old config
+snippet from before::
+
+  [/]
+  type = Collection
+  uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
+
+  [/instrument0]
+  type = smap.driver.BaseDriver
+  Metadata/Instrument/Manufacturer = sMAP Implementer Forum
+
+We can now run this just as easily as before either using ``run-conf``
+or programmatically::
+
+  from smap import loader, server
+  inst = loader.load('conf.ini')
+  server.run(inst)
+
+When writing a driver, the keys or paths which are used to create
+timeseries and collections inside of a driver only need to be unique
+within that driver, not the whole sMAP source because the keys are
+combined with the driver's UUID to generate their full identifier.
+
+When created from a config file, the second parameter to setup is a
+dict whose keys are keys from the appropriate section of the
+configuration file, and the corresponding values.  You can use this
+mechanism to pass arguments to your drivers; for instance, tell it how
+to connect to the instrument being proxied.
+
+
+sMAP Internals: the Instance
+----------------------------
 
 .. py:currentmodule:: smap.core
 
@@ -185,97 +310,6 @@ Check it out with ``$ curl localhost:8080/data/instrument0/sensor0 | jprint``::
     "Readings": [], 
     "uuid": "c2f2cb69-25cc-544c-87cc-3b807c58f63a"
   }
-
-sMAP Drivers
-------------
-
-.. py:currentmodule:: smap.driver
-
-So far, you've seen how to create an instance and add data to it
-in a thread.  However, a common design pattern is to implement a
-"driver" for a type of instrument, and then copy that driver to
-represent multiple instruments of the same class.  For instance,
-you would want to write one driver for the Dent electric meter,
-and then connect that driver to new Dent meters which are mapped
-into the sMAP hierarchy.
-
-To support this important case, we have provided the
-:py:mod:`smap.driver` module.  Writing a driver is not really any
-harder than not writing a driver, so we strongly encourage you to
-use this framework.  
-    
-Conceptually, a "driver" is a place in the resource hierarchy
-under which all the resources are added and implemented
-programmatically.  To be a driver, you need to implement two
-methods; the :py:class:`smap.driver.BaseDriver` class is one
-example::
-    
-  class BaseDriver:
-      def setup(self, inst, opts):
-          selt.ts = inst.add_timeseries('/sensor0', 'mysensor', 'V')
-
-      def start(self):
-          self.counter = 0
-          util.periodicCallInThread(self.read).start(1)
-
-      def read(self):
-          self.t.add(self.counter)
-          self.counter += 1
-
-It implements the same functionality as our previous two examples,
-except now we can replicate this instrument as may times as we wish.
-To start a sMAP instance which exposes only this driver, we need just
-a little bit of glue; here's the whole example::
-
-  from smap import driver, server, core
-  inst = core.SmapInstance('75503ac2-abf0-11e0-b7d6-0026bb56ec92')
-  drv = driver.BaseDriver()
-  drv.setup(inst, {})
-  drv.start()
-  server.run(inst)
-
-We can also have this all done from a config file; let's modify the
-old config snip[pet from before::
-
-  [/]
-  type = Collection
-  uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
-
-  [/instrument0]
-  type = smap.driver.BaseDriver
-  Metadata/Instrument/Manufacturer = sMAP Implementer Forum
-
-We can now run this just as easily as before::
-
-  inst = loader.load('conf.ini')
-  server.run(inst)
-
-The keys or paths which are used to create timeseries and collections
-inside of a driver only need to be unique within that driver, not the
-whole sMAP source because the keys are combined with the driver's UUID
-to generate their full identifier.
-
-When created from a config file, the second parameter to setup is a
-dict whose keys are keys from the appropriate section of the
-configuration file, and the corresponding values.  You can use this
-mechanism to pass arguments to your drivers; for instance, tell it how
-to connect to the instrument being proxied.
-
-Running into Production
-~~~~~~~~~~~~~~~~~~~~~~~
-
-As you start to write a lot of sMAP sources, you'll want to be able to
-test your code and then move it into production.  Usually, you'll
-first want to test out your driver; the sMAP distribution provides two
-tools for doing this.
-
-The first, ``run-driver`` will start up a sMAP instance and try to
-load a driver classname passed in on the command line, and map that
-driver in as the resource root.  For instance::
-
- $ bin/run-driver smap.drivers.caiso.CaIsoDriver
-
-Runs the smap driver for the California ISO.
 
 Data Destination: Where does the Data go?
 -----------------------------------------

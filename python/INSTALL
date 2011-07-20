@@ -1,0 +1,9 @@
+
+Python dependencies (for sMAP engine):
+ twisted (http://twistedmatrix.com/trac/wiki/Downloads)
+ zope.interface (http://pypi.python.org/pypi/zope.interface)
+ avro python libraries (http://avro.apache.org/releases.html)
+
+For Cal ISO price driver:
+ dateutil (http://pypi.python.org/pypi/python-dateutil)
+ BeautifulSoup (http://www.crummy.com/software/BeautifulSoup/)
