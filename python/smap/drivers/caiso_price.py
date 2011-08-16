@@ -34,10 +34,15 @@ class CaIsoPrice(SmapDriver):
            ('loss', '$'),
            ('congestion', '$'),
            ('energy', '$')]
+  
                
 
   def setup(self, opts):
     # get our location
+    self.last_reading = {}
+    for m, t in self.MARKETS:
+      self.last_reading[m] = 0
+
     self.location = opts.get('Location', 'OAKLAND_1_N001')
     self.set_metadata('/', {
       'Location/Uri' : 'http://oasis.caiso.com/mrtu-oasis/SingleZip',
@@ -132,15 +137,15 @@ class CaIsoPrice(SmapDriver):
     return readings
 
   def poll_stream(self, market, load_old):
-    last_reading = 0
     def _push_data(readings, market): 
       # Zip together the values for all keys
       for vals in zip(*readings.values()):
-        if vals[0][0] > last_reading:
+        if vals[0][0] > self.last_reading[market]:
           # Add all smap points for this time
           for (k,v) in zip(readings.keys(), vals):
             logging.debug("add /%s/%s: %s" % (market, k, str(v)))
             self.add('/%s/%s' % (market, k), *v)
+            self.last_reading[market] = vals[0][0]
             
     # Load old data
     if load_old == True:
@@ -162,12 +167,12 @@ class CaIsoPrice(SmapDriver):
 
       rt = readings['total_price'][-1][0]
 
-      if rt > last_reading:
+      if rt > self.last_reading[market]:
         logging.info("NEW %s READING (%s) at time %s" %
                      (market, dtutil.strftime_tz(dtutil.ts2dt(rt), '%m/%d %H:%M', 'US/Pacific'),
                       dtutil.strftime_tz(dtutil.now(), '%m/%d %H:%M', 'US/Pacific')))
         _push_data(readings, market)
-        last_reading = rt
+        # self.last_reading = rt
 
     except Exception, e:
       logging.exception('Error getting reading')

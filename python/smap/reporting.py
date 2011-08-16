@@ -1,6 +1,7 @@
 
 import sys
 import time
+import traceback
 
 import util
 import json
@@ -179,6 +180,7 @@ class ReportInstance(dict):
         self['PendingData'] = DataBuffer(max_size)
         self['LastAttempt'] = 0
         self['LastSuccess'] = 0
+        self['Busy'] = False
 
     def deliverable(self):
         """Check if attempt should be called
@@ -200,6 +202,9 @@ class ReportInstance(dict):
             traceback.print_exc()
             return
 
+        if 'Busy' in self and self['Busy']:
+            return
+
         self['LastAttempt'] = util.now()
         log.msg("publishing to %s: %i %s" % (str(self['ReportDeliveryLocation']),
                                            len(data), 
@@ -207,7 +212,7 @@ class ReportInstance(dict):
         # set up an agent to push the data to the consumer
         agent = Agent(reactor)
         d = agent.request('POST',
-                          self['ReportDeliveryLocation'][0],
+                          str(self['ReportDeliveryLocation'][0]),
                           Headers({'Content-type' : 
                                    ['application/json']}),
                           util.AsyncJSON(data))
@@ -217,7 +222,6 @@ class ReportInstance(dict):
             # on a success
             tspec_ = tspec
             def cbResponse(resp):
-                # print "got response", resp.code
                 if resp.code in [200, 201, 204]:
                     # on success record the time and remove the data
                     self['LastSuccess'] = util.now()
@@ -239,6 +243,15 @@ class ReportInstance(dict):
                                              ' returned ' + str(resp.code))
             return cbResponse
 
+        def makeDoneCb(inst):
+            inst_ = inst
+            def doneCb(resp):
+                inst_['Busy'] = False
+                return resp
+            return doneCb
+
+        self['Busy'] = True
+        d.addCallbacks(makeDoneCb(self))
         d.addCallback(makeSuccessCb())
         return d
 
@@ -340,6 +353,8 @@ class Reporting:
         self.subscribers = util.pickle_load(self.reportfile)
         if self.subscribers == None:
             self.subscribers = []
+        for s in self.subscribers:
+            s['Busy'] = False
 
     def save_reports(self, *args):
         """Save reports while holding the filesystem lock.

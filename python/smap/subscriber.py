@@ -48,7 +48,7 @@ class SmapConsumer(resource.Resource):
 class SmapSubscriber:
     """Class to maintain a subscription to a sMAP source.
     """
-    def __init__(self, url, dest, id=None, expire_time=60, min_period=0):
+    def __init__(self, url, dest, resource='/+', id=None, expire_time=60, min_period=0):
         """
         :param string url: The URL of the sMAP server
         :param string dest: The URL of the data destination
@@ -64,7 +64,7 @@ class SmapSubscriber:
         self.rpt_obj = {
             'uuid' : str(id),
             'ReportDeliveryLocation' : [dest],
-            'ReportResource' : '/+',
+            'ReportResource' : resource,
             'MinPeriod': int(min_period * 1000)
             }
         self.is_subscribed = False
