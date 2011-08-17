@@ -23,7 +23,8 @@ def start_log():
 if __name__ == '__main__':
     parser = get_parser()
     opts, args = parser.parse_args()
-    if len(args) != 1: parser.error("conf file is a required argument")
+    if len(args) != 1: 
+        parser.error("conf file is a required argument")
 
     start_log()
     inst = loader.load(args[0])
