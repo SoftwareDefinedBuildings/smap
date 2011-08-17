@@ -144,6 +144,8 @@ class SmapData:
                 while len(data) > 128:
                     rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]
+                if len(data) > 0:
+                    rdb.db_add(r, ids[ts['uuid']], data[:128])
         except:
             return False
         finally:

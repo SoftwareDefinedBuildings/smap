@@ -7,4 +7,4 @@ setup(name="Smap",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
       packages=["smap"],
-      requres=["avro", "twisted"])
+      requires=["avro", "twisted"])
