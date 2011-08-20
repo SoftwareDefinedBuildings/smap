@@ -28,5 +28,4 @@ if __name__ == '__main__':
     inst = core.SmapInstance(opts.uuid)
     dmgr = driver.SmapDriver.get_driver(inst, args[0], '/', inst.root_uuid)
     dmgr.setup(opts={})
-    dmgr.start()
     server.run(inst, port=opts.port)

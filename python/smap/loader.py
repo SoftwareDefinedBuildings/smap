@@ -128,7 +128,8 @@ contain a ``uuid`` key to set the root identifier for the source.
             # raise SmapLoadError("Every config file section must have a uuid or a key!")
 
         # create the timeseries or collection
-        if conf.has_option(s, 'type') and conf.get(s, "type") == 'Collection':
+        if s == '/' or \
+               (conf.has_option(s, 'type') and conf.get(s, "type") == 'Collection'):
             if s == '/':
                 c = inst.get_collection('/')
             else:
