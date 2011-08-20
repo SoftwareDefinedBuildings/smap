@@ -10,12 +10,10 @@ import urlparse
 import re
 import signal
 
-import conf as conf
 import smap.driver
 from smap.util import periodicSequentialCall
 
 import sensordb
-import auth
 
 urllib2.install_opener(urllib2.build_opener())
 

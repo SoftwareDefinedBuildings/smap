@@ -222,6 +222,7 @@ class ReportInstance(dict):
             # on a success
             tspec_ = tspec
             def cbResponse(resp):
+                self['Busy'] = False
                 if resp.code in [200, 201, 204]:
                     # on success record the time and remove the data
                     self['LastSuccess'] = util.now()
@@ -251,7 +252,7 @@ class ReportInstance(dict):
             return doneCb
 
         self['Busy'] = True
-        d.addCallbacks(makeDoneCb(self))
+        d.addErrback(makeDoneCb(self))
         d.addCallback(makeSuccessCb())
         return d
 

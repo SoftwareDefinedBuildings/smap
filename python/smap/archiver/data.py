@@ -65,6 +65,7 @@ class SmapMetadata:
         rv = []
         ids = dict(ids)
         for path, ts in obj.iteritems():
+            if len(ts['Readings']) == 0: continue
             nextrefs = self._get_nearest(ids[str(ts['uuid'])], ts['Readings'])
 
             min_ts = min(map(operator.itemgetter(0), ts['Readings']))

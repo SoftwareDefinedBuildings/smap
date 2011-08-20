@@ -105,6 +105,7 @@ class SubscriptionResource(ApiResource):
     def _done_streams(self, request, result):
         result = [{'Path' : x[0],
                    'uuid' : x[1]} for x in result]
+        result.sort(key=operator.itemgetter('Path'))
         d = util.AsyncJSON(result).startProducing(request)
         d.addBoth(lambda _: request.finish())
 
