@@ -3,10 +3,12 @@ import traceback
 import time
 import json
 import operator
+import urllib
 
 from twisted.internet import threads, defer
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
+import MySQLdb as sql
 
 import readingdb as rdb
 
@@ -133,6 +135,81 @@ WHERE tagname = 'Path' AND
             d.addErrback(makeErrback(request))
         return server.NOT_DONE_YET
 
+
+class QueryResource(ApiResource):
+    def render_reply(self, request, result):
+        d = util.AsyncJSON(map(operator.itemgetter(0), result)).startProducing(request)
+        d.addBoth(lambda _: request.finish())
+
+    def build_query(self, tags):
+        print tags
+        clauses = []
+        for (k, v) in tags:
+            if v != None:
+                clauses.append("(tagname = '%s' AND tagval = '%s')" % (sql.escape_string(k),
+                                                                       sql.escape_string(v)))
+            else: break
+        if len(clauses) == 0 and len(tags) == 0:
+            query = """
+SELECT DISTINCT tagname FROM metadata;"""
+        elif tags[-1][0] == 'uuid':
+            query = """
+SELECT DISTINCT s.uuid 
+FROM metadata AS m, stream AS s
+WHERE m.stream_id IN 
+  (SELECT oq.stream_id FROM
+    (SELECT stream_id, count(stream_id) AS cnt
+     FROM metadata
+     WHERE (%s) 
+     GROUP BY stream_id) AS oq
+   WHERE oq.cnt = %i) AND
+m.stream_id = s.id ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+                                              len(clauses))
+
+        elif len(clauses) == 0:
+            query = """
+SELECT DISTINCT tagval FROM metadata WHERE tagname = '%s'
+""" % tags[-1][0]
+        elif tags[-1][1] == None or tags[-1][1] == '':
+            query = """
+SELECT DISTINCT m.tagval 
+FROM metadata AS m
+WHERE m.stream_id IN 
+  (SELECT oq.stream_id FROM
+    (SELECT stream_id, count(stream_id) AS cnt
+     FROM metadata
+     WHERE (%s) 
+     GROUP BY stream_id) AS oq
+   WHERE oq.cnt = %i) AND
+m.tagname = '%s' ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+                                              len(clauses),
+                                              tags[-1][0])
+        else:
+            query = """
+SELECT DISTINCT m.tagname
+FROM metadata AS m
+WHERE m.stream_id IN 
+  (SELECT oq.stream_id FROM
+    (SELECT stream_id, count(stream_id) AS cnt
+     FROM metadata
+     WHERE (%s) 
+     GROUP BY stream_id) AS oq
+   WHERE oq.cnt = %i) ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+                                                   len(clauses))
+
+        print query
+        d = self.db.runQuery(query)
+        return d
+
+    isLeaf = True
+    def render_GET(self, request):
+        path = map(lambda x: x.replace('__', '/'), request.postpath)
+        path = map(urllib.unquote, path)
+        d = self.build_query(zip(path[::2], 
+                                path[1::2] + [None]))
+        d.addCallback(lambda r: self.render_reply(request, r))
+        return server.NOT_DONE_YET
+
 class Api(resource.Resource):
     def __init__(self, db):
         self.db = db
@@ -158,13 +235,38 @@ class Api(resource.Resource):
     def getChild(self, name, request):
         if name == 'streams':
             return SubscriptionResource(self.db)
+        elif name == 'query':
+            return QueryResource(self.db)
         else:
             return self
 
     def render_GET(self, request):
+        if len(request.prepath) == 1:
+            print "dumping"
+            return json.dumps({'Contents': ['streams', 'query', '<uuid>']})
         d = self.db.runQuery("SELECT id FROM stream WHERE `uuid` = %s", 
                              (request.prepath[1], ))
         print "checking", request.prepath[1]
         d.addCallback(lambda x: self._lookup_method(request, x))
         d.addErrback(makeErrback(request))
         return server.NOT_DONE_YET
+
+
+if __name__ == '__main__':
+    import settings
+    from twisted.enterprise import adbapi
+    from twisted.internet import reactor
+
+    # connect to the mysql db
+    cp = adbapi.ConnectionPool('MySQLdb', 
+                               host=settings.MYSQL_HOST,
+                               db=settings.MYSQL_DB,
+                               user=settings.MYSQL_USER,
+                               passwd=settings.MYSQL_PASS)
+    tr = QueryResource(cp)
+
+    d = tr.build_tree([('Metadata/Location/Campus', 'UCB'), 
+                       ('Metadata/Location/Building', 'Soda Hall'),
+                       ('Path', None)])
+    d.addCallback(lambda _:reactor.stop())
+    reactor.run()

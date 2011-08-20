@@ -82,7 +82,8 @@ def subscribe(db):
     return d
 
 def getSite(db):
-    root = RootResource()
+    root = RootResource(value={
+            'Contents': ['add', 'api']})
     root.putChild('add', DataResource(db))
     root.putChild('api', api.Api(db))
     return server.Site(root)

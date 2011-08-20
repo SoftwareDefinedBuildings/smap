@@ -108,6 +108,7 @@ contain a ``uuid`` key to set the root identifier for the source.
             # path sections must start with a '/'
             # other sections might be present and could be parsed by
             # other parts of the program
+            print "Warning: skipping section", s, "since it does not begin with a '/'"
             continue
         s = util.norm_path(s)
 

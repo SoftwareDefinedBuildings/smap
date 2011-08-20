@@ -12,7 +12,7 @@ from avro import io
 class SmapSchemas:
     SCHEMAS = [
         # new extension types
-        "uuid", "version",
+        "uuid", 
         "UnitofTime", "Duration", 
         "ReadingType", "ReadingValue",
 
@@ -66,9 +66,9 @@ if __name__ == '__main__':
     mycollection = {
         'uuid' : uuid.uuid1().bytes,
         'Proxy' : False,
-        'Contents' : {
-            'ts0' : mytimeseries['uuid']
-            }
+        'Contents' : [
+            'ts0'
+            ]
         }
     print mycollection
 
