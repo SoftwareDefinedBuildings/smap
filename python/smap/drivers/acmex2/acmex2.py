@@ -44,12 +44,13 @@ class ACmeX2Driver(SmapDriver, DatagramProtocol):
                       rpt.get_seq())
 
     def setup(self, opts):
-        self.port = opts.get('Port', 7002)
+        self.port = int(opts.get('Port', 7002))
         self.ids = {}
         self.set_metadata('/', {
+            'Extra/Driver' : 'smap.driver.acmex2.acmex2.ACmeX2Driver',
             'Instrument/Manufacturer': 'UC Berkeley',
             'Instrument/Model' : 'ACme X2',
             })
 
     def start(self):
-        reactor.listenUDP6(7002, self)
+        reactor.listenUDP6(self.port, self)
