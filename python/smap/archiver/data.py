@@ -112,7 +112,7 @@ class SmapMetadata:
         if len(queries) == 0:
             return
         else:
-            print queries[0]
+            # print queries[0]
             d = self.db.runQuery(queries[0])
             d.addCallback(lambda _: self._do_metadata(queries[1:]))
             return d

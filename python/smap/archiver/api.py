@@ -1,6 +1,7 @@
 
 import traceback
 import time
+import cjson
 import json
 import operator
 import urllib
@@ -48,9 +49,9 @@ class DataResource(ApiResource):
             request.setResponseCode(500)
             request.finish()
         else:
-            data = map(mungeData, data)
-            d = util.AsyncJSON(data).startProducing(request)
-            d.addBoth(lambda _: request.finish())            
+            data = cjson.encode(map(mungeData, data))
+            request.write(data)
+            request.finish()
 
     def render_GET(self, request, streamid):
         try:
@@ -142,7 +143,7 @@ class QueryResource(ApiResource):
         d.addBoth(lambda _: request.finish())
 
     def build_query(self, tags):
-        print tags
+        now = int(time.time()) * 1000
         clauses = []
         for (k, v) in tags:
             if v != None:
@@ -151,7 +152,9 @@ class QueryResource(ApiResource):
             else: break
         if len(clauses) == 0 and len(tags) == 0:
             query = """
-SELECT DISTINCT tagname FROM metadata;"""
+SELECT DISTINCT tagname
+FROM metadata m
+WHERE m.anchor <= %i AND m.anchor + m.duration > %i""" % (now, now)
         elif tags[-1][0] == 'uuid':
             query = """
 SELECT DISTINCT s.uuid 
@@ -160,16 +163,21 @@ WHERE m.stream_id IN
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
      FROM metadata
-     WHERE (%s) 
+     WHERE (%s) AND
+       anchor <= %i AND anchor + duration > %i
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.stream_id = s.id ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
-                                              len(clauses))
+m.stream_id = s.id AND
+m.anchor <= %i AND m.anchor + m.duration > %i
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
+                             len(clauses), now, now)
 
         elif len(clauses) == 0:
             query = """
-SELECT DISTINCT tagval FROM metadata WHERE tagname = '%s'
-""" % tags[-1][0]
+SELECT DISTINCT tagval FROM metadata
+WHERE tagname = '%s' AND
+   anchor <= %i AND anchor + duration > %i
+""" % (tags[-1][0], now, now)
         elif tags[-1][1] == None or tags[-1][1] == '':
             query = """
 SELECT DISTINCT m.tagval 
@@ -178,12 +186,15 @@ WHERE m.stream_id IN
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
      FROM metadata
-     WHERE (%s) 
+     WHERE (%s) AND
+        anchor <= %i AND anchor + duration > %i
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.tagname = '%s' ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
-                                              len(clauses),
-                                              tags[-1][0])
+m.tagname = '%s' AND
+m.anchor <= %i AND m.anchor + m.duration > %i
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
+                             len(clauses),
+                             tags[-1][0], now, now)
         else:
             query = """
 SELECT DISTINCT m.tagname
@@ -192,10 +203,13 @@ WHERE m.stream_id IN
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
      FROM metadata
-     WHERE (%s) 
+     WHERE (%s) AND
+       anchor <= %i AND anchor + duration > %i
      GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i) ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
-                                                   len(clauses))
+   WHERE oq.cnt = %i) AND
+  m.anchor <= %i AND m.anchor + m.duration > %i
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
+                             len(clauses), now, now)
 
         print query
         d = self.db.runQuery(query)

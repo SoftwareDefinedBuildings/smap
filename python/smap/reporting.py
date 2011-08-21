@@ -146,7 +146,11 @@ class DataBuffer:
             # * it's not there, and it's a Collection, and we haven't already
             #       added anything which depends on it
             # * it's already in there, but the new log entry is the same
-            if (not path in rv and \
+            # * it's a collection with no contents (this is a no-op)
+            if 'Contents' in val and len(val['Contents']) == 0: 
+                # okay to skip b/c it doesn't apply to anything
+                pass
+            elif (not path in rv and \
                     ('Readings' in val or not contains_child(path, rv))) or \
                     (path in rv and rv[path] == val):
                 # have to copy the data since we're going to change it.
@@ -161,6 +165,7 @@ class DataBuffer:
             else:
                 # move back one so we don't loose this record
                 i -= 1
+                print path, val
                 break
 
         # the tspec is just the index of the last record we packaged
