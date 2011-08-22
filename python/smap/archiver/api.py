@@ -31,10 +31,10 @@ class ApiResource(resource.Resource):
         resource.Resource.__init__(self)
 
 class DataResource(ApiResource):
-    def _load_data(self, streamid, start, end):
+    def _load_data(self, qfunc):
         try:
             conn = data.rdb_pool.get()
-            rv = rdb.db_query(conn, streamid, start / 1000, end / 1000)
+            rv = qfunc(conn)
             return rv
         except:
             return None
@@ -54,15 +54,31 @@ class DataResource(ApiResource):
             request.finish()
 
     def render_GET(self, request, streamid):
+        now = int(time.time()) * 1000
         try:
-            start = int(request.args['starttime'][0])
-            end = int(request.args['endtime'][0])
+            start = int(request.args.get('starttime', [now - 3600 * 24])[0])
+            end = int(request.args.get('endtime', [now])[0])
+            limit = int(request.args.get('limit', [1])[0])
+            method = request.args.get('direction', ["query"])[0]
         except:
-            traceback.print_exc()
             request.setResponseCode(400)
             request.finish()
+            return
 
-        d = threads.deferToThread(self._load_data, streamid, start, end)
+        def mkQueryFunc():
+            method_, start_, end_, limit_, streamid_ =  \
+                method, start, end, limit, streamid
+            def queryFunc(db):
+                if method_ == 'query':
+                    return rdb.db_query(db, streamid_, start / 1000, end / 1000)
+                elif method == 'next':
+                    return rdb.db_next(db, streamid_, start / 1000, n = limit_)
+                elif method == 'prev':
+                    return rdb.db_prev(db, streamid_, start / 1000, n = limit_)
+                return None
+            return queryFunc
+
+        d = threads.deferToThread(self._load_data, mkQueryFunc())
         d.addCallback(lambda x: self._send_reply(request, x))
         d.addErrback(makeErrback(request))
 

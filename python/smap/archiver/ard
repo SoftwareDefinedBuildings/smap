@@ -95,7 +95,8 @@ if __name__ == '__main__':
                                db=settings.MYSQL_DB,
                                user=settings.MYSQL_USER,
                                passwd=settings.MYSQL_PASS)
-    subscribe(cp)
+    if not '-n' in sys.argv:
+        subscribe(cp)
     site = getSite(cp)
 
     log.startLogging(sys.stdout)
