@@ -29,18 +29,18 @@ from smap.contrib import dtutil
 
 class CaIsoPrice(SmapDriver):
 
-  MARKETS = [('DAM', 30*60), ('HASP', 10*60), ('RTM', 2*60)]
-  FEEDS = [('total_price', '$'),
-           ('loss', '$'),
-           ('congestion', '$'),
-           ('energy', '$')]
-  
-               
+  MARKETS = [('DAM', 30*60, 'Day-ahead market'),
+             ('HASP', 10*60, 'Hour-ahead scheduling process'),
+             ('RTM', 2*60, 'Real-time market')]
+  FEEDS = [('total_price', '$', 'total price'),
+           ('loss', '$', 'loss price'),
+           ('congestion', '$', 'congestion price'),
+           ('energy', '$', 'energy price')]
 
   def setup(self, opts):
     # get our location
     self.last_reading = {}
-    for m, t in self.MARKETS:
+    for m, t, d in self.MARKETS:
       self.last_reading[m] = 0
 
     self.location = opts.get('Location', 'OAKLAND_1_N001')
@@ -51,13 +51,14 @@ class CaIsoPrice(SmapDriver):
       })
 
     # add the feeds
-    for (m, i) in self.MARKETS:
-      for (f, u) in self.FEEDS:
+    for (m, i, md) in self.MARKETS:
+      for (f, u, fd) in self.FEEDS:
         path = '/%s/%s' % (m, f)
-        self.add_timeseries(path, u, data_type='double')
+        self.add_timeseries(path, u, data_type='double',
+                            description=md + ' ' + fd)
 
   def start(self):
-    for (market, interval) in self.MARKETS:
+    for (market, interval, description) in self.MARKETS:
       periodicSequentialCall(self.poll_stream, market, False).start(interval)
 
   def get_readings(self, market, start_date, stop_date): 

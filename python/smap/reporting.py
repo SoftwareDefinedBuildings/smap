@@ -110,18 +110,28 @@ class DataBuffer:
         :param string key: The key for the data stream
         :param string val: The new value for the object.  Copied.
         """
-        # add it to the log
-
-        # this adds records which may be redundant; read() will
-        # compress them if possible.
-        self.data.append((key, reporting_copy(val)))
+        if len(self.data) == 0:
+            self.data.append({key: reporting_copy(val)})
+        elif 'Contents' in val and len(val['Contents']) == 0:
+            # okay to skip b/c it doesn't apply to anything
+            pass
+        elif key in self.data[-1] and len(val) == 2 and \
+             'Readings' in val and 'uuid' in val:
+            if not 'Readings' in self.data[-1][key]:
+                self.data[-1][key]['Readings'] = []
+            self.data[-1][key]['Readings'].extend(val['Readings'])
+        # really this might just want to merge updates...
+        elif key in self.data[-1] and val == self.data[-1][key]:
+            pass
+        else:
+            self.data[-1][key] = reporting_copy(val)
 
     def truncate(self, tspec):
         """Truncate a set of readings based on the sequence number
         stored from a previous read"""
         self.data.truncate(tspec)
         
-    def read(self, n):
+    def read(self):
         """Read n points (per stream) back as a flat list.  AlsoFi
         return a truncation specification so we can remove this data
         later if desired
@@ -132,45 +142,10 @@ class DataBuffer:
         -- note this is necessary because the log is a circular buffer
         and may have wrapped while you were processing the readings.
         """
-        rv = {}
-        i = 0
-
-        def contains_child(p, v):
-            return util.find(lambda (k, _): k.startswith(p), v.iteritems())
-
-        for i in xrange(0, min(len(self.data), n)):
-            path, val = self.data[i]
-            # print "%i/%i" % (i, len(self.data)), path
-            # we can include a new path in the report if
-            # * it's not there and it's a Reading
-            # * it's not there, and it's a Collection, and we haven't already
-            #       added anything which depends on it
-            # * it's already in there, but the new log entry is the same
-            # * it's a collection with no contents (this is a no-op)
-            if 'Contents' in val and len(val['Contents']) == 0: 
-                # okay to skip b/c it doesn't apply to anything
-                pass
-            elif (not path in rv and \
-                    ('Readings' in val or not contains_child(path, rv))) or \
-                    (path in rv and rv[path] == val):
-                # have to copy the data since we're going to change it.
-                rv[path] = reporting_copy(val) 
-            elif path in rv and len(val) == 2 and 'uuid' in val and 'Readings' in val:
-                # merge reading objects
-
-                # this fails sometimes because when you read it back
-                # from disk it's not a uuid.UUID 
-                # assert rv[path]['uuid'] == val['uuid']
-                rv[path]['Readings'].extend(val['Readings'])
-            else:
-                # move back one so we don't loose this record
-                i -= 1
-                print path, val
-                break
-
-        # the tspec is just the index of the last record we packaged
-        # plus one
-        return rv, self.data.idxtoseq(i) + 1
+        if len(self.data) > 0:
+            return self.data[0], self.data.idxtoseq(0) + 1
+        else:
+            raise core.SmapException("No Pending Data!")
 
 
 class ReportInstance(dict):
@@ -201,7 +176,9 @@ class ReportInstance(dict):
         :rvalue: a :py:class:`Deferred` of the attempt
         """
         try:
-            data, tspec = self['PendingData'].read(BUFSIZE_LIMIT)
+            data, tspec = self['PendingData'].read()
+            print "read"
+            # pprint.pprint(data)
         except Exception, e:
             log.err()
             traceback.print_exc()

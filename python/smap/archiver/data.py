@@ -1,6 +1,7 @@
 
 import traceback
 import operator
+import pprint
 
 from twisted.internet import threads, defer
 from twisted.enterprise import adbapi
@@ -31,90 +32,42 @@ except NameError:
 
 class SmapMetadata:
     def __init__(self, db):
-        self.db = db
-
-    def _get_nearest(self, id, readings):
-        conn = rdb_pool.get()
-        try:
-            nexts = []
-            readings.sort(key=lambda x: x[0])
-            for i in xrange(0, len(readings)):
-                rdb_next = rdb.db_next(conn, id, readings[i][0] / 1000)
-                if len(rdb_next) > 0:
-                    rdb_next = rdb_next[0][0]
-                if i < len(readings) - 1:
-                    list_next = readings[i+1][0] / 1000
-                else:
-                    list_next = 0x7fffffff
-                nexts.append(min(rdb_next, list_next) * 1000)
-            return nexts
-        except:
-            traceback.print_exc()
-        finally:
-            rdb_pool.put(conn)
-    
+        self.db = db    
     
     def _add(self, subid, ids, obj):
+        try:
+            return self._add_wrapped(subid, ids, obj)
+        except Exception, e:
+            print "exception in _add"
+            traceback.print_exc()
+            log.err()
+            
+    def _add_wrapped(self, subid, ids, obj):
         """Update the tag set for a reading vector
         """
-        def mkquery(uid, ref, nextref, tagname, tagval):
-            return "CALL AddTag('%s', %i, %i, '%s', '%s');" % (
-                sql.escape_string(uid), ref, nextref * 1000,
-                sql.escape_string(tagname[1:]),
-                sql.escape_string(tagval))
-        rv = []
+        vals = []
+        def addTag(uid, tn, tv):
+            vals.append("(%i,'%s','%s')" % (ids[uid],
+                        sql.escape_string(tn),
+                        sql.escape_string(tv)))
         ids = dict(ids)
         for path, ts in obj.iteritems():
-            if len(ts['Readings']) == 0: continue
-            nextrefs = self._get_nearest(ids[str(ts['uuid'])], ts['Readings'])
+            addTag(ts['uuid'], 'Path', path)
+#             if ids[ts['uuid']] == 1404:
+#                 pprint.pprint(ts)
+            for name, val in util.buildkv('', ts):
+                if name == '/Readings' or name == '/uuid': continue
+                addTag(ts['uuid'], name[1:], val)
+        return vals
 
-            min_ts = min(map(operator.itemgetter(0), ts['Readings']))
-            max_ts = max(map(operator.itemgetter(0), ts['Readings']))
-
-
-            # if all the data we're importing has the same tag
-            # currently, we can just update tags once, rather than
-            # checking for each tag.  this is really the only way of
-            # doing things that's even close to efficient... 
-            if min(nextrefs[:-1] + [min_ts]) >= min_ts and \
-                    min(nextrefs[:-1] + [min_ts]) <= max_ts and \
-                    max(nextrefs[:-1] + [max_ts]) >= min_ts and \
-                    max(nextrefs[:-1] + [max_ts]) <= max_ts:
-                rv.append(mkquery(ts['uuid'], min_ts, max(nextrefs),
-                                  '/Path', path))
-
-                for name, val in util.buildkv('', ts):
-                    if name == '/Readings' or name == '/uuid': continue
-                    query = mkquery(ts['uuid'], 
-                                    min_ts, 
-                                    max(nextrefs),
-                                    name, 
-                                    val)
-                    rv.append(query)
-                continue
-
-            # otherwise check the tags for *every point*
-            for i in xrange(0, len(nextrefs)):
-                rv.append(mkquery(ts['uuid'], ts['Readings'][i][0],
-                                    nextrefs[i], '/Path', path))
-                for name, val in util.buildkv('', ts):
-                    if name == '/Readings' or name == '/uuid': continue
-                    query = mkquery(ts['uuid'], 
-                                    ts['Readings'][i][0],
-                                    nextrefs[i],
-                                    name,
-                                    val)
-                    rv.append(query)            
-        return rv
-        
-    def _do_metadata(self, queries):
+    def _do_metadata(self, inserts):
         """Sequentially execute the metdata updates"""
-        if len(queries) == 0:
-            return
-        else:
-            # print queries[0]
-            d = self.db.runQuery(queries[0])
-            d.addCallback(lambda _: self._do_metadata(queries[1:]))
+        if len(inserts) > 0:
+            query = "INSERT INTO metadata2 (`stream_id`, `tagname`, `tagval`) VALUES " + \
+                    ','.join(inserts[:100]) + \
+                    " ON DUPLICATE KEY UPDATE `tagval` = VALUES(`tagval`);"
+            d = self.db.runQuery(query)
+            d.addCallback(lambda _: self._do_metadata(inserts[100:]))
             return d
 
     def add(self, subid, ids, obj):
@@ -142,6 +95,7 @@ class SmapData:
             r = rdb_pool.get()
             for ts in obj.itervalues():
                 data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings']]
+                # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
                     rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]

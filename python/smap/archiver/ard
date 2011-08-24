@@ -3,6 +3,8 @@
 
 import sys
 import json
+import pprint
+from optparse import OptionParser
 
 from twisted.enterprise import adbapi
 from twisted.internet import reactor
@@ -21,12 +23,15 @@ class DataResource(resource.Resource):
         resource.Resource.__init__(self)
 
     def _add_data(self, subid, obj):
+        if len(obj) == 0: return True
         return self.data.add(subid, obj)
 
     def _check_subscriber(self, request, subid):
         if len(subid) == 1:
             subid = subid[0][0]
             obj = json.load(request.content)
+#             if '/gpw/elt-D/AB/volts' in obj.iterkeys():
+#                 pprint.pprint(obj)
             reporting.push_metadata(obj)
             return subid, obj
         else:
@@ -53,6 +58,7 @@ class DataResource(resource.Resource):
         def add_error(x):
             # return a 500 so the sMAP server can hold onto the data
             # until things can be fixed.
+            print x
             request.setResponseCode(500)
             request.finish()
         
@@ -89,16 +95,25 @@ def getSite(db):
     return server.Site(root)
 
 if __name__ == '__main__':
+    parser = OptionParser()
+    parser.add_option('-p', '--port', dest='port', default=settings.MY_LOCATION[1],
+                      type='int',
+                      help='port to run server on')
+    parser.add_option('-n', '--no-subscribe', dest='subscribe', default=True,
+                      action='store_false')
+    opts, args = parser.parse_args()
+
     # connect to the mysql db
     cp = adbapi.ConnectionPool('MySQLdb', 
                                host=settings.MYSQL_HOST,
                                db=settings.MYSQL_DB,
                                user=settings.MYSQL_USER,
                                passwd=settings.MYSQL_PASS)
-    if not '-n' in sys.argv:
+    print "opts.subscribe", opts.subscribe
+    if opts.subscribe:
         subscribe(cp)
     site = getSite(cp)
 
     log.startLogging(sys.stdout)
-    reactor.listenTCP(settings.MY_LOCATION[1], site)
+    reactor.listenTCP(opts.port, site)
     reactor.run()

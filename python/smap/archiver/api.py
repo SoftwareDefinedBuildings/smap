@@ -98,9 +98,8 @@ class TagsResource(ApiResource):
         self.when = when
         d = self.db.runQuery("""
 SELECT tagname, tagval
-FROM metadata m
-WHERE `anchor` <= %s AND `anchor` + `duration` > %s AND `stream_id` = %s""",
-                             (when, when, int(streamid)))
+FROM metadata2 m
+WHERE  `stream_id` = %s""", (int(streamid), ))
         d.addCallback(lambda x: self._done(request, x))
         d.addErrback(makeErrback(request))
 
@@ -141,13 +140,12 @@ FROM subscription""")
             
             d = self.db.runQuery("""
 SELECT m.tagval, s.uuid
-FROM subscription sub, stream s, metadata m
+FROM subscription sub, stream s, metadata2 m
 WHERE tagname = 'Path' AND
     m.stream_id = s.id AND
     s.subscription_id = sub.id AND
-    sub.id = %s AND
-    m.anchor <= %s AND m.anchor + m.duration > %s
-""", (int(request.prepath[-1]), when, when))
+    sub.id = %s 
+""", (int(request.prepath[-1]), ))
             d.addCallback(lambda x: self._done_streams(request, x))
             d.addErrback(makeErrback(request))
         return server.NOT_DONE_YET
@@ -169,63 +167,55 @@ class QueryResource(ApiResource):
         if len(clauses) == 0 and len(tags) == 0:
             query = """
 SELECT DISTINCT tagname
-FROM metadata m
-WHERE m.anchor <= %i AND m.anchor + m.duration > %i""" % (now, now)
+FROM metadata2 m""" 
         elif tags[-1][0] == 'uuid':
             query = """
 SELECT DISTINCT s.uuid 
-FROM metadata AS m, stream AS s
+FROM metadata2 AS m, stream AS s
 WHERE m.stream_id IN 
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata
-     WHERE (%s) AND
-       anchor <= %i AND anchor + duration > %i
+     FROM metadata2
+     WHERE (%s)
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.stream_id = s.id AND
-m.anchor <= %i AND m.anchor + m.duration > %i
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
-                             len(clauses), now, now)
+m.stream_id = s.id
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+                             len(clauses))
 
         elif len(clauses) == 0:
             query = """
-SELECT DISTINCT tagval FROM metadata
-WHERE tagname = '%s' AND
-   anchor <= %i AND anchor + duration > %i
-""" % (tags[-1][0], now, now)
+SELECT DISTINCT tagval FROM metadata2
+WHERE tagname = '%s'
+""" % (tags[-1][0])
         elif tags[-1][1] == None or tags[-1][1] == '':
             query = """
 SELECT DISTINCT m.tagval 
-FROM metadata AS m
+FROM metadata2 AS m
 WHERE m.stream_id IN 
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata
-     WHERE (%s) AND
-        anchor <= %i AND anchor + duration > %i
+     FROM metadata2
+     WHERE (%s)
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.tagname = '%s' AND
-m.anchor <= %i AND m.anchor + m.duration > %i
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
+m.tagname = '%s'
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
                              len(clauses),
-                             tags[-1][0], now, now)
+                             tags[-1][0])
         else:
             query = """
 SELECT DISTINCT m.tagname
-FROM metadata AS m
+FROM metadata2 AS m
 WHERE m.stream_id IN 
   (SELECT oq.stream_id FROM
     (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata
-     WHERE (%s) AND
-       anchor <= %i AND anchor + duration > %i
+     FROM metadata2
+     WHERE (%s)
      GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i) AND
-  m.anchor <= %i AND m.anchor + m.duration > %i
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), now, now,
-                             len(clauses), now, now)
+   WHERE oq.cnt = %i)
+ORDER BY m.tagval ASC;""" % (' OR '.join(clauses),
+                             len(clauses))
 
         print query
         d = self.db.runQuery(query)

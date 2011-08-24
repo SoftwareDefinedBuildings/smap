@@ -122,7 +122,6 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if seqno: reading = time, value, seqno
         else: reading = time, value
         self["Readings"].append(reading)
-
         if not hasattr(self, 'inst'): return
 
         # if a timeseries is dirty, we need to republish all of its
@@ -247,6 +246,7 @@ sMAP reporting functionality."""
         self.reports = reporting.Reporting(self, reportfile=str(root_uuid), **kwargs)
         self.flush = self.reports.flush
         self._flush = self.reports._flush
+        self.loading = False
         self.add_collection("/")
         self.root_uuid = root_uuid
 
@@ -406,7 +406,7 @@ sMAP reporting functionality."""
         self.OBJS_PATH[util.join_path(path)] = timeseries
         timeseries.inst = self
         setattr(timeseries, 'path', util.join_path(path))
-        self.reports.update_subscriptions()
+        if not self.loading: self.reports.update_subscriptions()
         return timeseries
 
     def add_collection(self, path, *args): 
@@ -438,7 +438,7 @@ sMAP reporting functionality."""
                                 " exists!")
 
         self.OBJS_PATH[util.join_path(path)] = collection
-        self.reports.update_subscriptions()
+        if not self.loading: self.reports.update_subscriptions()
         return collection
 
     def set_metadata(self, path, *metadata):

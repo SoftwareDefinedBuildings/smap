@@ -18,11 +18,18 @@ from twisted.python import log
 
 import core
 
+try:
+    import cjson
+    json_encode = cjson.encode
+except ImportError:
+    json_encode = json.dumps
+
+
 is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
 
 def now():
-    return int(time.time()) * 1000
+    return int(time.time())
 
 def split_path(path):
     path = re.split('/+', path)

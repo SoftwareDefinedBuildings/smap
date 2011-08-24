@@ -26,20 +26,15 @@ CREATE TABLE stream (
 ) ENGINE=InnoDB;
 
 -- table for sMAP stream metadata
-CREATE TABLE metadata (
+CREATE TABLE metadata2 (
        `id` INT AUTO_INCREMENT PRIMARY KEY,
        `stream_id` INT,
-       `anchor` BIGINT NOT NULL,
-       `duration` BIGINT,
 
        `tagname` VARCHAR(64) NOT NULL,
        `tagval` TEXT NOT NULL,
 
        INDEX stream_id_ind(stream_id),
-       INDEX uuid_anchor_ind(stream_id, anchor),
+       UNIQUE INDEX uuid_anchor_ind(stream_id, tagname),
        FOREIGN KEY (stream_id) REFERENCES stream(id)
          ON DELETE CASCADE
 ) ENGINE=InnoDB;
-
--- insert into subscription values (1, UUID(), 'http://localhost:8080/', '/+', '2ZH78oL1aP3QfVnrkDu7VoYnDarbuunVMzGA');
--- insert into stream values (1, 1, 'f421c274-c3c1-11e0-851c-0026bb56ec92');

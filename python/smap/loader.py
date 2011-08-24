@@ -90,9 +90,12 @@ contain a ``uuid`` key to set the root identifier for the source.
 
     # we need the root to have a uuid
     inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
+    inst.foo = "bar"
+    inst.loading = True
     reports = []
 
     for s in conf.sections():
+        print "Loading section", s
         if s.startswith('report'):
             reportinst = {
                 'ReportDeliveryLocation' : [conf.get(s, 'ReportDeliveryLocation')],
@@ -129,9 +132,15 @@ contain a ``uuid`` key to set the root identifier for the source.
 
         # create the timeseries or collection
         if s == '/' or \
-               (conf.has_option(s, 'type') and conf.get(s, "type") == 'Collection'):
+               (conf.has_option(s, 'type') and conf.get(s, "type") == 'Collection') or \
+               inst.get_collection(s) != None:
             if s == '/':
                 c = inst.get_collection('/')
+            elif inst.get_collection(s) != None:
+                # sometimes you will have collections created twice,
+                # for instance if a driver creates it and then we want
+                # to tag it with metadata
+                c = inst.get_collection(s)
             else:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
@@ -182,6 +191,8 @@ contain a ``uuid`` key to set the root identifier for the source.
     for reportinst in reports:
         if not inst.reports.update_report(reportinst):
             inst.reports.add_report(reportinst)
+    inst.reports.update_subscriptions()
+    inst.loading = False
     return inst
 
 

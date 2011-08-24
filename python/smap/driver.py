@@ -76,9 +76,8 @@ class SmapDriver:
                                      "only be called with two or three "
                                      "positional arguments")
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
-    def add_collection(self, id, collection):
-        self.__inst.add_collection(self.__join_id(id), collection, 
-                                          namespace=self.namespace)
+    def add_collection(self, path, *args):
+        self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
     def add(self, id, *args):
