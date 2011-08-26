@@ -50,20 +50,20 @@ DB = [
             ],
 
         "meters" : [
-            ('kWh del', r'^(\d+)', 'ABC', 'true_energy', 'kW'),
-            ('kWh rec', r'^(\d+)', 'ABC', 'true_energy_received', 'kW'),
+            ('kWh del', r'^(\d+)', 'ABC', 'true_energy', 'kWh'),
+            ('kWh rec', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
 
-            ('kVARh del', r'^(\d+)', 'ABC', 'reactive_energy', 'kVAR'),
-            ('kVARh rec', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVAR'),
+            ('kVARh del', r'^(\d+)', 'ABC', 'reactive_energy', 'kVARh'),
+            ('kVARh rec', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVARh'),
 
-            ('kVAh del+rec', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVA'),
+            ('kVAh del+rec', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
 
-            ('kWh a del', r'^(\d+)', 'A', 'true_energy', 'kW'),
-            ('kWh a rec', r'^(\d+)', 'A', 'true_energy_received', 'kW'),
-            ('kWh b del', r'^(\d+)', 'B', 'true_energy', 'kW'),
-            ('kWh b rec', r'^(\d+)', 'B', 'true_energy_received', 'kW'),
-            ('kWh c del', r'^(\d+)', 'C', 'true_energy', 'kW'),
-            ('kWh c rec', r'^(\d+)', 'C', 'true_energy_received', 'kW'),
+            ('kWh a del', r'^(\d+)', 'A', 'true_energy', 'kWh'),
+            ('kWh a rec', r'^(\d+)', 'A', 'true_energy_received', 'kWh'),
+            ('kWh b del', r'^(\d+)', 'B', 'true_energy', 'kWh'),
+            ('kWh b rec', r'^(\d+)', 'B', 'true_energy_received', 'kWh'),
+            ('kWh c del', r'^(\d+)', 'C', 'true_energy', 'kWh'),
+            ('kWh c rec', r'^(\d+)', 'C', 'true_energy_received', 'kWh'),
             ]
         },
     {
@@ -99,13 +99,13 @@ DB = [
 
             ],
         'meters' : [
-            ('W-hours, Received', r'^(\d+)', 'ABC', 'true_energy_received', 'kW'),
-            ('W-hours, Delivered', r'^(\d+)', 'ABC', 'true_energy_delivered', 'kW'),
+            ('W-hours, Received', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
+            ('W-hours, Delivered', r'^(\d+)', 'ABC', 'true_energy_delivered', 'kWh'),
 
-            ('VAR-hours, Positive', r'^(\d+)', 'ABC', 'reactive_energy_positive', 'kVAR'),
-            ('VAR-hours, Negative', r'^(\d+)', 'ABC', 'reactive_energy_negative', 'kVAR'),
-            ('VAR-hours, Net', r'^(\d+)', 'ABC', 'reactive_energy_net', 'kVAR'),
-            ('VAR-hours, Total', r'^(\d+)', 'ABC', 'reactive_energy_total', 'kVAR'),
+            ('VAR-hours, Positive', r'^(\d+)', 'ABC', 'reactive_energy_positive', 'kVARh+'),
+            ('VAR-hours, Negative', r'^(\d+)', 'ABC', 'reactive_energy_negative', 'kVARh-'),
+            ('VAR-hours, Net', r'^(\d+)', 'ABC', 'reactive_energy_net', 'kVAR net'),
+            ('VAR-hours, Total', r'^(\d+)', 'ABC', 'reactive_energy_total', 'kVARh'),
 
             ]
         }

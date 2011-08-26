@@ -1,5 +1,6 @@
 #include <string.h>
 #include <errno.h>
+#include <Python.h>
 
 #include "TCPModbusClient.h"
 
@@ -33,7 +34,10 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     int bytesReply = MODBUS_MIN_REPLY;           /* Length of reply expected. */
     struct timeval timeout;
     modbus_reply error_reply;
+    PyThreadState *_save = PyEval_SaveThread();
+
     memset(&error_reply, 0, sizeof(error_reply));
+
 
     txBufLen = 0;
 
@@ -62,6 +66,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
 
     /* Create a reliable, stream socket using TCP */
     if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+      PyEval_RestoreThread(_save);
       DieWithError("socket() failed");
       return error_reply;
     }
@@ -69,18 +74,21 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,  &timeout, sizeof(timeout)) < 0) {
-        DieWithError("setsockopt(): setting timeout failed");
-        return error_reply;
+      PyEval_RestoreThread(_save);
+      DieWithError("setsockopt(): setting timeout failed");
+      return error_reply;
     }
 
     /* Establish the connection to the echo server */
     if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
-    	DieWithError("connect() failed");
-        return error_reply;
+      PyEval_RestoreThread(_save);
+      DieWithError("connect() failed");
+      return error_reply;
     }
 
     /* Send the string to the server */
     if (send(sock, txBuf, txBufLen, 0) != txBufLen) {
+        PyEval_RestoreThread(_save);
         DieWithError("send() sent a different number of bytes than expected");
         return error_reply;
     }
@@ -92,6 +100,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
         /* Receive up to the buffer size bytes from the sender */
         n = recv(sock, rxBuf + bytesRcvd, RCVBUFSIZE - bytesRcvd - 1, 0);
         if (n < 0) {
+            PyEval_RestoreThread(_save);
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 DieWithError("recv() timed out");
             } else {
@@ -123,6 +132,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     /* SDH : ? it's not a string...  */
     rxBuf[bytesRcvd] = '\0';  /* Terminate the string! */ 
     if (bytesRcvd < bytesReply) {
+        PyEval_RestoreThread(_save);
         DieWithError("failed to read Modbus reply: expecting %i bytes, got %i", 
                      bytesReply, bytesRcvd);
         close(sock);
@@ -130,6 +140,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     }
 
     close(sock);
+    PyEval_RestoreThread(_save);
     return print_received_msg((uint8_t *)rxBuf, bytesRcvd);
 }
 

@@ -25,18 +25,20 @@ class Driver(smap.driver.SmapDriver):
     def setup(self, opts):
         self.url = opts['Url']
         self.auth = (opts['Username'], opts['Password'])
-        self.mappings = [x for x in sensordb.DB if x['obviusname'] == opts['ObviousType']][0]
+        self.mappings = [x for x in sensordb.DB if x['obviusname'] == opts['ObviusType']][0]
         self.period = opts.get('Period', 30)
 
         self.set_metadata('/', {
-                'Extra/Driver' : 'smap.drivers.obvious',
-                'Instrument/Model' : opts['ObviousType']
+                'Extra/Driver' : 'smap.drivers.obvius',
+                'Instrument/Model' : opts['ObviusType']
                 })
                           
         # create all the channels
         for (field, regexp, phase, channel,fmt) in self.mappings['sensors'] + self.mappings['meters']:
             self.add_timeseries('/' + phase + '/' + channel, 
                                 fmt, data_type='double')
+            self.set_metadata('/' + phase, {
+                'Extra/Phase' : phase })
 
 
     def open_url(self, url, AUTH):
