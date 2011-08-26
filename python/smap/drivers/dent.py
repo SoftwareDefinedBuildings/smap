@@ -13,6 +13,7 @@ from twisted.internet import reactor, threads
 
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
+import smap.core as core
 import smap.util as util
 import smap.iface.modbus.TCPModbusClient as TCPModbusClient
 
@@ -107,7 +108,12 @@ class Dent18(SmapDriver):
     def blocking_startup(self):
         # read the scale register from the dent
         for i in range(0, len(self.elt_scales)):
-            scale = self.read_scale(self.base_addr + i)
+            for attempt in xrange(0, 5):
+                scale = self.read_scale(self.base_addr + i)
+                if scale != None: break
+            if scale == None:
+                raise core.SmapException("Could not read sale from dent: cannot proceed (%s)" %
+                                         (str(self.serverloc)))
             self.elt_scales[i] = self.elt_scales[i][0], scale
         print self.elt_scales
         reactor.callInThread(self.final_startup)
