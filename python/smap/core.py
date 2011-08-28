@@ -243,7 +243,10 @@ sMAP reporting functionality."""
         self.OBJS_PATH = {}
         self.OBJS_UUID = {}
         self.drivers = {}
-        self.reports = reporting.Reporting(self, reportfile=str(root_uuid), **kwargs)
+        if not 'reportfile' in kwargs:
+            self.reports = reporting.Reporting(self, reportfile=str(root_uuid), **kwargs)
+        else:
+            self.reports = reporting.Reporting(self, **kwargs)
         self.flush = self.reports.flush
         self._flush = self.reports._flush
         self.loading = False

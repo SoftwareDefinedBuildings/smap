@@ -1,23 +1,18 @@
 
 import sys
-import logging
-
-sys.path.append("../../newlib")
 
 import csv
-import smap.iface.http.httputils as httputils
 import urllib
 import datetime, time
-import smap.contrib.dtutil as dtutil
-import shelve
 
 import sensordb
 import auth
 import obvius
 
-from twisted.internet import reactor
 import smap.driver
 from smap.util import periodicSequentialCall
+import smap.iface.http.httputils as httputils
+import smap.contrib.dtutil as dtutil
 
 TIMEFMT = "%Y-%m-%d %H:%M:%S"
 

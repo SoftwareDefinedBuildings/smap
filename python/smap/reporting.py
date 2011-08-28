@@ -119,7 +119,10 @@ class DataBuffer:
              'Readings' in val and 'uuid' in val:
             if not 'Readings' in self.data[-1][key]:
                 self.data[-1][key]['Readings'] = []
-            self.data[-1][key]['Readings'].extend(val['Readings'])
+            if len(self.data[-1][key]['Readings']) < 100:
+                self.data[-1][key]['Readings'].extend(val['Readings'])
+            else:
+                self.data.append({key: reporting_copy(val)})
         # really this might just want to merge updates...
         elif key in self.data[-1] and val == self.data[-1][key]:
             pass

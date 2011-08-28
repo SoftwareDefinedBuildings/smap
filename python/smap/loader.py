@@ -89,7 +89,11 @@ contain a ``uuid`` key to set the root identifier for the source.
     conf.read(file)
 
     # we need the root to have a uuid
-    inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
+    if conf.has_option('/', 'NoReportFile'):
+        inst = core.SmapInstance(conf.get('/', 'uuid'), 
+                                 reportfile=None, **instargs)
+    else:
+        inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
     inst.foo = "bar"
     inst.loading = True
     reports = []

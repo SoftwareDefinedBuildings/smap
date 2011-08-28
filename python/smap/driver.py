@@ -27,8 +27,8 @@ class SmapDriver:
         inst.add_driver(attach_point, driver)
         return driver
 
-    flush = lambda self: self.smap_instance.reports.flush()
-    _flush = lambda self: self.smap_instance.reports._flush()
+    flush = lambda self: self.__inst.reports.flush()
+    _flush = lambda self: self.__inst.reports._flush()
 
     def __init__(self, smap_instance, attach_point, namespace):
         self.__inst = smap_instance
@@ -84,7 +84,6 @@ class SmapDriver:
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
         return self.__inst._add(self.__join_id(id), *args)
-
 
 class BaseDriver(SmapDriver):
     def setup(self, opts={}):
