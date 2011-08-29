@@ -1,0 +1,17 @@
+-- -*- sql -*-
+
+DROP FUNCTION IF EXISTS add_tag(INT, VARCHAR(64), TEXT);
+CREATE FUNCTION add_tag(stream INT, n VARCHAR(64), v TEXT) RETURNS VOID AS
+$$
+BEGIN
+    INSERT INTO metadata2(stream_id, tagname, tagval) VALUES (stream, n, v);
+EXCEPTION WHEN unique_violation THEN
+--    RAISE NOTICE 'tag val exists';
+    UPDATE metadata2 SET tagval = v WHERE stream_id = stream AND tagname = n AND tagval != v;
+END;
+$$
+LANGUAGE plpgsql;
+
+-- INSERT INTO subscription (uuid, url, resource, key) VALUES ('1231', 'http://', '/+', 'mykey');
+-- SELECT add_stream(1, '231321'), add_stream(1, '213');
+-- SELECT add_tag(39, 'Foo', 'Ba2r');

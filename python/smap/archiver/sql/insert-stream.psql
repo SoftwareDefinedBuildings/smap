@@ -1,0 +1,19 @@
+-- -*- sql -*-
+
+DROP FUNCTION IF EXISTS add_stream(INT, VARCHAR(64));
+CREATE FUNCTION add_stream(subscription INT, uid VARCHAR(64)) RETURNS INT AS
+$$
+BEGIN
+    INSERT INTO stream(subscription_id, uuid) VALUES (subscription, uid);
+    RETURN CURRVAL('stream_id_seq');
+EXCEPTION WHEN unique_violation THEN
+    RETURN (SELECT id FROM stream WHERE subscription_id = subscription AND uuid = uid);
+END;
+$$
+LANGUAGE plpgsql;
+
+-- DELETE FROM stream;
+-- DELETE FROM subscription;
+-- INSERT INTO subscription (id, uuid, url, resource, key) VALUES (1, '1231', 'http://', '/+', 'mykey');
+-- SELECT add_stream(1, '231321'), add_stream(1, '213'), add_stream(1, 'as123');
+-- SELECT add_stream(1, '231321'), add_stream(1, '213'), add_stream(1, 'as123');

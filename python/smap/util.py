@@ -21,9 +21,10 @@ import core
 try:
     import cjson
     json_encode = cjson.encode
+    json_decode = cjson.decode
 except ImportError:
     json_encode = json.dumps
-
+    json_decode = json.loads
 
 is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
@@ -110,7 +111,6 @@ class FixedSizeList(list):
         return "FixedSizeList(size=" + str(self.size) + \
             ", seqno=" + str(self.seqno) + ", init=" + \
             list.__repr__(self) + ")"
-
 
     def append(self, val):
         if self.sort_profile == True:

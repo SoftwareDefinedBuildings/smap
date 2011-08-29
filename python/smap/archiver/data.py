@@ -47,7 +47,7 @@ class SmapMetadata:
         """
         vals = []
         def addTag(uid, tn, tv):
-            vals.append("(%i,'%s','%s')" % (ids[uid],
+            vals.append("add_tag(%i,'%s','%s')" % (ids[uid],
                         sql.escape_string(tn),
                         sql.escape_string(tv)))
         ids = dict(ids)
@@ -63,9 +63,9 @@ class SmapMetadata:
     def _do_metadata(self, inserts):
         """Sequentially execute the metdata updates"""
         if len(inserts) > 0:
-            query = "INSERT INTO metadata2 (`stream_id`, `tagname`, `tagval`) VALUES " + \
-                    ','.join(inserts[:100]) + \
-                    " ON DUPLICATE KEY UPDATE `tagval` = VALUES(`tagval`);"
+            query = "SELECT " + \
+                    ','.join(inserts[:100])
+            print query
             d = self.db.runQuery(query)
             d.addCallback(lambda _: self._do_metadata(inserts[100:]))
             return d
@@ -110,40 +110,33 @@ class SmapData:
     def _add_data(self, subid, ids, obj):
         """Store the data and metadata contained in a Timeseires
         """
+        print ids
+        ids = dict(zip(map(operator.itemgetter('uuid'), obj.itervalues()),   ids[0]))
         md = SmapMetadata(self.db)
         meta_deferred = md.add(subid, ids, obj)
 
-        ids = dict(ids)
         data_deferred = threads.deferToThread(self._add_data_real, ids, obj)
         
-        return defer.DeferredList([meta_deferred, data_deferred], fireOnOneErrback=True, consumeErrors=True)
-
-    def _get_ids(self, subid, obj):
-        """Look up the stream ids from the uuids contained in a Timeseries
-        """
-        uuids = []
-        query = "SELECT uuid,id FROM stream WHERE `subscription_id` = %i AND " % int(subid)
-        for ts in obj.itervalues():
-            uuids.append("`uuid` = '%s'" % sql.escape_string(ts['uuid']))
-        query += '(' + ' OR '.join(uuids) + ')'
-        return self.db.runQuery(query)
+        return defer.DeferredList([meta_deferred, data_deferred], 
+                                  fireOnOneErrback=True, consumeErrors=True)
 
     def _create_ids(self, subid, obj):
         """Create any missing streamids from a Timeseries object.
         This way a select will always return the right results.
         """
         uuids = []
-        query = "INSERT IGNORE INTO stream (`subscription_id`, `uuid`) VALUES "
+        query = "SELECT "
         for ts in obj.itervalues():
-            uuids.append("(%i, '%s')" % (subid,
-                                         sql.escape_string(ts['uuid'])))
+            uuids.append("add_stream(%i, '%s')" % (subid,
+                                                   sql.escape_string(ts['uuid'])))
     
         query += ','.join(uuids)
+        print query
         return self.db.runQuery(query)
 
     def add(self, subid, obj):
         d = self._create_ids(subid, obj)
-        d.addCallback(lambda rv: self._get_ids(subid, obj))
+        # d.addCallback(lambda rv: self._get_ids(subid, obj))
         d.addCallback(lambda rv: self._add_data(subid, rv, obj))
 
         # all the errbacks should propagate up to the request handler so we can return a 500

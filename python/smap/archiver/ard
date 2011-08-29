@@ -2,9 +2,9 @@
 # -*- python -*-
 
 import sys
-import json
 import pprint
 from optparse import OptionParser
+import json
 
 from twisted.enterprise import adbapi
 from twisted.internet import reactor
@@ -14,7 +14,9 @@ from twisted.python import log
 
 from smap import subscriber, reporting
 from smap.server import RootResource
+import smap.util as util
 import settings, data, api
+
 
 class DataResource(resource.Resource):
     def __init__(self, db):
@@ -27,11 +29,10 @@ class DataResource(resource.Resource):
         return self.data.add(subid, obj)
 
     def _check_subscriber(self, request, subid):
+        print subid
         if len(subid) == 1:
             subid = subid[0][0]
             obj = json.load(request.content)
-#             if '/gpw/elt-D/AB/volts' in obj.iterkeys():
-#                 pprint.pprint(obj)
             reporting.push_metadata(obj)
             return subid, obj
         else:
@@ -40,14 +41,10 @@ class DataResource(resource.Resource):
         return server.NOT_DONE_YET
 
     def getChild(self, name, request):
-        """Only bother to check reports where the nonce is the right length"""
-        if len(name) == 36:
-            return self
-        else:
-            return NoResource()
+        return self
 
     def render_POST(self, request):
-        d = self.db.runQuery("SELECT id FROM subscription WHERE `key` = %s", 
+        d = self.db.runQuery("SELECT id FROM subscription WHERE key = %s", 
                              (request.prepath[-1],))
         d.addCallback(lambda x: self._check_subscriber(request, x))
         d.addCallback(lambda (subid, obj): self._add_data(subid, obj))
@@ -76,11 +73,12 @@ def _subscribe(result):
         dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION[0],
                                          settings.MY_LOCATION[1],
                                          key)
+        print dest
+        continue 
         s = subscriber.SmapSubscriber(url, dest, id=id, expire_time=None)
         s.subscribe()
         subs[id] = s
     return subs
-        
 
 def subscribe(db):
     d = db.runQuery('SELECT * FROM subscription')
@@ -94,6 +92,7 @@ def getSite(db):
     root.putChild('api', api.Api(db))
     return server.Site(root)
 
+
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option('-p', '--port', dest='port', default=settings.MY_LOCATION[1],
@@ -104,11 +103,11 @@ if __name__ == '__main__':
     opts, args = parser.parse_args()
 
     # connect to the mysql db
-    cp = adbapi.ConnectionPool('MySQLdb', 
+    cp = adbapi.ConnectionPool('pgdb', # 'MySQLdb', 
                                host=settings.MYSQL_HOST,
-                               db=settings.MYSQL_DB,
+                               database=settings.MYSQL_DB,
                                user=settings.MYSQL_USER,
-                               passwd=settings.MYSQL_PASS)
+                               password=settings.MYSQL_PASS)
     print "opts.subscribe", opts.subscribe
     if opts.subscribe:
         subscribe(cp)

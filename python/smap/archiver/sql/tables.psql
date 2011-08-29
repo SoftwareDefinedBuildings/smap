@@ -1,0 +1,55 @@
+-- -*- sql -*-
+
+DROP TABLE IF EXISTS metadata2;
+DROP TABLE IF EXISTS stream;
+DROP TABLE IF EXISTS subscription;
+DROP SEQUENCE IF EXISTS subscription_id_seq;
+DROP SEQUENCE IF EXISTS stream_id_seq;
+DROP SEQUENCE IF EXISTS metadata2_id_seq;
+
+-- table for list of sMAP sources we should be subscribed to
+CREATE TABLE subscription (
+       id INT PRIMARY KEY,
+       uuid VARCHAR(36),
+       url VARCHAR(512) NOT NULL,
+       resource VARCHAR(512) NOT NULL DEFAULT '/+',
+       key VARCHAR(36)
+);
+CREATE SEQUENCE subscription_id_seq;
+ALTER TABLE subscription
+  ALTER COLUMN id
+     SET DEFAULT NEXTVAL('subscription_id_seq');
+
+-- list of streams associated with a sMAP source
+CREATE TABLE stream (
+       id INT PRIMARY KEY,
+       subscription_id INT NOT NULL,
+       uuid VARCHAR(36) UNIQUE,
+
+       FOREIGN KEY (subscription_id) REFERENCES subscription(id)
+         ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX uuid_ind ON stream(uuid);
+CREATE INDEX subscription_int ON stream(subscription_id);
+CREATE SEQUENCE stream_id_seq;
+ALTER TABLE stream
+  ALTER COLUMN id
+    SET DEFAULT NEXTVAL('stream_id_seq');
+
+-- table for sMAP stream metadata
+CREATE TABLE metadata2 (
+       id INT PRIMARY KEY,
+       stream_id INT,
+
+       tagname VARCHAR(64) NOT NULL,
+       tagval TEXT NOT NULL,
+
+       FOREIGN KEY (stream_id) REFERENCES stream(id)
+         ON DELETE CASCADE
+);
+CREATE INDEX stream_id_ind ON metadata2(stream_id);
+CREATE UNIQUE INDEX uuid_anchor_ind ON metadata2(stream_id, tagname);
+CREATE SEQUENCE metadata2_id_seq;
+ALTER TABLE metadata2
+  ALTER COLUMN id
+    SET DEFAULT NEXTVAL('metadata2_id_seq');

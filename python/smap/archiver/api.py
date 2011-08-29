@@ -99,7 +99,7 @@ class TagsResource(ApiResource):
         d = self.db.runQuery("""
 SELECT tagname, tagval
 FROM metadata2 m
-WHERE  `stream_id` = %s""", (int(streamid), ))
+WHERE stream_id = %s""", (int(streamid), ))
         d.addCallback(lambda x: self._done(request, x))
         d.addErrback(makeErrback(request))
 
@@ -179,8 +179,7 @@ WHERE m.stream_id IN
      WHERE (%s)
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.stream_id = s.id
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+m.stream_id = s.id;""" % (' OR '.join(clauses), 
                              len(clauses))
 
         elif len(clauses) == 0:
@@ -199,8 +198,7 @@ WHERE m.stream_id IN
      WHERE (%s)
      GROUP BY stream_id) AS oq
    WHERE oq.cnt = %i) AND
-m.tagname = '%s'
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses), 
+m.tagname = '%s';""" % (' OR '.join(clauses), 
                              len(clauses),
                              tags[-1][0])
         else:
@@ -213,8 +211,7 @@ WHERE m.stream_id IN
      FROM metadata2
      WHERE (%s)
      GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i)
-ORDER BY m.tagval ASC;""" % (' OR '.join(clauses),
+   WHERE oq.cnt = %i);""" % (' OR '.join(clauses),
                              len(clauses))
 
         print query
@@ -264,7 +261,7 @@ class Api(resource.Resource):
         if len(request.prepath) == 1:
             print "dumping"
             return json.dumps({'Contents': ['streams', 'query', '<uuid>']})
-        d = self.db.runQuery("SELECT id FROM stream WHERE `uuid` = %s", 
+        d = self.db.runQuery("SELECT id FROM stream WHERE uuid = %s", 
                              (request.prepath[1], ))
         print "checking", request.prepath[1]
         d.addCallback(lambda x: self._lookup_method(request, x))
