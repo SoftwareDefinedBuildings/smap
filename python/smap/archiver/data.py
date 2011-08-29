@@ -110,8 +110,9 @@ class SmapData:
     def _add_data(self, subid, ids, obj):
         """Store the data and metadata contained in a Timeseires
         """
+        print len(ids), len(obj.keys())
         print ids
-        ids = dict(zip(map(operator.itemgetter('uuid'), obj.itervalues()),   ids[0]))
+        ids = dict(zip(map(operator.itemgetter('uuid'), obj.itervalues()), ids))
         md = SmapMetadata(self.db)
         meta_deferred = md.add(subid, ids, obj)
 
@@ -119,6 +120,19 @@ class SmapData:
         
         return defer.DeferredList([meta_deferred, data_deferred], 
                                   fireOnOneErrback=True, consumeErrors=True)
+
+    def _run_create(self, uuids, result, newresult):
+        """Chain together the stream creations so we don't exceed database limits"""
+        if len(uuids) > 0:
+            query = "SELECT " + ','.join(uuids[:1000])
+            print query
+            d = self.db.runQuery(query)
+            d.addCallback(lambda rv: self._run_create(uuids[1000:],
+                                                      result + newresult[0],
+                                                      rv))
+            return d
+        else:
+            return result + newresult[0]
 
     def _create_ids(self, subid, obj):
         """Create any missing streamids from a Timeseries object.
@@ -131,8 +145,7 @@ class SmapData:
                                                    sql.escape_string(ts['uuid'])))
     
         query += ','.join(uuids)
-        print query
-        return self.db.runQuery(query)
+        return self._run_create(uuids, [], [[]])
 
     def add(self, subid, obj):
         d = self._create_ids(subid, obj)
