@@ -73,8 +73,6 @@ def _subscribe(result):
         dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION[0],
                                          settings.MY_LOCATION[1],
                                          key)
-        print dest
-        continue 
         s = subscriber.SmapSubscriber(url, dest, id=id, expire_time=None)
         s.subscribe()
         subs[id] = s
@@ -107,7 +105,8 @@ if __name__ == '__main__':
                                host=settings.MYSQL_HOST,
                                database=settings.MYSQL_DB,
                                user=settings.MYSQL_USER,
-                               password=settings.MYSQL_PASS)
+                               password=settings.MYSQL_PASS,
+                               cp_min=5, cp_max=15)
     print "opts.subscribe", opts.subscribe
     if opts.subscribe:
         subscribe(cp)

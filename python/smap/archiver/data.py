@@ -65,7 +65,6 @@ class SmapMetadata:
         if len(inserts) > 0:
             query = "SELECT " + \
                     ','.join(inserts[:100])
-            print query
             d = self.db.runQuery(query)
             d.addCallback(lambda _: self._do_metadata(inserts[100:]))
             return d
@@ -110,8 +109,6 @@ class SmapData:
     def _add_data(self, subid, ids, obj):
         """Store the data and metadata contained in a Timeseires
         """
-        print len(ids), len(obj.keys())
-        print ids
         ids = dict(zip(map(operator.itemgetter('uuid'), obj.itervalues()), ids))
         md = SmapMetadata(self.db)
         meta_deferred = md.add(subid, ids, obj)
@@ -125,7 +122,6 @@ class SmapData:
         """Chain together the stream creations so we don't exceed database limits"""
         if len(uuids) > 0:
             query = "SELECT " + ','.join(uuids[:1000])
-            print query
             d = self.db.runQuery(query)
             d.addCallback(lambda rv: self._run_create(uuids[1000:],
                                                       result + newresult[0],

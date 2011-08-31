@@ -58,7 +58,7 @@ class DataResource(ApiResource):
         try:
             start = int(request.args.get('starttime', [now - 3600 * 24])[0])
             end = int(request.args.get('endtime', [now])[0])
-            limit = int(request.args.get('limit', [1])[0])
+            limit = int(request.args.get('limit', [-1])[0])
             method = request.args.get('direction', ["query"])[0]
         except:
             request.setResponseCode(400)
@@ -69,12 +69,31 @@ class DataResource(ApiResource):
             method_, start_, end_, limit_, streamid_ =  \
                 method, start, end, limit, streamid
             def queryFunc(db):
+                qstart = start_
+                qlimit = limit_
                 if method_ == 'query':
-                    return rdb.db_query(db, streamid_, start / 1000, end / 1000)
+                    try:
+                        rv = []
+                        # no limit if zero
+                        if qlimit == -1:
+                            qlimit = 1000000
+
+                        while True:
+                            data = rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
+                            rv += data[:min(len(data), qlimit)]
+                            qlimit -= min(len(data), qlimit)
+                            qstart = (rv[-1][0])*1000
+                            if len(data) < 10000 or \
+                               qlimit <= 0: break
+                        return rv
+                    except:
+                        traceback.print_exc()
                 elif method == 'next':
-                    return rdb.db_next(db, streamid_, start / 1000, n = limit_)
+                    if qlimit == -1: qlimit = 1
+                    return rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
                 elif method == 'prev':
-                    return rdb.db_prev(db, streamid_, start / 1000, n = limit_)
+                    if qlimit == -1: qlimit = 1
+                    return rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
                 return None
             return queryFunc
 

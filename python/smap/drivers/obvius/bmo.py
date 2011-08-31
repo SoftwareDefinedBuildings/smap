@@ -58,8 +58,10 @@ class BMOLoader(smap.driver.SmapDriver):
                                  as_fp=True, auth=auth.BMOAUTH)
         reader = csv.reader(fp, dialect='excel-tab')
         header = reader.next()
+        if len(header) == 0:
+            print "Warning: no data from", self.url
+            return
         field_map = make_field_idxs(self.meter_type, header)
-
         self.data = []
         for r in reader:
             ts = dtutil.strptime_tz(r[0], TIMEFMT, tzstr='UTC')

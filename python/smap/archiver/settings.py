@@ -10,7 +10,7 @@ EXPIRE_TIME = None
 CHECK_TIME = None
 
 # the location of the readingdb server which holds the timeseries
-READINGDB = ('jackalope.cs.berkeley.edu', 4242)
+READINGDB = ('gecko.cs.berkeley.edu', 4243)
 
 # mysql setup for metadata and other tables
 MYSQL_HOST = 'jackalope.cs.berkeley.edu'
