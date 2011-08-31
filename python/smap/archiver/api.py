@@ -221,7 +221,7 @@ WHERE """ + build_authcheck(request) + """ AND
             query = """
 SELECT DISTINCT s.uuid 
 FROM metadata2 AS m, stream AS s
-WHERE m.stream_id IN """ + inner_query + """ 
+WHERE m.stream_id IN """ + inner_query + """ AND
  m.stream_id = s.id"""
 
         elif len(clauses) == 0:
@@ -234,7 +234,7 @@ WHERE m.tagname = '%s' AND """ + build_authcheck(request) + """ AND
             query = ("""
 SELECT DISTINCT m.tagval 
 FROM metadata2 AS m
-WHERE m.stream_id IN """ + inner_query + """
+WHERE m.stream_id IN """ + inner_query + """ AND
 m.tagname = '%s';""") % (tags[-1][0])
         else:
             query = """
