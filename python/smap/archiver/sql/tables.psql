@@ -13,8 +13,10 @@ CREATE TABLE subscription (
        uuid VARCHAR(36),
        url VARCHAR(512) NOT NULL,
        resource VARCHAR(512) NOT NULL DEFAULT '/+',
-       key VARCHAR(36)
+       key VARCHAR(36),
+       public BOOLEAN DEFAULT true
 );
+CREATE UNIQUE INDEX subscription_key_ind ON subscription(key)
 CREATE SEQUENCE subscription_id_seq;
 ALTER TABLE subscription
   ALTER COLUMN id

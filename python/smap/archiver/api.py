@@ -25,6 +25,17 @@ def makeErrback(request_):
         except:
             traceback.print_exc()
 
+def build_authcheck(request):
+    if not 'private' in request.args:
+        query = "(sub.public "
+    else:
+        query = "(false "
+    if 'key' in request.args:
+        query += 'OR ' + ' OR '.join(["sub.key = '%s'" % sql.escape_string(x) 
+                                      for x in request.args['key']])
+    query += ")"
+    return query
+
 class ApiResource(resource.Resource):
     def __init__(self, db):
         self.db = db
@@ -56,7 +67,7 @@ class DataResource(ApiResource):
     def render_GET(self, request, streamid):
         now = int(time.time()) * 1000
         try:
-            start = int(request.args.get('starttime', [now - 3600 * 24])[0])
+            start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
             end = int(request.args.get('endtime', [now])[0])
             limit = int(request.args.get('limit', [-1])[0])
             method = request.args.get('direction', ["query"])[0]
@@ -151,7 +162,7 @@ class SubscriptionResource(ApiResource):
                 (len(request.prepath) == 3 and request.prepath[-1] == ''):
             d = self.db.runQuery("""
 SELECT id, url, resource
-FROM subscription""")
+FROM subscription sub WHERE """ + build_authcheck(request))
             d.addCallback(lambda x: self._done_subs(request, x))
             d.addErrback(makeErrback(request))
         else:
@@ -160,7 +171,8 @@ FROM subscription""")
             d = self.db.runQuery("""
 SELECT m.tagval, s.uuid
 FROM subscription sub, stream s, metadata2 m
-WHERE tagname = 'Path' AND
+WHERE """ + build_authcheck(request) + """ AND 
+    tagname = 'Path' AND
     m.stream_id = s.id AND
     s.subscription_id = sub.id AND
     sub.id = %s 
@@ -175,7 +187,7 @@ class QueryResource(ApiResource):
         d = util.AsyncJSON(map(operator.itemgetter(0), result)).startProducing(request)
         d.addBoth(lambda _: request.finish())
 
-    def build_query(self, tags):
+    def build_query(self, request, tags):
         now = int(time.time()) * 1000
         clauses = []
         for (k, v) in tags:
@@ -183,56 +195,53 @@ class QueryResource(ApiResource):
                 clauses.append("(tagname = '%s' AND tagval = '%s')" % (sql.escape_string(k),
                                                                        sql.escape_string(v)))
             else: break
+
+        # the inner query builds a list of streams matching all the
+        # clauses which we can then select from
+
+        # perform the auth check in the inner query to give us the
+        # most selectivity and avoid returning rows which the user
+        # can't access.
+        inner_query = ("""
+ (SELECT oq.stream_id FROM
+   (SELECT stream_id, count(stream_id) AS cnt
+    FROM metadata2 mi, subscription sub, stream si
+    WHERE (%s) AND """ + build_authcheck(request) + """ AND
+       mi.stream_id = si.id AND si.subscription_id = sub.id
+    GROUP BY stream_id) AS oq
+   WHERE oq.cnt = %i)""") % (' OR '.join(clauses), len(clauses))
+
         if len(clauses) == 0 and len(tags) == 0:
             query = """
 SELECT DISTINCT tagname
-FROM metadata2 m""" 
+FROM metadata2 m, subscription sub, stream s
+WHERE """ + build_authcheck(request) + """ AND
+   m.stream_id = s.id AND s.subscription_id = sub.id"""
         elif tags[-1][0] == 'uuid':
             query = """
 SELECT DISTINCT s.uuid 
 FROM metadata2 AS m, stream AS s
-WHERE m.stream_id IN 
-  (SELECT oq.stream_id FROM
-    (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata2
-     WHERE (%s)
-     GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i) AND
-m.stream_id = s.id;""" % (' OR '.join(clauses), 
-                             len(clauses))
+WHERE m.stream_id IN """ + inner_query + """ 
+ m.stream_id = s.id"""
 
         elif len(clauses) == 0:
-            query = """
-SELECT DISTINCT tagval FROM metadata2
-WHERE tagname = '%s'
-""" % (tags[-1][0])
+            query = ("""
+SELECT DISTINCT m.tagval FROM metadata2 m, stream s, subscription sub
+WHERE m.tagname = '%s' AND """ + build_authcheck(request) + """ AND
+   m.stream_id = s.id AND s.subscription_id = sub.id
+""") % (tags[-1][0])
         elif tags[-1][1] == None or tags[-1][1] == '':
-            query = """
+            query = ("""
 SELECT DISTINCT m.tagval 
 FROM metadata2 AS m
-WHERE m.stream_id IN 
-  (SELECT oq.stream_id FROM
-    (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata2
-     WHERE (%s)
-     GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i) AND
-m.tagname = '%s';""" % (' OR '.join(clauses), 
-                             len(clauses),
-                             tags[-1][0])
+WHERE m.stream_id IN """ + inner_query + """
+m.tagname = '%s';""") % (tags[-1][0])
         else:
             query = """
-SELECT DISTINCT m.tagname
+SELECT DISTINCT tagname
 FROM metadata2 AS m
-WHERE m.stream_id IN 
-  (SELECT oq.stream_id FROM
-    (SELECT stream_id, count(stream_id) AS cnt
-     FROM metadata2
-     WHERE (%s)
-     GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i);""" % (' OR '.join(clauses),
-                             len(clauses))
-
+WHERE m.stream_id IN """ + inner_query 
+            
         print query
         d = self.db.runQuery(query)
         return d
@@ -241,12 +250,15 @@ WHERE m.stream_id IN
     def render_GET(self, request):
         path = map(lambda x: x.replace('__', '/'), request.postpath)
         path = map(urllib.unquote, path)
-        d = self.build_query(zip(path[::2], 
-                                path[1::2] + [None]))
+        d = self.build_query(request,
+                             zip(path[::2], 
+                                 path[1::2] + [None]))
         d.addCallback(lambda r: self.render_reply(request, r))
         return server.NOT_DONE_YET
 
 class Api(resource.Resource):
+    """Children of ApiResource don't need to worry about permissions checks
+    """
     def __init__(self, db):
         self.db = db
         resource.Resource.__init__(self)
@@ -280,7 +292,10 @@ class Api(resource.Resource):
         if len(request.prepath) == 1:
             print "dumping"
             return json.dumps({'Contents': ['streams', 'query', '<uuid>']})
-        d = self.db.runQuery("SELECT id FROM stream WHERE uuid = %s", 
+        d = self.db.runQuery("""
+SELECT stream.id FROM stream, subscription sub 
+WHERE stream.subscription_id = sub.id AND """ + build_authcheck(request) + " AND "
+                             """stream.uuid = %s""" ,
                              (request.prepath[1], ))
         print "checking", request.prepath[1]
         d.addCallback(lambda x: self._lookup_method(request, x))
