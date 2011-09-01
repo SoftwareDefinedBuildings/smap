@@ -31,7 +31,6 @@ configuration file which tells the sMAP runtime about the source you
 want to create.  An example which uses this driver is::
 
  [/]
- type = Collection
  uuid = fc778450-b191-11e0-bb60-0026bb56ec92
  
  [/OAKLAND]
@@ -48,7 +47,7 @@ Once you have this config file (available in
 ``python/conf/caiso_price.ini``), you can run the source by typing in
 the ``python`` directory::
 
- $ python bin/run-conf conf/caiso.ini 
+ $ python bin/smap-run-conf conf/caiso.ini 
  2011-07-19 14:20:59-0700 [-] Log opened.
  2011-07-19 14:21:00-0700 [-] twisted.web.server.Site starting on 8080
  2011-07-19 14:21:00-0700 [-] Starting factory <twisted.web.server.Site instance at 0x901498c>
@@ -66,7 +65,7 @@ Writing Drivers
 
 A common design pattern is to implement a "driver" for a type of
 instrument, and then copy that driver to represent multiple
-instruments of the same class.  For instance, you would want to write
+instruments of the same class.  For instance, you would write
 one driver for the Dent electric meter, and then connect that driver
 to new Dent meters which are mapped into the sMAP hierarchy.
 
@@ -83,7 +82,7 @@ example::
     
   class BaseDriver(driver.SmapDriver):
       def setup(self, opts):
-          selt.ts = self.add_timeseries('/sensor0', 'V')
+          self.add_timeseries('/sensor0', 'V')
           self.set_metadata('/sensor0', { 
               'Instrument/ModelName' : 'ExampleInstrument'
               })
@@ -93,29 +92,28 @@ example::
           util.periodicSequentialCall(self.read).start(1)
 
       def read(self):
-          self.t.add(self.counter)
+          self.add('/sensor0', self.counter)
           self.counter += 1
 
 To start a sMAP instance which exposes only this driver, you can use
-the ``run-driver`` tool; this example is available as
+the ``smap-run-driver`` tool; this example is available as
 :py:class:`smap.driver.BaseDriver`::
 
- $ python bin/run-driver smap.driver.BaseDriver
+ $ python bin/smap-run-driver smap.driver.BaseDriver
 
 We can also have this all done from a config file.  Typically, you
-would debug your driver first inside of ``run-driver`` before
+would debug your driver first inside of ``smap-run-driver`` before
 inflicting it on the wider world.  Let's modify the old config
 snippet from before::
 
   [/]
-  type = Collection
   uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
 
   [/instrument0]
   type = smap.driver.BaseDriver
   Metadata/Instrument/Manufacturer = sMAP Implementer Forum
 
-We can now run this just as easily as before either using ``run-conf``
+We can now run this just as easily as before either using ``smap-run-conf``
 or programmatically::
 
   from smap import loader, server
@@ -175,7 +173,8 @@ In this example, we just added a single timeseries which will be
 located at ``/data/sensor0``.  The second argument, 'sensor0', is a
 key which durably names this timeseries.  This way, you can change the
 path but consumers will still be able to tell that it's the same
-stream.  Finally, 'V' is the units of the stream: volts.
+stream.  If you don't include this argument, the path will be used.
+Finally, 'V' is the units of the stream: volts.
 
 ``my_timeseries`` holds the newly created :py:class:`Timeseries` object.
 You can also get that back by looking it up by path in the instance::
