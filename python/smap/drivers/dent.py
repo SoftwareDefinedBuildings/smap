@@ -109,7 +109,10 @@ class Dent18(SmapDriver):
         # read the scale register from the dent
         for i in range(0, len(self.elt_scales)):
             for attempt in xrange(0, 5):
-                scale = self.read_scale(self.base_addr + i)
+                try:
+                    scale = self.read_scale(self.base_addr + i)
+                except IOError:
+                    scale = None
                 if scale != None: break
             if scale == None:
                 raise core.SmapException("Could not read sale from dent: cannot proceed (%s)" %
@@ -165,14 +168,13 @@ class Dent18(SmapDriver):
             self.update(self.elt_scales[i][0], self.elt_scales[i][1], self.base_addr + i)
 
     def update(self, elt, scale, modbus_addr):
-        print "updating readings", elt, scale, modbus_addr
         self.modbus_addr = modbus_addr
         response = self.dev_read(4000, 70)
         time.sleep(2)
         data = [(TCPModbusClient.get_val(response.modbus_reg_val, i) & 0xffff)
                 for i in range(0, response.modbus_val_bytes / 2)]
-        print len(data)
         if len(data) != 70:
+            print "Short read from", self.serverloc,  modbus_addr
             return
 
         reading_time = int(time.time())

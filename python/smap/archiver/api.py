@@ -93,9 +93,9 @@ class DataResource(ApiResource):
                             data = rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
                             rv += data[:min(len(data), qlimit)]
                             qlimit -= min(len(data), qlimit)
-                            qstart = (rv[-1][0])*1000
                             if len(data) < 10000 or \
                                qlimit <= 0: break
+                            qstart = (rv[-1][0])*1000
                         return rv
                     except:
                         traceback.print_exc()
@@ -216,7 +216,8 @@ class QueryResource(ApiResource):
 SELECT DISTINCT tagname
 FROM metadata2 m, subscription sub, stream s
 WHERE """ + build_authcheck(request) + """ AND
-   m.stream_id = s.id AND s.subscription_id = sub.id"""
+   m.stream_id = s.id AND s.subscription_id = sub.id
+ORDER BY tagname ASC"""
         elif tags[-1][0] == 'uuid':
             query = """
 SELECT DISTINCT s.uuid 
@@ -229,18 +230,21 @@ WHERE m.stream_id IN """ + inner_query + """ AND
 SELECT DISTINCT m.tagval FROM metadata2 m, stream s, subscription sub
 WHERE m.tagname = '%s' AND """ + build_authcheck(request) + """ AND
    m.stream_id = s.id AND s.subscription_id = sub.id
+ORDER BY m.tagval ASC
 """) % (tags[-1][0])
         elif tags[-1][1] == None or tags[-1][1] == '':
             query = ("""
 SELECT DISTINCT m.tagval 
 FROM metadata2 AS m
 WHERE m.stream_id IN """ + inner_query + """ AND
-m.tagname = '%s';""") % (tags[-1][0])
+m.tagname = '%s'
+ORDER BY m.tagval ASC""") % (tags[-1][0])
         else:
             query = """
 SELECT DISTINCT tagname
 FROM metadata2 AS m
-WHERE m.stream_id IN """ + inner_query 
+WHERE m.stream_id IN """ + inner_query + """
+ORDER BY tagname ASC"""
             
         print query
         d = self.db.runQuery(query)

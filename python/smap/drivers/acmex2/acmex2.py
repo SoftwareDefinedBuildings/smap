@@ -24,9 +24,9 @@ class ACmeX2Driver(SmapDriver, DatagramProtocol):
         print rpt
         if not moteid in self.ids:
             self.ids[moteid] = True
-            self.add_timeseries('/' + moteid + '/true_power', 'mW')
-            self.add_timeseries('/' + moteid + '/apparent_power', 'mVA')
-            self.add_timeseries('/' + moteid + '/true_energy', 'mWh')
+            self.add_timeseries('/' + moteid + '/true_power', 'mW', buffersz=2)
+            self.add_timeseries('/' + moteid + '/apparent_power', 'mVA', buffersz=2)
+            self.add_timeseries('/' + moteid + '/true_energy', 'mWh', buffersz=2)
             self.set_metadata('/' + moteid, {
                 'Instrument/PartNumber' : moteid,
                 'Instrument/SerialNumber' : ':'.join(['%02x' % x for x in rpt.get_eui64()]),

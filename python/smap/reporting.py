@@ -196,11 +196,15 @@ class ReportInstance(dict):
                                            str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
         # set up an agent to push the data to the consumer
         agent = Agent(reactor)
-        d = agent.request('POST',
-                          str(self['ReportDeliveryLocation'][0]),
-                          Headers({'Content-type' : 
-                                   ['application/json']}),
-                          util.AsyncJSON(data))
+        try:
+            d = agent.request('POST',
+                              str(self['ReportDeliveryLocation'][0]),
+                              Headers({'Content-type' : 
+                                       ['application/json']}), 
+                              util.AsyncJSON(data))
+        except:
+            traceback.print_exc()
+            return
 
         def makeSuccessCb():
             # make a closure for removing the delivered data

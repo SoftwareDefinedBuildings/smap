@@ -126,15 +126,15 @@ DB = [
     {
         'obviusname' : 'Power Measurement ION 7330',
         "sensors" : [
-            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('I a (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
 
             ('I1 THD', MAYBEFLOATPAT, 'A', 'thd', 'pct'),
             ('I2 THD', MAYBEFLOATPAT, 'B', 'thd', 'pct'),
             ('I3 THD', MAYBEFLOATPAT, 'C', 'thd', 'pct'),
 
-            ('Freq', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Freq (Hz)', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
 
             ('Vll ab', r'^(\d+)', 'AB', 'volts', 'V'),
             ('Vll bc', r'^(\d+)', 'BC', 'volts', 'V'),
@@ -144,9 +144,9 @@ DB = [
             ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
             ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
 
-            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
-            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
-            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
+            ('kW td (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
+            ('kVA td (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
+            ('kVAR td (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
 
             ('PF sign tot', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF')
             ],
@@ -164,15 +164,15 @@ DB = [
     {
         'obviusname' : 'Power Measurement ION 7300',
         "sensors" : [
-            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('I a (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
 
             ('I1 THD', MAYBEFLOATPAT, 'A', 'thd', 'pct'),
             ('I2 THD', MAYBEFLOATPAT, 'B', 'thd', 'pct'),
             ('I3 THD', MAYBEFLOATPAT, 'C', 'thd', 'pct'),
 
-            ('Freq', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Freq (Hz)', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
 
             ('Vll ab', r'^(\d+)', 'AB', 'volts', 'V'),
             ('Vll bc', r'^(\d+)', 'BC', 'volts', 'V'),
@@ -182,9 +182,9 @@ DB = [
             ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
             ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
 
-            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
-            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
-            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
+            ('kW td (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
+            ('kVA td (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
+            ('kVAR td (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
 
             ('PF sign tot', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF')
             ],

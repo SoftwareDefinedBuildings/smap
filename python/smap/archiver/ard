@@ -29,7 +29,6 @@ class DataResource(resource.Resource):
         return self.data.add(subid, obj)
 
     def _check_subscriber(self, request, subid):
-        print subid
         if len(subid) == 1:
             subid = subid[0][0]
             obj = json.load(request.content)
