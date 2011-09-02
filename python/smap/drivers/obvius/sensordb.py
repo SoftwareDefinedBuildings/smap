@@ -108,7 +108,66 @@ DB = [
             ('VAR-hours, Total', r'^(\d+)', 'ABC', 'reactive_energy_total', 'kVARh'),
 
             ]
+        },
+    {
+        'obviusname' : 'AcquiSuite 8811-1 Internal 4A4P-M2',
+        'locations' : ['Soda Hall'],
+        'meters' : [
+            ('Steam (Lbs)', r'^(\d)+', 'steam', 'total', 'Lbs'),
+            ('Steam Rate', r'^(\d)+', 'steam', 'rate', 'Lbs/hr'),
+            ('Electric Main #1 (#...213) (kWh)', r'^(\d)+', 'electric_1', 'true_energy_received', 'kWh'),
+            ('Electric Main #1 (#...213) Demand (kW)', r'^(\d)+', 'electric_1', 'real_power', 'kW'),
+            ('Electric Main #2 (#...378) (kWh)', r'^(\d)+', 'electric_2', 'true_energy_received', 'kWh'),
+            ('Electric Main #2 (#...378) Demand (kW)', r'^(\d)+', 'electric_2', 'real_power', 'kW'),
+            
+            ],
+        'sensors' : []
+        },
+    {
+        'obviusname' : 'Power Measurement ION 7330',
+        "sensors" : [
+            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
+
+            ('I1 THD', MAYBEFLOATPAT, 'A', 'thd', 'pct'),
+            ('I2 THD', MAYBEFLOATPAT, 'B', 'thd', 'pct'),
+            ('I3 THD', MAYBEFLOATPAT, 'C', 'thd', 'pct'),
+
+            ('Freq', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+
+            ('Vll ab', r'^(\d+)', 'AB', 'volts', 'V'),
+            ('Vll bc', r'^(\d+)', 'BC', 'volts', 'V'),
+            ('Vll ca', r'^(\d+)', 'AC', 'volts', 'V'),
+
+            ('kW tot', r'^(\d+)', 'ABC', 'real_power', 'kW'),
+            ('kVA tot', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
+            ('kVAR tot', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
+
+            ('kW tot', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
+            ('kVA tot', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
+            ('kVAR tot', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
+
+            ('PF sign tot', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF')
+            ],
+
+        "meters" : [
+            ('kWh del', r'^(\d+)', 'ABC', 'true_energy', 'kWh'),
+            ('kWh rec', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
+
+            ('kVARh del', r'^(\d+)', 'ABC', 'reactive_energy', 'kVARh'),
+            ('kVARh rec', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVARh'),
+
+            ('kVAh', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
+            ]
+
         }
     ]
 
 TYPES = [x['obviusname'] for x in DB]
+def get_map(type, location=None):
+    for m in DB:
+        if m['obviusname'] == type and ( \
+            location == None or not 'locations' in m or location in m['locations']):
+            return m
+    return None

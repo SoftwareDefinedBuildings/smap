@@ -83,11 +83,15 @@ if __name__ == '__main__':
     
     if opts.types:
         mtypes = {}
-        for v in devices.itervalues():
+        for name, v in devices.iteritems():
             for t in v['subdevices']:
-                mtypes[t['type']] = mtypes.get(t['type'], 0) + 1
+                if not t['type'] in mtypes:
+                    mtypes[t['type']] = {'count': 0, 'locs': []}
+                print mtypes[t['type']]
+                mtypes[t['type']]['count'] = mtypes[t['type']]['count'] + 1
+                mtypes[t['type']]['locs'].append(name)
         for n, c in mtypes.iteritems():
-            print c, n
+            print c['count'], n, ' '.join(c['locs'])
 
     if opts.buildings:
         print '\n'.join(devices.iterkeys())
@@ -113,8 +117,7 @@ if opts.conf:
         
         sec = None
         for d in devs['subdevices']:
-            print d
-            if d['type'] in sensordb.TYPES:
+            if sensordb.get_map(d['type'], location) != None:
                 sec = make_section((location, d['name']))
                 conf.add_section(sec)
                 conf.set(sec, 'type', 'smap.drivers.obvius.obvius.Driver')
@@ -135,7 +138,7 @@ elif opts.load:
         if location in auth.AUTH: continue
         for d in devs['subdevices']:
             thisconf = {}
-            if d['type'] in sensordb.TYPES:
+            if sensordb.get_map(d['type'], location) != None:
                 dlurl = BMOROOT + 'mbdev_export.php/' + params['AS'][0] + '_' +  \
                     d['address'] + '.csv' + "?DB=" + params['DB'][0] + '&AS=' + \
                     params['AS'][0] + '&MB=' + d['address'] + '&DOWNLOAD=YES' + \

@@ -19,7 +19,7 @@ TIMEFMT = "%Y-%m-%d %H:%M:%S"
 def make_field_idxs(type, header):
     paths = [None]
     for t in header[1:]:
-        map_ = [x for x in sensordb.DB if x['obviusname'] == type][0]
+        map_ = sensordb.get_map(type)
         paths.append(None)
         for channel in map_['sensors'] + map_['meters']:
             if t.strip().startswith(channel[0]):
@@ -35,7 +35,7 @@ class BMOLoader(smap.driver.SmapDriver):
             raise SmapLoadError(self.meter_type + " is not a known obvius meter type")
         self.push_hist = None
 
-        map_ = [x for x in sensordb.DB if x['obviusname'] == self.meter_type][0]
+        map_ = sensordb.get_map(self.meter_type)
         self.set_metadata('/', {
                 'Extra/Driver' : 'smap.drivers.obvius.bmo.BMOLoader' })
         for channel in map_['sensors'] + map_['meters']:
@@ -58,6 +58,7 @@ class BMOLoader(smap.driver.SmapDriver):
                                  as_fp=True, auth=auth.BMOAUTH)
         reader = csv.reader(fp, dialect='excel-tab')
         header = reader.next()
+        print header
         if len(header) == 0:
             print "Warning: no data from", self.url
             return
