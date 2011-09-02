@@ -140,23 +140,23 @@ DB = [
             ('Vll bc', r'^(\d+)', 'BC', 'volts', 'V'),
             ('Vll ca', r'^(\d+)', 'AC', 'volts', 'V'),
 
-            ('kW tot', r'^(\d+)', 'ABC', 'real_power', 'kW'),
-            ('kVA tot', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
-            ('kVAR tot', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
+            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power', 'kW'),
+            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
+            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
 
-            ('kW tot', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
-            ('kVA tot', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
-            ('kVAR tot', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
+            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
+            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
+            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
 
             ('PF sign tot', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF')
             ],
 
         "meters" : [
-            ('kWh del', r'^(\d+)', 'ABC', 'true_energy', 'kWh'),
-            ('kWh rec', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
+            ('kWh del (kWh)', r'^(\d+)', 'ABC', 'true_energy', 'kWh'),
+            ('kWh rec (kWh)', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
 
-            ('kVARh del', r'^(\d+)', 'ABC', 'reactive_energy', 'kVARh'),
-            ('kVARh rec', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVARh'),
+            ('kVARh del (kVARh)', r'^(\d+)', 'ABC', 'reactive_energy', 'kVARh'),
+            ('kVARh rec (kVARh)', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVARh'),
 
             ('kVAh', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
             ]
