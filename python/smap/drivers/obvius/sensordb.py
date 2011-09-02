@@ -160,8 +160,46 @@ DB = [
 
             ('kVAh', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
             ]
+        },
+    {
+        'obviusname' : 'Power Measurement ION 7300',
+        "sensors" : [
+            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
 
+            ('I1 THD', MAYBEFLOATPAT, 'A', 'thd', 'pct'),
+            ('I2 THD', MAYBEFLOATPAT, 'B', 'thd', 'pct'),
+            ('I3 THD', MAYBEFLOATPAT, 'C', 'thd', 'pct'),
+
+            ('Freq', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+
+            ('Vll ab', r'^(\d+)', 'AB', 'volts', 'V'),
+            ('Vll bc', r'^(\d+)', 'BC', 'volts', 'V'),
+            ('Vll ca', r'^(\d+)', 'AC', 'volts', 'V'),
+
+            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power', 'kW'),
+            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
+            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power', 'kVAR'),
+
+            ('kW tot (kW)', r'^(\d+)', 'ABC', 'real_power_demand', 'kW'),
+            ('kVA tot (kVA)', r'^(\d+)', 'ABC', 'apparent_power_demand', 'kVA'),
+            ('kVAR tot (kVAR)', r'^(\d+)', 'ABC', 'reactive_power_demand', 'kVAR'),
+
+            ('PF sign tot', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF')
+            ],
+
+        "meters" : [
+            ('kWh del (kWh)', r'^(\d+)', 'ABC', 'true_energy', 'kWh'),
+            ('kWh rec (kWh)', r'^(\d+)', 'ABC', 'true_energy_received', 'kWh'),
+
+            ('kVARh del (kVARh)', r'^(\d+)', 'ABC', 'reactive_energy', 'kVARh'),
+            ('kVARh rec (kVARh)', r'^(\d+)', 'ABC', 'reactive_energy_received', 'kVARh'),
+
+            ('kVAh', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
+            ]
         }
+
     ]
 
 TYPES = [x['obviusname'] for x in DB]
