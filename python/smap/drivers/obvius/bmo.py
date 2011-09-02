@@ -24,6 +24,14 @@ def make_field_idxs(type, header):
         for channel in map_['sensors'] + map_['meters']:
             if t.strip().startswith(channel[0]):
                 paths[-1] = (channel[2], channel[3])
+    ddups = {}
+    for elt in paths:
+        if elt:
+            name = '-'.join(elt)
+            ddups[name] = ddups.get(name, 0) + 1
+    for k, v in ddups.iteritems():
+        if v > 1:
+            print "WARNING:", v, "matching channels for", k
     return paths
 
 class BMOLoader(smap.driver.SmapDriver):
@@ -58,11 +66,12 @@ class BMOLoader(smap.driver.SmapDriver):
                                  as_fp=True, auth=auth.BMOAUTH)
         reader = csv.reader(fp, dialect='excel-tab')
         header = reader.next()
-        print header
         if len(header) == 0:
             print "Warning: no data from", self.url
             return
         field_map = make_field_idxs(self.meter_type, header)
+        # print '\n'.join(map(str, (zip(header, field_map))))
+
         self.data = []
         for r in reader:
             ts = dtutil.strptime_tz(r[0], TIMEFMT, tzstr='UTC')
