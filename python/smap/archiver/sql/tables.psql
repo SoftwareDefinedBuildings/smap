@@ -16,7 +16,7 @@ CREATE TABLE subscription (
        key VARCHAR(36),
        public BOOLEAN DEFAULT true
 );
-CREATE UNIQUE INDEX subscription_key_ind ON subscription(key)
+CREATE UNIQUE INDEX subscription_key_ind ON subscription(key);
 CREATE SEQUENCE subscription_id_seq;
 ALTER TABLE subscription
   ALTER COLUMN id
