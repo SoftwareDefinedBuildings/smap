@@ -3,7 +3,7 @@ import traceback
 import operator
 import pprint
 
-from twisted.internet import threads, defer
+from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
 import MySQLdb as sql
 
@@ -16,8 +16,17 @@ import settings
 class ReadingdbPool:
     def __init__(self):
         self.pool = []
+        reactor.addSystemEventTrigger('after', 'shutdown', 
+                                      self.shutdown)
+
+    def shutdown(self):
+        print "ReadingdbPool shutting down:", len(self.pool)
+        map(rdb.db_close, self.pool)
 
     def get(self):
+#         if len(self.pool) > 0:
+#             return self.pool.pop()
+#         else:
         return rdb.db_open(host=settings.READINGDB[0],
                            port=settings.READINGDB[1])
             

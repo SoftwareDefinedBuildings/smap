@@ -26,6 +26,9 @@ def makeErrback(request_):
             traceback.print_exc()
 
 def build_authcheck(request):
+    """Build an SQL WHERE clause which enforces access restrictions.
+    Will pull any credentials out of the request object passed in.
+    """
     if not 'private' in request.args:
         query = "(sub.public "
     else:
@@ -41,8 +44,17 @@ class ApiResource(resource.Resource):
         self.db = db
         resource.Resource.__init__(self)
 
-class DataResource(ApiResource):
+class DataRequester:
+    """Manage loading data from a single stream from a readingdb
+    backend.  Will chain deferred together to return a partial
+    timeseries which contains just the uuid and the requested data.
+    """
+    def __init__(self, uid):
+        self.uid = uid
+
     def _load_data(self, qfunc):
+        """Run in thread pool - connect and execute query func
+        """
         try:
             conn = data.rdb_pool.get()
             rv = qfunc(conn)
@@ -52,37 +64,34 @@ class DataResource(ApiResource):
         finally:
             data.rdb_pool.put(conn)
 
-    def _send_reply(self, request, data):
-        def mungeData(rec):
-            return (rec[0] * 1000, rec[2])
+    def _munge_data(self, (request, data)):
+        """Tweak the resulting object to be a Timeseries
+        """
+        if data != None:
+            return request, {
+                'uuid': self.uid,
+                'Readings' : map(lambda x: (x[0] * 1000, x[2]), data)
+                }
+        return request, None
 
-        if data == None:
-            request.setResponseCode(500)
-            request.finish()
-        else:
-            data = cjson.encode(map(mungeData, data))
-            request.write(data)
-            request.finish()
-
-    def render_GET(self, request, streamid):
+    def load_data(self, request, method, streamid):
+        """Called to kick off a load -- returns a deferred which will
+        yield a (request, Timeseries) tuple when it finishes.        
+        """
+        # if these raise an exception we'll cancel all the loads
         now = int(time.time()) * 1000
-        try:
-            start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
-            end = int(request.args.get('endtime', [now])[0])
-            limit = int(request.args.get('limit', [-1])[0])
-            method = request.args.get('direction', ["query"])[0]
-        except:
-            request.setResponseCode(400)
-            request.finish()
-            return
+        start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
+        end = int(request.args.get('endtime', [now])[0])
+        limit = int(request.args.get('limit', [-1])[0])
+        # print now, start, end, method, streamid
 
         def mkQueryFunc():
-            method_, start_, end_, limit_, streamid_ =  \
-                method, start, end, limit, streamid
+            request_, method_, start_, end_, limit_, streamid_ =  \
+                request, method, start, end, limit, streamid
             def queryFunc(db):
                 qstart = start_
                 qlimit = limit_
-                if method_ == 'query':
+                if method_ == 'data':
                     try:
                         rv = []
                         # no limit if zero
@@ -96,42 +105,23 @@ class DataResource(ApiResource):
                             if len(data) < 10000 or \
                                qlimit <= 0: break
                             qstart = (rv[-1][0])*1000
-                        return rv
+                        return request, rv
                     except:
                         traceback.print_exc()
                 elif method == 'next':
                     if qlimit == -1: qlimit = 1
-                    return rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
+                    return request, rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
                 elif method == 'prev':
                     if qlimit == -1: qlimit = 1
-                    return rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
-                return None
+                    return request, rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
+                return request, []
             return queryFunc
 
         d = threads.deferToThread(self._load_data, mkQueryFunc())
-        d.addCallback(lambda x: self._send_reply(request, x))
+        d.addCallback(self._munge_data)
         d.addErrback(makeErrback(request))
+        return d
 
-
-class TagsResource(ApiResource):
-    def _done(self, request, result):
-        result = dict(result)
-        result['uuid'] = request.prepath[1]
-        result['ValidTime'] = str(self.when)
-
-        d = util.AsyncJSON(dict(result)).startProducing(request)
-        d.addBoth(lambda _: request.finish())
-
-    def render_GET(self, request, streamid, when=None):
-        if not when:
-            when = int(time.time()) * 1000
-        self.when = when
-        d = self.db.runQuery("""
-SELECT tagname, tagval
-FROM metadata2 m
-WHERE stream_id = %s""", (int(streamid), ))
-        d.addCallback(lambda x: self._done(request, x))
-        d.addErrback(makeErrback(request))
 
 class SubscriptionResource(ApiResource):
     """Show the client a list of sMAP sources, or a small description
@@ -181,129 +171,188 @@ WHERE """ + build_authcheck(request) + """ AND
             d.addErrback(makeErrback(request))
         return server.NOT_DONE_YET
 
-
-class QueryResource(ApiResource):
-    def render_reply(self, request, result):
-        d = util.AsyncJSON(map(operator.itemgetter(0), result)).startProducing(request)
-        d.addBoth(lambda _: request.finish())
-
-    def build_query(self, request, tags):
-        now = int(time.time()) * 1000
-        clauses = []
-        for (k, v) in tags:
+def build_inner_query(request, tags):
+    """Build an "inner query" -- a query which yields a list of stream
+    ids (indexes in the stream table).  These match the identifiers
+    used in the reading db, or can be used as part of a join.  The
+    query performs auth checks and will check for the tags specified.
+    """
+    clauses = []
+    uuid_clause = "true"
+    for (k, v) in tags:
+        if k == 'uuid': 
             if v != None:
-                clauses.append("(tagname = '%s' AND tagval = '%s')" % (sql.escape_string(k),
-                                                                       sql.escape_string(v)))
-            else: break
+                uuid_clause = "s.uuid = '%s'" % sql.escape_string(v)
+            continue
+        if v != None:
+            clauses.append("(tagname = '%s' AND tagval = '%s')" % (sql.escape_string(k),
+                                                                   sql.escape_string(v)))
+        else: break
 
-        # the inner query builds a list of streams matching all the
-        # clauses which we can then select from
+    # the inner query builds a list of streams matching all the
+    # clauses which we can then select from
 
-        # perform the auth check in the inner query to give us the
-        # most selectivity and avoid returning rows which the user
-        # can't access.
+    # perform the auth check in the inner query to give us the
+    # most selectivity and avoid returning rows which the user
+    # can't access.
+    if len(clauses) == 0:
+        inner_query = """
+(SELECT s.id FROM stream s, subscription sub
+ WHERE s.subscription_id = sub.id AND %s AND %s)""" % (
+            build_authcheck(request), uuid_clause)
+    else:
         inner_query = ("""
- (SELECT oq.stream_id FROM
-   (SELECT stream_id, count(stream_id) AS cnt
-    FROM metadata2 mi, subscription sub, stream si
-    WHERE (%s) AND """ + build_authcheck(request) + """ AND
-       mi.stream_id = si.id AND si.subscription_id = sub.id
-    GROUP BY stream_id) AS oq
-   WHERE oq.cnt = %i)""") % (' OR '.join(clauses), len(clauses))
+(SELECT oq.stream_id FROM
+(SELECT stream_id, count(stream_id) AS cnt
+FROM metadata2 mi, subscription sub, stream si
+WHERE (%s) AND """ + build_authcheck(request) + """ AND
+   mi.stream_id = si.id AND si.subscription_id = sub.id
+GROUP BY stream_id) AS oq
+WHERE oq.cnt = %i) AND %s""") % (' OR '.join(clauses), len(clauses), uuid_clause)
+    return inner_query, clauses
 
-        if len(clauses) == 0 and len(tags) == 0:
-            query = """
+def build_query(db, request, tags):
+    """Will wrap a query which an appropriate selector to yield
+    distinct tagnames, tagvals, or uuids depending on what is needed.
+    """
+    inner_query, clauses = build_inner_query(request, tags)
+
+    if len(clauses) == 0 and len(tags) == 0:
+        query = """
 SELECT DISTINCT tagname
 FROM metadata2 m, subscription sub, stream s
 WHERE """ + build_authcheck(request) + """ AND
-   m.stream_id = s.id AND s.subscription_id = sub.id
+m.stream_id = s.id AND s.subscription_id = sub.id
 ORDER BY tagname ASC"""
-        elif tags[-1][0] == 'uuid':
-            query = """
+    elif tags[-1][0] == 'uuid':
+        query = """
 SELECT DISTINCT s.uuid 
 FROM metadata2 AS m, stream AS s
 WHERE m.stream_id IN """ + inner_query + """ AND
- m.stream_id = s.id"""
+m.stream_id = s.id"""
 
-        elif len(clauses) == 0:
-            query = ("""
+    elif len(clauses) == 0:
+        query = ("""
 SELECT DISTINCT m.tagval FROM metadata2 m, stream s, subscription sub
 WHERE m.tagname = '%s' AND """ + build_authcheck(request) + """ AND
-   m.stream_id = s.id AND s.subscription_id = sub.id
+m.stream_id = s.id AND s.subscription_id = sub.id
 ORDER BY m.tagval ASC
 """) % (tags[-1][0])
-        elif tags[-1][1] == None or tags[-1][1] == '':
-            query = ("""
+    elif tags[-1][1] == None or tags[-1][1] == '':
+        query = ("""
 SELECT DISTINCT m.tagval 
 FROM metadata2 AS m
 WHERE m.stream_id IN """ + inner_query + """ AND
 m.tagname = '%s'
 ORDER BY m.tagval ASC""") % (tags[-1][0])
-        else:
-            query = """
+    else:
+        query = """
 SELECT DISTINCT tagname
 FROM metadata2 AS m
 WHERE m.stream_id IN """ + inner_query + """
 ORDER BY tagname ASC"""
-            
-        print query
-        d = self.db.runQuery(query)
-        return d
 
-    isLeaf = True
-    def render_GET(self, request):
-        path = map(lambda x: x.replace('__', '/'), request.postpath)
-        path = map(urllib.unquote, path)
-        d = self.build_query(request,
-                             zip(path[::2], 
-                                 path[1::2] + [None]))
-        d.addCallback(lambda r: self.render_reply(request, r))
-        return server.NOT_DONE_YET
+    print query
+    d = db.runQuery(query)
+    return d
+
+def build_tag_query(db, request, tags):
+    """Wraps an inner query to select all tags for streams which match
+    the tags query.
+    """
+    inner_query, clauses = build_inner_query(request, tags)
+    query = """
+SELECT s.uuid, m.tagname, m.tagval
+FROM metadata2 m, stream s
+WHERE m.stream_id IN """ + inner_query + """ AND
+  m.stream_id = s.id
+ORDER BY m.stream_id ASC"""
+    print query
+    return db.runQuery(query)
+
 
 class Api(resource.Resource):
-    """Children of ApiResource don't need to worry about permissions checks
+    """Provide api calls against the databases for data and tag lookups.
     """
     def __init__(self, db):
         self.db = db
         resource.Resource.__init__(self)
 
-    def _lookup_method(self, request, id):
-        if len(id) != 1:
-            request.setResponseCode(404)
-            request.finish()
-            return
-        streamid = id[0][0]
-        if request.prepath[2] == 'tags':
-            resource = TagsResource(self.db)
-        elif request.prepath[2] == 'data':
-            resource = DataResource(self.db)
-        else:
-            request.write('Error')
-            request.finish()
-            return
+    def generic_extract_result(self, request, result):
+        return request, map(operator.itemgetter(0), result)
 
-        return resource.render_GET(request, streamid)
+    def tag_extract_result(self, request, result):
+        rv = {}
+        for uid, tn, tv in result:
+            if not uid in rv: rv[uid] = {}
+            rv[uid][tn] = tv
+            rv[uid]['uuid'] = uid
+        return request, map(lambda x: util.build_recursive(x, suppress=[]), rv.values())
+
+    def data_load_extract(self, result):
+        return result[0][1][0], map(lambda x: x[1][1], result)
+    
+    def data_load_result(self, request, method, result):
+        callbacks = []
+        for uid, stream_id in result:
+            loader = DataRequester(uid)
+            callbacks.append(loader.load_data(request, method, stream_id))
+        d = defer.DeferredList(callbacks)
+        d.addCallback(self.data_load_extract)
+        return d
+
+    def send_reply(self, (request, result)):
+        request.write(util.json_encode(result))
+        request.finish()
 
     def getChild(self, name, request):
+        # except for streams, all api resources specify a set of
+        # streams using a query path.  therefore they all operate on
+        # sets of streams.
         if name == 'streams':
             return SubscriptionResource(self.db)
-        elif name == 'query':
-            return QueryResource(self.db)
         else:
             return self
 
     def render_GET(self, request):
         if len(request.prepath) == 1:
-            print "dumping"
-            return json.dumps({'Contents': ['streams', 'query', '<uuid>']})
-        d = self.db.runQuery("""
-SELECT stream.id FROM stream, subscription sub 
-WHERE stream.subscription_id = sub.id AND """ + build_authcheck(request) + " AND "
-                             """stream.uuid = %s""" ,
-                             (request.prepath[1], ))
-        print "checking", request.prepath[1]
-        d.addCallback(lambda x: self._lookup_method(request, x))
-        d.addErrback(makeErrback(request))
+            return json.dumps({'Contents': ['streams', 'query', 'data', 
+                                            'next', 'prev', 'tags']})
+        # start by looking up the set of streams we are going to operate on
+        path = map(lambda x: x.replace('__', '/'), request.prepath[2:])
+        path = map(urllib.unquote, path)
+        method = request.prepath[1]
+
+        if method != 'query':
+            if len(path) % 2 != 0:
+                request.setResponseCode(400)
+                request.finish()
+                return server.NOT_DONE_YET
+            path.append('uuid')            
+
+        if method == 'query':
+            # this allows a user to enumerate tags
+            d = build_query(self.db,
+                            request,
+                            zip(path[::2], 
+                                path[1::2] + [None]))
+            d.addCallback(lambda r: self.generic_extract_result(request, r))
+        elif method == 'tags':
+            # retrieve tags
+            d = build_tag_query(self.db,
+                                request, 
+                                zip(path[::2], 
+                                    path[1::2] + [None]))
+            d.addCallback(lambda r: self.tag_extract_result(request, r))
+        elif method in ['data', 'next', 'prev']:
+            # retrieve data
+            d = self.db.runQuery("""SELECT uuid, id FROM stream WHERE
+id IN """ + build_inner_query(request,
+                              zip(path[::2], 
+                                  path[1::2] + [None]))[0])
+            d.addCallback(lambda r: self.data_load_result(request, method, r))
+
+        d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 
 

@@ -68,7 +68,7 @@ def _subscribe(result):
     Returns map of uuid => :py:class:`smap.subscriber.SmapSubcriber` instances 
     """
     subs = {}
-    for (_, id, url, resource, key, public) in result:
+    for (url, id, key) in result:
         dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION[0],
                                          settings.MY_LOCATION[1],
                                          key)
@@ -78,13 +78,12 @@ def _subscribe(result):
     return subs
 
 def subscribe(db):
-    d = db.runQuery('SELECT * FROM subscription')
+    d = db.runQuery('SELECT url, uuid, key FROM subscription WHERE url IS NOT NULL')
     d.addCallback(_subscribe)
     return d
 
 def getSite(db):
-    root = RootResource(value={
-            'Contents': ['add', 'api']})
+    root = RootResource(value={'Contents': ['add', 'api']})
     root.putChild('add', DataResource(db))
     root.putChild('api', api.Api(db))
     return server.Site(root)
@@ -93,8 +92,7 @@ def getSite(db):
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option('-p', '--port', dest='port', default=settings.MY_LOCATION[1],
-                      type='int',
-                      help='port to run server on')
+                      type='int', help='port to run server on')
     parser.add_option('-n', '--no-subscribe', dest='subscribe', default=True,
                       action='store_false')
     opts, args = parser.parse_args()

@@ -68,10 +68,10 @@ def buildkv(fullname, obj):
         return [(fullname, obj)]
 
 # make a nested object from a config file line
-def build_recursive(d):
+def build_recursive(d, suppress=['type', 'key', 'uuid']):
     rv = {}
     for k, v in d.iteritems():
-        if k in ['type', 'key', 'uuid']: continue
+        if k in suppress: continue
         pieces = k.split('/')
         cur = rv
         for cmp in pieces[:-1]:
