@@ -5,9 +5,9 @@ import uuid
 from avro import schema, io
 
 import util
+import pkgutil
 
 NAMESPACE = "edu.berkeley.cs.local"
-SCHEMA_DIR = os.path.join(os.path.dirname(__file__), "../../schema")
 SCHEMA_NAMES = schema.Names(default_namespace=NAMESPACE)
 SCHEMAS = [
     # new extension types
@@ -27,10 +27,9 @@ SCHEMA_OBJECTS = []
 # load all the schemas when we check an object
 for sf in SCHEMAS:
     # print "Loading", sf
-    with open(os.path.join(SCHEMA_DIR, sf.lower() + ".av"), "r") as fp:
-        obj = json.load(fp)
-        s = schema.make_avsc_object(obj, SCHEMA_NAMES)
-        SCHEMA_OBJECTS.append(obj)
+    obj = json.loads(pkgutil.get_data(__name__, 'schema/' + sf.lower() + ".av"))
+    s = schema.make_avsc_object(obj, SCHEMA_NAMES)
+    SCHEMA_OBJECTS.append(obj)
         
 def validate(schema, obj):
     """Validate an object against its schema.
