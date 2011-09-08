@@ -1,0 +1,8 @@
+{
+  "name" : "Formatting",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "Store information required for interpreting and printing a Reading",
+  "fields" : [
+  ]
+}

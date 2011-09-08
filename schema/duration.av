@@ -1,0 +1,10 @@
+{
+  "name" : "Duration",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "Represent a time duration",
+  "fields" : [
+     {"name" : "Value", "type" : "long" },
+     {"name" : "UnitofTime", "type" : "UnitofTime"}
+    ]
+}

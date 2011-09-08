@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+# -*- python -*-
+
+import sys
+import uuid
+import logging
+from optparse import OptionParser
+
+from twisted.python import log
+
+from smap import core, server, driver, loader
+
+def get_parser():
+    usage = 'usage: %prog [options] conf-file'
+    parser = OptionParser(usage=usage)
+    parser.add_option('-p', '--port', dest='port', default=8080,
+                      type='int',
+                      help='port to run server on')
+    return parser
+
+def start_log():
+    log.startLogging(sys.stdout)
+
+if __name__ == '__main__':
+    parser = get_parser()
+    opts, args = parser.parse_args()
+    if len(args) != 1: 
+        parser.error("conf file is a required argument")
+
+    start_log()
+    inst = loader.load(args[0])
+    server.run(inst, port=opts.port)

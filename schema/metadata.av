@@ -1,0 +1,12 @@
+{
+  "name" : "Metadata",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A container class containing a single time series",
+  "fields" : [
+    {"name" : "SourceName", "type" : ["null", "string"]},
+    {"name" : "Instrument", "type" : ["null", "InstrumentMetadata"]},
+    {"name" : "Location", "type" : ["null", "LocationMetadata"]},
+    {"name" : "Extra", "type" : ["null", { "type" : "map", "values" : "string"} ] }
+  ]
+}

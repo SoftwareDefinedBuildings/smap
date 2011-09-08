@@ -1,0 +1,11 @@
+{
+  "name" : "Collection",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A container class containing other collections or timeseries",
+  "fields" : [
+           {"name" : "Proxy", "type" : ["null", "boolean"], "default": "false"},
+           {"name" : "Metadata", "type" : ["null", "Metadata"]},
+           {"name" : "Contents", "type" : { "type" : "array", "items" : "string"}}
+  ]
+}

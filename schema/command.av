@@ -1,0 +1,10 @@
+{
+  "name" : "Command",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A command to change the state of the actuator",
+  "fields" : [
+    {"name" : "uuid", "type" : "uuid"},
+    {"name" : "Value", "type" : ["long", "double"]}
+  ]
+}

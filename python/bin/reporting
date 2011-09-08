@@ -1,0 +1,57 @@
+#!/usr/bin/python
+# -*- python -*-
+
+import sys
+import optparse
+import pprint
+
+from twisted.internet import reactor, defer
+from twisted.python import log
+
+from smap import reporting
+from smap import util
+
+parser = optparse.OptionParser()
+parser.add_option('-d', '--deliver', dest='deliver', action='store_true',
+                  default=False, help='Deliver undelivered data')
+parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
+                  default=False, help='Dump pending data verbosely')
+parser.add_option('-e', '--edit', dest='uuid', type='string',
+                  default=False, help='report uuid instance to edit')
+parser.add_option('-l', '--location', dest='location', type='string',
+                  default=False, help='different report location')
+parser.add_option('-t', '--truncate', dest='truncate', type='int',
+                  default=False, help='truncate log')
+opts, args = parser.parse_args()
+
+deferList = []
+for rf in args:
+    rpt = util.pickle_load(rf)
+
+    print '=' * 60
+    print " ReportFile:", rf
+    print
+    for r in rpt:
+        if opts.uuid == str(r['uuid']):
+            if opts.location:
+                r['ReportDeliveryLocation'] = [opts.location]
+            #if opts.truncate:
+                # print "Truncating to", opts.truncate, "log entries"
+                #del r['PendingData'][opts.truncate:]
+        for k in ['uuid', 'ReportDeliveryLocation', 'ReportResource', 'MinPeriod', 'MaxPeriod']:
+            print ' ', k, ':', r[k]
+        print "  Log Length:", len(r['PendingData'])
+        print
+    if opts.uuid:
+        print "saving edited report"
+        util.pickle_dump(rf, rpt)
+
+    if opts.deliver:
+        rinst = reporting.Reporting(None, reportfile=rf, autoflush=None)
+        deferList.append(rinst._flush(force=True))
+
+if opts.deliver and len(filter(lambda x: x != None, deferList)) > 0:
+    log.startLogging(sys.stdout)
+    d = defer.DeferredList(deferList, fireOnOneErrback=True, consumeErrors=True)
+    d.addBoth(lambda _: reactor.stop())
+    reactor.run()

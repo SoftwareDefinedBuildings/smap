@@ -1,0 +1,7 @@
+{
+ "name" : "ReadingType",
+ "type" : "enum",
+ "namespace" : "edu.berkeley.cs.local",
+ "doc" : "Represent a reading from a single stream",
+ "symbols" : ["long", "double", "string"]
+}
