@@ -31,6 +31,7 @@ class SmapServiceMaker(object):
             port = options["port"]
         else:
             port = smapconf.SERVER['Port']
+        inst.start()
 
         return internet.TCPServer(int(port), getSite(inst))
 
