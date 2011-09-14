@@ -3,12 +3,14 @@ from distutils.core import setup
 import glob
 
 setup(name="Smap",
-      version="1.1",
+      version="2.0",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
-      packages=["smap", "smap.drivers", 
+      packages=["smap", 
+                "smap.drivers", 
                 "smap.contrib",
+                "smap.archiver",
                 "smap.iface", "smap.iface.http", "smap.iface.modbus",
                 "smap.drivers.obvius",
                 # packages for the acme driver -- don't install this in trunk/
@@ -19,4 +21,5 @@ setup(name="Smap",
       requires=["avro", "twisted"],
       package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av']},
-      scripts=['bin/smap-run-driver', 'bin/smap-run-conf'])
+      scripts=['bin/smap-run-driver', 'bin/smap-run-conf', 
+               'bin/jprint', 'bin/uuid'])

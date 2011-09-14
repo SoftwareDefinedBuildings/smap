@@ -10,6 +10,7 @@ except ImportError:
 import core
 import util
 import driver
+import smapconf
 
 class SmapLoadError(core.SmapException):
     """An error was encountered loading a config file"""
@@ -88,13 +89,18 @@ contain a ``uuid`` key to set the root identifier for the source.
     conf.optionxform = str
     conf.read(file)
 
+    # if there's a server section, override the default server
+    # configuration with that
+    if conf.has_section('server'):
+        server_conf = dict(conf.items('server'))
+        smapconf.SERVER = util.dict_merge(smapconf.SERVER, server_conf)
+
     # we need the root to have a uuid
     if conf.has_option('/', 'NoReportFile'):
         inst = core.SmapInstance(conf.get('/', 'uuid'), 
                                  reportfile=None, **instargs)
     else:
         inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
-    inst.foo = "bar"
     inst.loading = True
     reports = []
 
