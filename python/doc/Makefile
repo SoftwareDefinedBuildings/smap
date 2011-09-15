@@ -130,4 +130,5 @@ doctest:
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
 pub: html
-	scp -r _build/html stevedh@local.cs.berkeley.edu:~/public_html/smap2/
+	ssh stevedh@local.cs.berkeley.edu "rm -rf ~/public_html/smap2/"
+	scp -r _build/html/ stevedh@local.cs.berkeley.edu:~/public_html/smap2/

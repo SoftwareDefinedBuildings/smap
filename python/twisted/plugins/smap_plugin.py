@@ -1,4 +1,5 @@
 
+import os
 import sys
 
 from zope.interface import implements
@@ -12,8 +13,12 @@ from smap import core, loader, smapconf
 from smap.server import getSite
 
 class Options(usage.Options):
-    optParameters = [["conf", "c", None, "sMAP configuration file"],
+    optParameters = [["data-dir", "d", None, "directory for data"],
                      ["port", "p", None, "service port number"]]
+
+    def parseArgs(self, conf):
+        self['conf'] = conf
+
 
 class SmapServiceMaker(object):
     implements(IServiceMaker, IPlugin)
@@ -22,9 +27,11 @@ class SmapServiceMaker(object):
     options = Options
 
     def makeService(self, options):
-        if options['conf'] == None:
-            print >>sys.stderr, "FATAL: Must provide a sMAP config file (use -c)"
-            sys.exit(1)
+
+        if options['data-dir'] != None:
+            if not os.access(options['data-dir'], os.X_OK | os.W_OK):
+                raise core.SmapException("Cannot access " + options['data-dir'])
+        smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])
         if options["port"] != None:

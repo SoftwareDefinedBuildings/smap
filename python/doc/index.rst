@@ -20,7 +20,9 @@ profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
    :maxdepth: 1
 
    intro
+   install
    tutorial
+   internals
    core
 
 Indices and tables

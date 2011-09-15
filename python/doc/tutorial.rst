@@ -7,7 +7,6 @@ In this tutorial you will learn how to:
 * Write a sMAP driver
 * Manage the destination of data using the :py:class:`smap.reporting.Reporting` module
 
-
 Your First sMAP Source
 ----------------------
 .. py:currentmodule:: smap.driver
@@ -32,22 +31,23 @@ want to create.  An example which uses this driver is::
 
  [/]
  uuid = fc778450-b191-11e0-bb60-0026bb56ec92
+ Metadata/SourceName = CA ISO price feed
  
  [/OAKLAND]
- key = /OAKLAND_1_N001
  type = smap.drivers.caiso_price.CaIsoPrice
  Location = OAKLAND_1_N001
 
 We've mapped in the driver under the ``/OAKLAND`` resource; all feeds
 provided by this driver will be underneath that resource.  The
 Location parameter is passed to the driver, and tells it what ISO
-"node" to scrape.  We'll get to what ``uuid`` and ``key`` do later on.
+"node" to scrape.  We'll get to what ``uuid`` and
+``Metadata/SourceName`` do later on.
 
 Once you have this config file (available in
 ``python/conf/caiso_price.ini``), you can run the source by typing in
 the ``python`` directory::
 
- $ python bin/smap-run-conf conf/caiso.ini 
+ $ twistd -n smap conf/caiso.ini 
  2011-07-19 14:20:59-0700 [-] Log opened.
  2011-07-19 14:21:00-0700 [-] twisted.web.server.Site starting on 8080
  2011-07-19 14:21:00-0700 [-] Starting factory <twisted.web.server.Site instance at 0x901498c>
@@ -55,10 +55,40 @@ the ``python`` directory::
 
 And that's it!  You're running.  To consume your source, try::
 
- $ bin/jprint http://localhost:8080/data/+
+ $ jprint http://localhost:8080/data/+
 
-``jprint`` is a convienient tool which will pretty-print your
-json, but you can also use `curl <http://curl.haxx.se/>`_.
+``jprint`` is a convienient tool which will pretty-print your json and
+should be in your path, but you can also use `curl <http://curl.haxx.se/>`_.
+
+Adding Metadata
+---------------
+
+It's often useful to tag your streams with additional information
+about them -- sampling rate, what kind of instrument you're using, and
+so on.  To do this, you can include metadata in each section of your
+config file.  In the example above, the ``Metadata/SourceName`` line
+is an example of this.  This tag should always be set to a
+human-readable name which your smap source may be referred to by.
+
+Metadata is added by "tagging" your streams.  To make this easy,
+metadata applies to all timeseries originating below the place it is
+added to.  Above, the ``Metadata/SourceName`` tag applies to all
+streams located below "/"; therefore, all streams created by the
+CaIsoPrice driver, in this case.
+
+The tagging namespace is slightly structured to enable the use of some
+shared tags; there are three "subspaces" which you may use:
+
+===================== =========================
+Subspace              Contents
+===================== =========================
+Metadata/Location/*   Information relating to the location of the data
+Metadata/Instrument/* Information about the instrument which created the data
+Metadata/Extra/*      Arbitrary extra information
+===================== =========================
+
+The Location and Instrument subspaces have a pre-defined set of keys
+which you should use to structure your tags; see :ref:`metadata-tags`.
 
 Writing Drivers
 ---------------
@@ -86,9 +116,9 @@ example::
           self.set_metadata('/sensor0', { 
               'Instrument/ModelName' : 'ExampleInstrument'
               })
+          self.counter = int(opts.get('StartVal', 0))
 
       def start(self):
-          self.counter = 0
           util.periodicSequentialCall(self.read).start(1)
 
       def read(self):
@@ -99,7 +129,7 @@ To start a sMAP instance which exposes only this driver, you can use
 the ``smap-run-driver`` tool; this example is available as
 :py:class:`smap.driver.BaseDriver`::
 
- $ python bin/smap-run-driver smap.driver.BaseDriver
+ $ smap-run-driver smap.driver.BaseDriver
 
 We can also have this all done from a config file.  Typically, you
 would debug your driver first inside of ``smap-run-driver`` before
@@ -108,17 +138,14 @@ snippet from before::
 
   [/]
   uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
+  Metadata/SourceName = Base Example Driver
 
   [/instrument0]
   type = smap.driver.BaseDriver
   Metadata/Instrument/Manufacturer = sMAP Implementer Forum
+  StartVal = 10
 
-We can now run this just as easily as before either using ``smap-run-conf``
-or programmatically::
-
-  from smap import loader, server
-  inst = loader.load('conf.ini')
-  server.run(inst)
+We can now run this just as easily as before either using ``twistd``.
 
 When writing a driver, the keys or paths which are used to create
 timeseries and collections inside of a driver only need to be unique
@@ -128,67 +155,9 @@ combined with the driver's UUID to generate their full identifier.
 When created from a config file, the second parameter to setup is a
 dict whose keys are keys from the appropriate section of the
 configuration file, and the corresponding values.  You can use this
-mechanism to pass arguments to your drivers; for instance, tell it how
-to connect to the instrument being proxied.
+mechanism to pass arguments to your drivers; in this example we can
+tell the driver to start counting at 10 rather than 0 (the default).
 
-
-sMAP Internals: the Instance
-----------------------------
-
-.. py:currentmodule:: smap.core
-
-The core of any sMAP source is the :py:class:`~smap.core.SmapInstance`
-class.  Even if you're not running a web server, you'll need to create
-a :py:class:`SmapInstance` to represent the hierarchy and structure of
-the sMAP source you are working with.
-
-To create a new :py:class:`SmapInstance`, all you need is a UUID.
-This UUID is very important, because it will become the identifier for
-the root of your source, and will be the name by which other people
-can refer to you (even if you change other fields).  You should use
-the same UUID each time you create the same sMAP source, so that ids
-do not change with each execution.
-
-The library comes with a tool called ``uuid`` which you can used to
-generate a new, unique UUID; you can also get one using the
-:py:mod:`uuid` module.  Once you have one of these, we can instantiate
-our first sMAP instance::
-
-  from smap import core, server, util
-  inst = core.SmapInstance('75503ac2-abf0-11e0-b7d6-0026bb56ec92')
-
-When you create an instance, by default it has one collection: the
-root collection (``/``).  Typically you will want to add other
-collections and timeseries to this collection.  You may also want to
-add metadata to allow the consumers to tell what they are looking at.
-The :py:class:`SmapInstance` class has utility methods
-:py:meth:`~SmapInstance.add_collection` and
-:py:meth:`~SmapInstance.add_timeseries` to help you do this.
-
-Let's add a single timeseries to our sMAP source::
-
-  my_timeseries = inst.add_timeseries('/sensor0', 'sensor0', 'V')
-
-In this example, we just added a single timeseries which will be
-located at ``/data/sensor0``.  The second argument, 'sensor0', is a
-key which durably names this timeseries.  This way, you can change the
-path but consumers will still be able to tell that it's the same
-stream.  If you don't include this argument, the path will be used.
-Finally, 'V' is the units of the stream: volts.
-
-``my_timeseries`` holds the newly created :py:class:`Timeseries` object.
-You can also get that back by looking it up by path in the instance::
-
-  inst.get_timeseries('/sensor0')
-
-Finally, to start a web server serving this instance, we just need to
-set up a server and start the ``twisted`` event loop.  The
-:py:mod:`smap.server` module has a wrapper to do this for us::
-
-  server.run(inst, port=8080)
-
-You're now running a sMAP server on HTTP port 8080!  Cool, right?  One
-problem: how to actually generate some data?
 
 Recitative: Threads and Events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -205,15 +174,17 @@ callback to be called repeatedly.
 
 Since a common idiom in sMAP sources is to periodically poll an
 external device using a blocking API, we have provided the
-:py:func:`smap.util.periodicCallInThread` function to
-periodically call a callback from a separate thread from the main event
-loop.  This means you may not use any non-thread-safe :py:mod:`twisted`
-methods; however you may use normal blocking APIs::
+:py:func:`smap.util.periodicSequentialCall` function to periodically
+call a callback from a separate thread from the main event loop.  It
+also guarantees that there will only be one copy of your updater
+running at a given time.  This means you may not use any
+non-thread-safe :py:mod:`twisted` methods; however you may use normal
+blocking APIs::
 
   import util
   def readValue(val):
       print "Reading value:", val
-  util.periodicCallInThread(readValue, 1).start(1)
+  util.periodicSequentialCall(readValue, 1).start(1)
 
 Adding Data
 ~~~~~~~~~~~
@@ -228,7 +199,7 @@ haven't yet started running the server::
      global counter
      inst.add('/sensor0', counter)
      counter += 1
-  util.periodicCallInThread(read).start(1)
+  util.periodicSequentialCall(read).start(1)
 
 This example will add sequential values to our sensor, at a rate of
 once per second (that's set by the argument to start).  In this
@@ -239,76 +210,6 @@ means it's okay to use blocking io in the body.  You would typically
 poll your device, interpret the response, and update a number of sMAP
 points in such a body.
 
-sMAP Sources From Config Files
-------------------------------
-
-Creating a sMAP source programmatically is nice, but sometimes you
-just want more out of life.  To get you there, we've helpfully
-provided the :py:mod:`smap.loader` module.  A loader can create a
-sMAP source from a configuration file, or dump an existing sMAP source
-to a config file.  Typically, you'll create part of a sMAP source in a
-driver (the next section!) and then generate an instance using a config file.
-
-Let's see what happens if we dump the sMAP source from the previous
-section to a config file using :py:func:`~smap.loader.dump`::
-
-   from smap import loader
-   loader.dump(inst, 'conf.ini')
-
-We end up with a configuration file ``conf.ini`` in the directory
-where we ran that command::
-
-    [/]
-    type = Collection
-    uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
-
-    [/sensor0]
-    type = Timeseries
-    key = sensor0
-    Properties/UnitofMeasure = V
-    
-As you can see, the UUID we entered for the root has been saved,
-as well as parameters for the timeseries which is placed at
-``/sensor0``.  Let's modify the hierarchy by creating a new
-collection which contains ``sensor0``, and also add some metadata
-which applies to the collection::
-    
-    [/]
-    type = Collection
-    uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
-
-    [/instrument0]
-    type = Collection
-    Metadata/Instrument/Manufacturer = sMAP Implementer Forum
-    
-    [/instrument0/sensor0]
-    type = Timeseries
-    key = sensor0
-    Properties/UnitofMeasure = V
-
-We've added a new key, ``Metadata/Instrument/Manufacturer``.  Since
-this path refers to part of sMAP's metadata specification, this will
-store that metadata with that collection.
-
-Now, let's instantiate and serve a sMAP server using this conf, this
-time using :py:func:`~smap.loader.load` to generate the instance from
-the config file::
-
-  from smap import core, util, loader, server
-  inst = loader.load('conf.ini')
-  server.run(inst, port=8080)
-
-Check it out with ``$ curl localhost:8080/data/instrument0/sensor0 | jprint``::
-
-  {
-    "Properties": {
-      "ReadingType": "long", 
-      "Timezone": "America/Los_Angeles", 
-      "UnitofMeasure": "V"
-    }, 
-    "Readings": [], 
-    "uuid": "c2f2cb69-25cc-544c-87cc-3b807c58f63a"
-  }
 
 Data Destination: Where does the Data go?
 -----------------------------------------
@@ -317,28 +218,16 @@ sMAP sends out its data via HTTP POST requests to data sinks who are
 interested in the data.  These consumers can get configured in one of
 two ways: the first is via the sMAP-specified mechanism, a POST
 request to the ``/reports`` resource on a sMAP server.  The reports can
-also be configured via a config file section, in case the data is
-merely being loaded and there's no need for a server.
+also be configured via a config file section.
 
 An example configuration file snippet::
 
   [report 0]
-  ReportDeliveryLocation = http://jackalope.cs.berkeley.edu/~sdawson/receive.php
-  ReportResource = /+
+  ReportDeliveryLocation = http://new.openbms.org/backend/add/MYAPIKEY
 
 Any section starting with the string "report" is treated as a
-reporting instance, and both of these options are required.  The
-first, ``ReportDeliveryLocation`` specifies the URI data will be
-posted to.  
-
-
-The second, ``ReportResource`` tells the library what local resource
-to package up to send out.  It is interpreted relative to the root
-``/data`` resource -- those are the only things you can subscribe to.
-Any valid resource under ``/data`` can be subscribed to.  Each
-collection additionally contains a special resource,
-``+``. This can be used to
-to *all* timeseries subordinate to the given resource.
+reporting instance.  ``ReportDeliveryLocation`` specifies
+the URI data will be posted to.
 
 Buffering
 ~~~~~~~~~
@@ -353,3 +242,4 @@ is written back to disk, so that it can be delivered even if the sMAP
 server crashes or is restarted.  Data is only removed from the buffer
 once the library receives a HTTP ``200 OK``, ``201 CREATED``, or ``204
 NO CONTENT`` responses from the destination server.
+

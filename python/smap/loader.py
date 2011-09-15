@@ -107,9 +107,14 @@ contain a ``uuid`` key to set the root identifier for the source.
     for s in conf.sections():
         print "Loading section", s
         if s.startswith('report'):
+            if conf.has_option(s, 'ReportResource'):
+                resource = conf.get(s, 'ReportResource')
+            else:
+                resource = '/+'
+
             reportinst = {
                 'ReportDeliveryLocation' : [conf.get(s, 'ReportDeliveryLocation')],
-                'ReportResource' : conf.get(s, 'ReportResource'),
+                'ReportResource' : resource,
                 'uuid' : inst.uuid(s),
                 }
             for o in ['MinPeriod', 'MaxPeriod']:
