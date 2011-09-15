@@ -1,6 +1,13 @@
 
-from distutils.core import setup
+from distutils.core import setup, Extension
 import glob
+
+# build modbus extension module
+modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
+                          sources=map(lambda f: "smap/iface/modbus/" + f,
+                                      ["TCPModbusClient_wrap.c", "TCPModbusClient.c",
+                                       "utility.c", "crc16.c", "DieWithError.c",
+                                       "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
       version="2.0",
@@ -32,5 +39,6 @@ setup(name="Smap",
       requires=["avro", "twisted"],
       package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av']},
+      ext_modules=[modbus_module],
       scripts=['bin/smap-run-driver', 'bin/smap-run-conf', 
                'bin/jprint', 'bin/uuid'])
