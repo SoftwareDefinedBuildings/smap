@@ -103,6 +103,8 @@ class Message:
             return struct.unpack(endian + "H", temp)[0]
         elif length == 32:
             return struct.unpack(endian + "L", temp)[0]
+        elif length == 64:
+            return struct.unpack(endian + "Q", temp)[0]
         else:
             raise MessageException("Bad length")
 
@@ -123,6 +125,8 @@ class Message:
             temp = struct.pack(endian + "H", val)
         elif length == 32:
             temp = struct.pack(endian + "L", val)
+        elif length == 64:
+            temp = struct.pack(endian + "Q", val)
         else:
             raise MessageException("Bad length")
 

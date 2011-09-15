@@ -31,7 +31,7 @@ class SmapServiceMaker(object):
         if options['data-dir'] != None:
             if not os.access(options['data-dir'], os.X_OK | os.W_OK):
                 raise core.SmapException("Cannot access " + options['data-dir'])
-        smapconf.SERVER['DataDir'] = options['data-dir']
+            smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])
         if options["port"] != None:
