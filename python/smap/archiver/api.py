@@ -293,13 +293,20 @@ class Api(resource.Resource):
         return result[0][1][0], map(lambda x: x[1][1], result)
     
     def data_load_result(self, request, method, result):
-        callbacks = []
-        for uid, stream_id in result:
-            loader = DataRequester(uid)
-            callbacks.append(loader.load_data(request, method, stream_id))
-        d = defer.DeferredList(callbacks)
-        d.addCallback(self.data_load_extract)
-        return d
+        count = int(request.args.get('streamlimit', ['10'])[0])
+        if count == 0:
+            count = len(result)
+
+        if len(result) > 0:
+            callbacks = []
+            for uid, stream_id in result[:count]:
+                loader = DataRequester(uid)
+                callbacks.append(loader.load_data(request, method, stream_id))
+            d = defer.DeferredList(callbacks)
+            d.addCallback(self.data_load_extract)
+            return d
+        else:
+            return defer.succeed((request, []))
 
     def send_reply(self, (request, result)):
         request.write(util.json_encode(result))
@@ -351,6 +358,10 @@ id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
             d.addCallback(lambda r: self.data_load_result(request, method, r))
+        else:
+            request.setResponseCode(404)
+            request.finish()
+            return server.NOT_DONE_YET
 
         d.addCallback(self.send_reply)
         return server.NOT_DONE_YET

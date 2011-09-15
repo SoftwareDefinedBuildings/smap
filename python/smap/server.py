@@ -16,6 +16,7 @@ import util
 import core
 import loader
 import schema
+import smapconf
 
 class InstanceResource(resource.Resource):
     """Resource which maps HTTP requests to requests on the sMAP
@@ -169,13 +170,14 @@ def getSite(inst):
     site = server.Site(root)
     return site
 
-def run(inst, port=8080):
+def run(inst, port=None):
     """Start the ``twisted`` event loop, with an HTTP server.
 
 :param inst: a :py:class:`~smap.core.SmapInstance` which you want to server.
 :param int port: port to run on
 :rtype: none; this function does not return
     """
+    if not port: port = int(smapconf.SERVER['Port'])
     inst.start()
     reactor.listenTCP(port, getSite(inst))
     reactor.run()

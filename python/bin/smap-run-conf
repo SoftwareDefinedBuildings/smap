@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- python -*-
 
+import os
 import sys
 import uuid
 import logging
@@ -8,14 +9,16 @@ from optparse import OptionParser
 
 from twisted.python import log
 
-from smap import core, server, driver, loader
+from smap import core, server, driver, loader, smapconf
 
 def get_parser():
     usage = 'usage: %prog [options] conf-file'
     parser = OptionParser(usage=usage)
-    parser.add_option('-p', '--port', dest='port', default=8080,
+    parser.add_option('-p', '--port', dest='port', default=None,
                       type='int',
                       help='port to run server on')
+    parser.add_option('-d', '--data-dir', dest='data_dir', default=None,
+                      type='str', help='directory for cached data')
     return parser
 
 def start_log():
@@ -28,5 +31,15 @@ if __name__ == '__main__':
         parser.error("conf file is a required argument")
 
     start_log()
+
+    # change the default data dir to override the default
+    if opts.data_dir:
+        if not os.access(opts.data_dir, os.X_OK | os.W_OK):
+            raise core.SmapException("Cannot access " + opts.data_dir)
+        smapconf.SERVER['DataDir'] = opts.data_dir
     inst = loader.load(args[0])
-    server.run(inst, port=opts.port)
+
+    if opts.port:
+        server.run(inst, port=opts.port)
+    else:
+        server.run(inst)

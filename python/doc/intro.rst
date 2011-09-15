@@ -44,24 +44,3 @@ sMAP resources over HTTP and managing data being sent to various
 subscribers.  It supports both programmatic creation of sMAP server,
 creating a server from a configuration file, or a combination.
 
-Installation
-------------
-
-Dependencies
-~~~~~~~~~~~~
-
-* `python 2.6, 2.7 <http://www.python.org>`_
-* `twisted 11 <http://www.twistedmatrix.com>`_
-* `zope.interface <http://pypi.python.org/pypi/zope.interface>`_
-* `avro <http://avro.apache.org/releases.html>`_
-
-For the Cal ISO driver used in the tutorial, you also need:
-
-* `dateutil <http://pypi.python.org/pypi/python-dateutil>`_
-* `BeautifulSoup <http://www.crummy.com/software/BeautifulSoup/>`_
-
-On debian, you can install nearly all of this with::
-
- $ apt-get install python python-zopeinterface python-twisted python-dateutil python-beautifulsoup
-
-Unfortunately, you must still install avro by hand.

@@ -92,6 +92,7 @@ class BaseDriver(SmapDriver):
             'Instrument/ModelName' : 'ExampleInstrument',
             'Extra/ModbusAddr' : opts.get('ModbusAddr', '')
             })
+        self.counter = int(opts.get('StartVal', 0))
 
     def start(self):
         self.counter = 0

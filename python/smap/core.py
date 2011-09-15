@@ -1,4 +1,5 @@
 
+import os
 import uuid
 from zope.interface import implements
 from twisted.web import resource
@@ -7,6 +8,7 @@ from twisted.internet import reactor
 import schema
 import util
 import reporting
+import smapconf
 from interface import *
 
 class SmapException(Exception):
@@ -243,8 +245,16 @@ sMAP reporting functionality."""
         self.OBJS_PATH = {}
         self.OBJS_UUID = {}
         self.drivers = {}
+
+        # if we're not given an explicit report file, put it in the
+        # datadir or else the cwd
         if not 'reportfile' in kwargs:
-            self.reports = reporting.Reporting(self, reportfile=str(root_uuid), **kwargs)
+            if 'DataDir' in smapconf.SERVER:
+                rf = os.path.join(smapconf.SERVER['DataDir'], str(root_uuid))
+            else:
+                rf = str(root_uuid)
+
+            self.reports = reporting.Reporting(self, reportfile=rf, **kwargs)
         else:
             self.reports = reporting.Reporting(self, **kwargs)
         self.flush = self.reports.flush
