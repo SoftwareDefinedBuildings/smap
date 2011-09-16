@@ -1,0 +1,2 @@
+include smap/iface/modbus/*.h
+include smap/schema/*.av
