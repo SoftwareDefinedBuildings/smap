@@ -1,6 +1,17 @@
 Installation
 ============
 
+easy_install
+------------
+
+If you have setuputils installed, sMAP is now available (along with
+its dependencies) from the `PyPI <http://pypi.python.org>`_.
+Installing it should be as easy as::
+
+ easy_install smap
+
+To install from svn, have a look at the dependencies below.
+
 Dependencies
 ------------
 

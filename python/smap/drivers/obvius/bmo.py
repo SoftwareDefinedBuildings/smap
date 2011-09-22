@@ -39,7 +39,7 @@ class BMOLoader(smap.driver.SmapDriver):
         self.url = opts['Url']
         self.meter_type = opts['Metadata/Instrument/Model']
         self.rate = opts.get('Rate', 3600)
-        if not self.meter_type in sensordb.TYPES:
+        if not sensordb.get_map(self.meter_type):
             raise SmapLoadError(self.meter_type + " is not a known obvius meter type")
         self.push_hist = None
 
@@ -49,7 +49,9 @@ class BMOLoader(smap.driver.SmapDriver):
         for channel in map_['sensors'] + map_['meters']:
             self.add_timeseries('/%s/%s' % channel[2:4], channel[4], data_type='double')
             self.set_metadata('/%s' % channel[2], {
-                    'Extra/Phase' : channel[2]})
+                    'Extra/Phase' : channel[2],
+                    'Extra/ChannelName' : channel[1],
+                    })
 
         print self.url, self.rate
 

@@ -1,6 +1,5 @@
 
 from distutils.core import setup, Extension
-import glob
 
 # build modbus extension module
 modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
