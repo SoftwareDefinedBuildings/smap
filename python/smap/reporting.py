@@ -18,6 +18,9 @@ import core
 # this is the largest number of records we will store.
 BUFSIZE_LIMIT = 100000
 
+# the most records to pack into a single log entry/message to the server
+REPORT_RECORD_LIMIT = 500
+
 def reporting_copy(obj):
     if isinstance(obj, dict):
         rv = dict(obj)
@@ -104,6 +107,14 @@ class DataBuffer:
     def __len__(self):
         return len(self.data)
 
+    def count(self, idx):
+        cnt = 0
+        for k in self.data[idx].iterkeys():
+            if 'Readings' in self.data[idx][k]:
+                cnt += len(self.data[idx][k]['Readings'])
+            cnt += 1
+        return cnt
+
     def add(self, key, val):
         """Enqueue a new object for delivery with a subscription
 
@@ -119,15 +130,17 @@ class DataBuffer:
              'Readings' in val and 'uuid' in val:
             if not 'Readings' in self.data[-1][key]:
                 self.data[-1][key]['Readings'] = []
-            if len(self.data[-1][key]['Readings']) < 100:
+            if self.count(-1) < REPORT_RECORD_LIMIT:
                 self.data[-1][key]['Readings'].extend(val['Readings'])
             else:
                 self.data.append({key: reporting_copy(val)})
         # really this might just want to merge updates...
         elif key in self.data[-1] and val == self.data[-1][key]:
             pass
-        else:
+        elif self.count(-1) < REPORT_RECORD_LIMIT:
             self.data[-1][key] = reporting_copy(val)
+        else:
+            self.data.append({key: reporting_copy(val)})
 
     def truncate(self, tspec):
         """Truncate a set of readings based on the sequence number

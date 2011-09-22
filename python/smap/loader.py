@@ -209,22 +209,3 @@ contain a ``uuid`` key to set the root identifier for the source.
     inst.reports.update_subscriptions()
     inst.loading = False
     return inst
-
-
-if __name__ == '__main__':
-    i = core.SmapInstance(uuid.uuid1())
-    i.add_collection("/steve", "steve")
-    i.add_timeseries("/sensor0", "sdh", "V", buffersz=2)
-    i.get_timeseries("/sensor0")['Metadata'] = \
-        {'Instrument' : {
-            'Manufacturer' : "Stephen Dawson-Haggerty"
-            },
-         'Extra' : {
-            'Sucks' : 'Andrew'
-            }
-         }
-    i.get_collection("/")["Metadata"] = {"Extra" : {"foo" : "bar"} }
-    dump(i, "out.ini")
-
-
-    load("out.ini")
