@@ -96,6 +96,9 @@ class DataBuffer:
         self.datadir = datadir
         self.data = disklog.DiskLog(datadir)
         self.head_metric = self.metric(self.data.tail())
+        # if we do a read, we have to add a new log record so we don't
+        # keep appending to the same one
+        self.clear = False
 
     def __str__(self):
         return "DataBuffer len: %i" % len(self.data)
@@ -126,9 +129,10 @@ class DataBuffer:
         # length of the head
         val_metric = self.metric(val)
 
-        if tail == None:
+        if tail == None or self.clear:
             self.data.append({key: reporting_copy(val)})
             self.head_metric = val_metric
+            self.clear = False
         elif 'Contents' in val and len(val['Contents']) == 0:
             # okay to skip b/c it doesn't apply to anything
             pass
@@ -172,6 +176,7 @@ class DataBuffer:
         and may have wrapped while you were processing the readings.
         """
         if len(self.data) > 0:
+            self.clear = True
             return self.data.head()
         else:
             raise core.SmapException("No Pending Data!")
@@ -205,16 +210,14 @@ class ReportInstance(dict):
         """Try to make a delivery
         :rvalue: a :py:class:`Deferred` of the attempt
         """
+        if 'Busy' in self and self['Busy']:
+            return
+
         try:
             data = self['PendingData'].read()
-            print "read"
-            # pprint.pprint(data)
         except Exception, e:
             log.err()
             traceback.print_exc()
-            return
-
-        if 'Busy' in self and self['Busy']:
             return
 
         self['LastAttempt'] = util.now()
