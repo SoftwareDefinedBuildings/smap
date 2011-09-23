@@ -5,7 +5,6 @@ import re
 import json
 import uuid
 import cPickle as pickle
-import gzip
 import ConfigParser
 import traceback as trace
 
@@ -189,14 +188,14 @@ def pickle_load(filename):
     """Load an object from a gzipped pickle file while holding a
     filesystem lock
     """
-    lock = FilesystemLock(filename + ".lock")
-    if not lock.lock():
-        raise SmapException("Could not acquire report file lock")
+#     lock = FilesystemLock(filename + ".lock")
+#     if not lock.lock():
+#         raise SmapException("Could not acquire report file lock")
 
     try:
-        fp = gzip.GzipFile(filename, 'rb')
+        fp = open(filename, 'rb')
     except IOError:
-        lock.unlock()
+#         lock.unlock()
         return None
 
     try:
@@ -206,7 +205,7 @@ def pickle_load(filename):
         return None
     finally:
         fp.close()
-        lock.unlock()
+#         lock.unlock()
 
 def pickle_dump(filename, obj):
     """Pickle an object to a gzipped file while holding a filesystem
@@ -216,8 +215,8 @@ def pickle_dump(filename, obj):
         return
 
     try:
-        fp = gzip.GzipFile(filename + '.tmp', 'wb')
-        pickle.dump(obj, fp, protocol=1)
+        fp = open(filename + '.tmp', 'wb')
+        pickle.dump(obj, fp, protocol=2)
     except (IOError, pickle.PickleError, TypeError), e:
         print "dump failure"
         trace.print_exc()
