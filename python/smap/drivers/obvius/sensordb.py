@@ -19,9 +19,9 @@ DB = [
     {
         "obviusname" : "Power Measurement ION 6200",
         "sensors" : [
-            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('I a (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
             ('I demand', MAYBEFLOATPAT, 'ABC', 'current_demand', 'A'),
 
             ('I a demand', MAYBEFLOATPAT, 'A', 'current_demand', 'A'),
@@ -69,17 +69,17 @@ DB = [
     {
         'obviusname' : 'Shark 100',
         'sensors' : [
-            ('Volts A-N', MAYBEFLOATPAT, 'A', 'volts', 'V'),
-            ('Volts B-N', MAYBEFLOATPAT, 'B', 'volts', 'V'),
-            ('Volts C-N', MAYBEFLOATPAT, 'C', 'volts', 'V'),
+            ('Volts A-N (Volts)', MAYBEFLOATPAT, 'A', 'volts', 'V'),
+            ('Volts B-N (Volts)', MAYBEFLOATPAT, 'B', 'volts', 'V'),
+            ('Volts C-N (Volts)', MAYBEFLOATPAT, 'C', 'volts', 'V'),
 
-            ('Volts A-B', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
-            ('Volts B-C', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
-            ('Volts C-A', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Volts A-B (Volts)', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Volts B-C (Volts)', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Volts C-A (Volts)', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
 
-            ('Amps A', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('Amps B', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('Amps C', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('Amps A (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Amps B (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Amps C (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
 
             ('Watts, 3-Ph total', r'^(\d+)', 'ABC', 'real_power', 'kW'),
             ('VAs, 3-Ph total', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
@@ -87,7 +87,7 @@ DB = [
 
             ('Power Factor, 3-Ph total', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF'),
 
-            ('Frequency', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Frequency (Hz)', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
 
             ('Angle, Phase A Current', MAYBEFLOATPAT, 'A', 'current_phase_angle', 'deg'),
             ('Angle, Phase B Current', MAYBEFLOATPAT, 'B', 'current_phase_angle', 'deg'),

@@ -9,14 +9,20 @@ import sensordb
 import auth
 import obvius
 
-from twisted.internet import reactor, threads
+from twisted.internet import reactor, threads, task
+from twisted.internet.defer import DeferredSemaphore, Deferred
 
-import smap.driver
+from smap import core
 from smap.util import periodicSequentialCall
+import smap.driver
 import smap.iface.http.httputils as httputils
 import smap.contrib.dtutil as dtutil
 
 TIMEFMT = "%Y-%m-%d %H:%M:%S"
+
+# to prevent killing their db, we make all driver instances acquire
+# this semaphore before trying to download data
+active_reads = DeferredSemaphore(3)
 
 def make_field_idxs(type, header):
     paths = [None]
@@ -26,6 +32,7 @@ def make_field_idxs(type, header):
         for channel in map_['sensors'] + map_['meters']:
             if t.strip().startswith(channel[0]):
                 paths[-1] = (channel[2], channel[3])
+                break
     ddups = {}
     for elt in paths:
         if elt:
@@ -34,6 +41,9 @@ def make_field_idxs(type, header):
     for k, v in ddups.iteritems():
         if v > 1:
             print "WARNING:", v, "matching channels for", k
+            print header
+            print paths
+            print ddups
     return paths
 
 class BMOLoader(smap.driver.SmapDriver):
@@ -41,9 +51,11 @@ class BMOLoader(smap.driver.SmapDriver):
         self.url = opts['Url']
         self.meter_type = opts['Metadata/Instrument/Model']
         self.rate = int(opts.get('Rate', 3600))
+        self.running = False
+
         if not sensordb.get_map(self.meter_type):
             raise SmapLoadError(self.meter_type + " is not a known obvius meter type")
-        self.push_hist = dtutil.now() - datetime.timedelta(days=1)
+        self.push_hist = dtutil.now() - datetime.timedelta(hours=1)
 
         map_ = sensordb.get_map(self.meter_type)
         self.set_metadata('/', {
@@ -58,10 +70,36 @@ class BMOLoader(smap.driver.SmapDriver):
         print self.url, self.rate
 
     def start(self):
-        periodicSequentialCall(self.update).start(self.rate)
+        # periodicSequentialCall(self.update).start(self.rate)
+        task.LoopingCall(self.update).start(self.rate)
+
+    def done(self, result):
+        self.running = False
+        active_reads.release()
 
     def update(self):
-        print "Starting update cycle"
+        if self.running:
+            return
+
+        self.running = True
+        d = active_reads.acquire()
+        # in the processing chain, we first open the page
+        d.addCallback(lambda _: threads.deferToThread(self.open_page))
+
+        # then read the first result set
+        d.addCallback(lambda _: threads.deferToThread(self.process))
+
+        # and add it to the outgoing data.  this will chain additional
+        # processes and adds as necessary
+        d.addCallback(self.add)
+
+        # finally release the semaphore (even if we got an error)
+        d.addCallback(self.done)
+        # and consume the error 
+        d.addErrback(self.done)
+        return d
+        
+    def open_page(self):
         enddt = dtutil.now()
         start, end = urllib.quote(dtutil.strftime_tz(self.push_hist, TIMEFMT)), \
             urllib.quote(dtutil.strftime_tz(enddt, TIMEFMT))
@@ -81,40 +119,48 @@ class BMOLoader(smap.driver.SmapDriver):
 
         self.fp = httputils.load_http(url, as_fp=True, auth=auth.BMOAUTH)
         if not self.fp:
-            print "WARNING : timeout"
-            return
+            raise core.SmapException("timeout!")
         self.reader = csv.reader(self.fp, dialect='excel-tab')
         header = self.reader.next()
         if len(header) == 0:
             print "Warning: no data from", self.url
-            return
+            raise core.SmapException("no data!")
         self.field_map = make_field_idxs(self.meter_type, header)
         # print '\n'.join(map(str, (zip(header, field_map))))
-        threads.deferToThread(self.process)
 
     def process(self):
-        if self.reader == None: return
         readcnt = 0
-        self.data = []
-        for r in self.reader:
-            ts = dtutil.strptime_tz(r[0], TIMEFMT, tzstr='UTC')
-            if ts > self.push_hist:
-                self.push_hist = ts
-            ts = dtutil.dt2ts(ts)
+        data = []
 
-            self.data.append((ts, zip(self.field_map, r)))
+        if self.reader == None: 
+            return data
 
-            readcnt += 1
-            if readcnt > 10:
-                reactor.callFromThread(self.add)
-                return
+        try:
+            for r in self.reader:
+                ts = dtutil.strptime_tz(r[0], TIMEFMT, tzstr='UTC')
+                if ts > self.push_hist:
+                    self.push_hist = ts
+                ts = dtutil.dt2ts(ts)
+
+                data.append((ts, zip(self.field_map, r)))
+
+                readcnt += 1
+                if readcnt > 100:
+                    return data
+        except Exception, e:
+            self.fp.close()
+            self.reader = None
+            raise e
 
         self.fp.close()
         self.reader = None
-        reactor.callFromThread(self.add)
+        return data
 
-    def add(self):
-        for ts, rec in self.data:
+    def add(self, data):
+        if len(data) == 0:
+            return "DONE"
+
+        for ts, rec in data:
             for descr, val in rec:
                 if descr == None: continue
                 try:
@@ -122,7 +168,9 @@ class BMOLoader(smap.driver.SmapDriver):
                 except ValueError:
                     pass
         self.data = []
-        threads.deferToThread(self.process)
+        d = threads.deferToThread(self.process)
+        d.addCallback(self.add)
+        return d
 
 
 

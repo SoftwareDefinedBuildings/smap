@@ -40,7 +40,7 @@ class SmapServiceMaker(object):
             port = smapconf.SERVER['Port']
 
         if 'SuggestThreadPool' in smapconf.SERVER:
-            reactor.suggestThreadPoolSize(int(smapconf.SRVER.'SuggestThreadPool'))
+            reactor.suggestThreadPoolSize(int(smapconf.SERVER['SuggestThreadPool']))
 
         inst.start()
 
