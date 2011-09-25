@@ -77,9 +77,10 @@ class BMOLoader(smap.driver.SmapDriver):
         self.running = False
         active_reads.release()
 
-    def update(self):
+    def update(self, startdt=None, enddt=None):
         if self.running:
             return
+        self.startdt, self.enddt = startdt, enddt
 
         self.running = True
         d = active_reads.acquire()
@@ -100,22 +101,28 @@ class BMOLoader(smap.driver.SmapDriver):
         return d
         
     def open_page(self):
-        enddt = dtutil.now()
-        start, end = urllib.quote(dtutil.strftime_tz(self.push_hist, TIMEFMT)), \
-            urllib.quote(dtutil.strftime_tz(enddt, TIMEFMT))
+        if not self.startdt:
+            self.startdt = self.push_hist
+        if not self.enddt:
+            self.enddt = dtutil.now()
+
+        start, end = urllib.quote(dtutil.strftime_tz(self.startdt, TIMEFMT)), \
+            urllib.quote(dtutil.strftime_tz(self.enddt, TIMEFMT))
+        print start, end
 
         url = self.url % (start, end)
         url += "&mnuStartMonth=%i&mnuStartDay=%i&mnuStartYear=%i" % \
-            (self.push_hist.month,
-             self.push_hist.day,
-             self.push_hist.year)
-        url += "&mnuStartTime=%i%%3A%i" % (self.push_hist.hour, 
-                                           self.push_hist.minute)
+            (self.startdt.month,
+             self.startdt.day,
+             self.startdt.year)
+        url += "&mnuStartTime=%i%%3A%i" % (self.startdt.hour, 
+                                           self.startdt.minute)
         url += "&mnuEndMonth=%i&mnuEndDay=%i&mnuEndYear=%i" % \
-            (enddt.month,
-             enddt.day,
-             enddt.year)
-        url += "&mnuEndTime=%i%%3A%i" % (enddt.hour, enddt.minute)
+            (self.enddt.month,
+             self.enddt.day,
+             self.enddt.year)
+        url += "&mnuEndTime=%i%%3A%i" % (self.enddt.hour, self.enddt.minute)
+        print "loading", url
 
         self.fp = httputils.load_http(url, as_fp=True, auth=auth.BMOAUTH)
         if not self.fp:
@@ -171,6 +178,5 @@ class BMOLoader(smap.driver.SmapDriver):
         d = threads.deferToThread(self.process)
         d.addCallback(self.add)
         return d
-
 
 
