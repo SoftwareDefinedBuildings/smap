@@ -8,6 +8,7 @@ import util
 import json
 import copy
 import pprint
+import cStringIO as StringIO
 
 from twisted.internet import reactor, task, defer, threads
 from twisted.web.client import Agent
@@ -16,12 +17,13 @@ from twisted.python import log
 
 import core
 import disklog
+from contrib import client
 
 # this is the largest number of records we will store.
 BUFSIZE_LIMIT = 100000
 
 # the most records to pack into a single log entry/message to the server
-REPORT_RECORD_LIMIT = 2000
+REPORT_RECORD_LIMIT = 10000
 
 def reporting_copy(obj):
     if isinstance(obj, dict):
@@ -216,22 +218,24 @@ class ReportInstance(dict):
         try:
             data = self['PendingData'].read()
         except Exception, e:
-            log.err()
-            traceback.print_exc()
+            print e
             return
 
         self['LastAttempt'] = util.now()
         log.msg("publishing to %s: %i %s" % (str(self['ReportDeliveryLocation']),
-                                           len(data), 
-                                           str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
+                                             len(data), 
+                                             str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
         # set up an agent to push the data to the consumer
         agent = Agent(reactor)
         try:
+            v = StringIO.StringIO()
+            util.dump_json(data, v)
+            v.seek(0)
             d = agent.request('POST',
                               str(self['ReportDeliveryLocation'][0]),
                               Headers({'Content-type' : 
-                                       ['application/json']}), 
-                              util.AsyncJSON(data))
+                                       ['application/json']}),
+                              client.FileBodyProducer(v))
         except:
             traceback.print_exc()
             return
@@ -294,6 +298,7 @@ class Reporting:
         self.subscribers = []
         self.reportfile = reportfile
         self.max_size = max_size
+        self.autoflush = autoflush
         if self.reportfile:
             self.load_reports()
 
