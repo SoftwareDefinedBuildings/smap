@@ -1,7 +1,6 @@
 
 import traceback
 import time
-import cjson
 import json
 import operator
 import urllib
@@ -9,12 +8,13 @@ import urllib
 from twisted.internet import threads, defer
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
-import MySQLdb as sql
+import pgdb as sql
 
 import readingdb as rdb
 
 import smap.util as util
 import data
+import queryparse as qp
 
 def makeErrback(request_):
     request = request_
@@ -320,6 +320,14 @@ class Api(resource.Resource):
             return SubscriptionResource(self.db)
         else:
             return self
+
+    def render_POST(self, request):
+        parser = qp.QueryParser(request)
+        ext, query = parser.parse(request.content.read())
+        d = self.db.runQuery(query)
+        d.addCallback(lambda x: (request, ext(x)))
+        d.addCallback(self.send_reply)
+        return server.NOT_DONE_YET
 
     def render_GET(self, request):
         if len(request.prepath) == 1:
