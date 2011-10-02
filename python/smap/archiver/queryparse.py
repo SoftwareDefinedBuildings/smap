@@ -184,13 +184,14 @@ if __name__ == '__main__':
     import pgdb
     import sys
     import pprint
+    import settings as s
     readline.parse_and_bind('tab: complete')
     readline.parse_and_bind('set editing-mode emacs')
 
-    connection = pgdb.connect(host="jackalope.cs.berkeley.edu",
-                          user="ar",
-                          password="password",
-                          database="archiver")
+    connection = pgdb.connect(host=s.MYSQL_HOST,
+                          user=s.MYSQL_USER,
+                          password=s.MYSQL_PASS,
+                          database=s.MYSQL_DB)
     cur = connection.cursor()
 
 
