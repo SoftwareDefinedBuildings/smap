@@ -84,8 +84,11 @@ def p_query(t):
                    s.id = m.stream_id""" % \
                              (t[2][0], qg.normalize(t[4]).render(), t[2][1]))
     else:
-        t[0] = t[2][2], ("""SELECT %s FROM metadata2 m, stream s 
-              WHERE s.id = m.stream_id AND %s""" % (t[2][0], t[2][1]))
+        t[0] = t[2][2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
+              WHERE s.id = m.stream_id AND s.subscription_id = sub.id
+                 AND %s AND %s""" % 
+                         (t[2][0], t[2][1], 
+                          qg.build_authcheck(t.parser.request)))
 
 def p_selector(t):
     '''selector : tag_list

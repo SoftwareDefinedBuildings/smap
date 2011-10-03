@@ -1,0 +1,4 @@
+#!/bin/sh
+# -*- sh -*-
+
+python setup.py  sdist --formats zip,gztar upload -s -i 'Stephen Dawson-Haggerty'

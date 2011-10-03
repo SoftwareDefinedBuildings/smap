@@ -1,0 +1,70 @@
+#!/usr/bin/python
+# -*- python -*-
+
+import os
+import sys
+import re
+import readline
+import atexit
+import urllib2
+import json
+from optparse import OptionParser
+from smap.archiver import settings
+
+HISTFILE = os.path.expanduser('~/.smap-query-history')
+
+def run_query(opts, q):
+    try:
+        query = ""
+        if opts.key:
+            query = "?key=" + opts.key
+            if opts.private:
+                query += "&private="
+        if opts.verbose > 0:
+            print opts.url + query
+            print q
+        fp = urllib2.urlopen(opts.url + query, data=q, timeout=opts.timeout)
+        obj = json.load(fp)
+        json.dump(obj, sys.stdout, sort_keys=True, indent=2)
+        print # add a newline
+    except Exception, e:
+        print "ERROR:", e
+
+if __name__ == '__main__':
+    usage = 'usage: %prog [options] querys ...'
+    parser = OptionParser(usage=usage)
+    parser.add_option('-u', '--url', dest='url', 
+                      default="http://new.openbms.org/backend/api/query",
+                      help='location of backend server')
+    parser.add_option('-k', '--key', dest='key', default=None,
+                      help='api key to send to server')
+    parser.add_option('-p', '--private', dest='private', default=False,
+                      action='store_true')
+    parser.add_option('-t', '--timeout', dest='timeout', default=10,
+                      type="int")
+    parser.add_option('-v', dest='verbose', default=0,
+                      action="count")
+    opts, args = parser.parse_args()
+
+    if len(args) > 0:
+        map(lambda x: run_query(opts, x), args)
+    else:
+        print "Querying", opts.url
+        readline.parse_and_bind('tab: complete')
+        readline.parse_and_bind('set editing-mode emacs')
+        if hasattr(readline, "read_history_file"):
+            try:
+                readline.read_history_file(HISTFILE)
+            except IOError:
+                pass
+            atexit.register(readline.write_history_file, HISTFILE)
+            
+        blank = re.compile('^[ \t\n\r]*$')
+
+        while True:
+            try:
+                s = raw_input('query > ')   # Use raw_input on Python 2
+                if blank.match(s): continue
+            except EOFError:
+                break
+            run_query(opts, s)

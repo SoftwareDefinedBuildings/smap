@@ -195,6 +195,7 @@ class ReportInstance(dict):
             self['MaxPeriod'] = 2 ** 31 - 1
         self['DataDir'] = datadir
         self['PendingData'] = DataBuffer(datadir)
+        self['ReportDeliveryIdx'] = 0
         self['LastAttempt'] = 0
         self['LastSuccess'] = 0
         self['Busy'] = False
@@ -222,7 +223,7 @@ class ReportInstance(dict):
             return
 
         self['LastAttempt'] = util.now()
-        log.msg("publishing to %s: %i %s" % (str(self['ReportDeliveryLocation']),
+        log.msg("publishing to %s: %i %s" % (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
                                              len(data), 
                                              str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
         # set up an agent to push the data to the consumer
@@ -232,7 +233,7 @@ class ReportInstance(dict):
             util.dump_json(data, v)
             v.seek(0)
             d = agent.request('POST',
-                              str(self['ReportDeliveryLocation'][0]),
+                              str(self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]),
                               Headers({'Content-type' : 
                                        ['application/json']}),
                               client.FileBodyProducer(v))
@@ -259,10 +260,12 @@ class ReportInstance(dict):
                 else:
                     # but most HTTP codes indicate a failure
                     log.err("Report delivery to %s returned %i" % (
-                            str(sub_['ReportDeliveryLocation']) +
+                            self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
                             resp.code))
+                    self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                                 len(self['ReportDeliveryLocation']))
                     raise core.SmapException("Report delivery to " +
-                                             str(sub_['ReportDeliveryLocation']) +
+                                             str(self['ReportDeliveryLocation']) +
                                              ' returned ' + str(resp.code))
             return cbResponse
 
@@ -270,6 +273,8 @@ class ReportInstance(dict):
             inst_ = inst
             def doneCb(resp):
                 inst_['Busy'] = False
+                self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                             len(self['ReportDeliveryLocation']))
                 return resp
             return doneCb
 

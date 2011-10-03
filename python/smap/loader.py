@@ -107,9 +107,13 @@ contain a ``uuid`` key to set the root identifier for the source.
                 resource = conf.get(s, 'ReportResource')
             else:
                 resource = '/+'
+            dest = [conf.get(s, 'ReportDeliveryLocation')]
+            for i in xrange(0, 10):
+                if conf.has_option(s, 'ReportDeliveryLocation%i' % i):
+                    dest.append(conf.get(s, 'ReportDeliveryLocation%i' % i))
 
             reportinst = {
-                'ReportDeliveryLocation' : [conf.get(s, 'ReportDeliveryLocation')],
+                'ReportDeliveryLocation' : dest,
                 'ReportResource' : resource,
                 'uuid' : inst.uuid(s),
                 }

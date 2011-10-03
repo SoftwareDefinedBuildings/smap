@@ -22,6 +22,7 @@ profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
    intro
    install
    tutorial
+   conf
    internals
    core
 
