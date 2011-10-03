@@ -125,6 +125,16 @@ def p_tag_list(t):
     else:
         t[0] = [t[1]]+ t[3]
 
+def merge_clauses(klass, lstmt, rstmt) :
+    if type(lstmt) == klass and type(rstmt) == klass:
+        return klass(lstmt.clauses.union(rstmt.clauses))
+    elif type(lstmt) == klass:
+        return klass(lstmt.clauses.union(set([rstmt])))
+    elif type(rstmt) == klass:
+        return klass(rstmt.clauses.union(set([lstmt])))
+    else:
+        return klass([lstmt, rstmt])
+
 def p_statement(t):
     '''statement : statement_unary
                  | statement_binary
@@ -136,9 +146,9 @@ def p_statement(t):
     if len(t) == 2:
         t[0] = t[1]
     elif t[2] == 'and':
-        t[0] = qg.AndOperator([t[1], t[3]])
+        t[0] = merge_clauses(qg.AndOperator, t[1], t[3])
     elif t[2] == 'or':
-        t[0] = qg.OrOperator([t[1], t[3]])
+        t[0] = merge_clauses(qg.OrOperator, t[1], t[3])
     elif t[1] == 'not':
         t[0] = qg.NotOperator([t[2]])
     else:
@@ -223,7 +233,7 @@ if __name__ == '__main__':
  
                 if '-v' in sys.argv:
                     print v
-           
+                    
                 cur.execute(v)
                 pprint.pprint(extractor(cur.fetchall()))
             except:
