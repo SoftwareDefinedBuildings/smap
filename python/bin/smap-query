@@ -39,11 +39,12 @@ if __name__ == '__main__':
     parser.add_option('-k', '--key', dest='key', default=None,
                       help='api key to send to server')
     parser.add_option('-p', '--private', dest='private', default=False,
+                      help='display only results associated with the api key',
                       action='store_true')
     parser.add_option('-t', '--timeout', dest='timeout', default=10,
                       type="int")
     parser.add_option('-v', dest='verbose', default=0,
-                      action="count")
+                      help="be verbose", action="count")
     opts, args = parser.parse_args()
 
     if len(args) > 0:
