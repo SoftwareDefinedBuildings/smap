@@ -21,7 +21,6 @@ class ACmeX2Driver(SmapDriver, DatagramProtocol):
     def datagramReceived(self, data, addr):
         rpt = ACmeX2Report.AcReport(data=data, data_length=len(data))
         moteid = addr[0].split('::')[1]
-        print rpt
         if not moteid in self.ids:
             self.ids[moteid] = True
             self.add_timeseries('/' + moteid + '/true_power', 'mW', buffersz=2)
