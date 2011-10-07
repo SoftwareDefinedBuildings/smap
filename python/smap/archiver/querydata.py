@@ -35,7 +35,7 @@ class DataQuery:
     def set_range(self, start, end, limit=10):
         self.range = start, end
 
-    def execute(self, uid_list):
+    def execute(self, request, uid_list):
         print uid_list
         urlbase = 'http://' + ':'.join(map(str, settings.MY_LOCATION)) + \
             '/api/data/uuid/'
@@ -44,7 +44,7 @@ class DataQuery:
         data = get(spec)
         data = map(operator.itemgetter(1), data)
         data = map(operator.itemgetter(0), data)
-        return self.apply(data)
+        return request, self.apply(data)
 
     def apply(self, data):
         applyfn = [v['Readings'] for v in data]

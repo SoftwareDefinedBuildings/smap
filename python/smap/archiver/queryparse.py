@@ -235,7 +235,7 @@ def runquery(cur, q):
 
     cur.execute(v)
     if datagetter:
-        return datagetter.execute(extractor(cur.fetchall()))
+        return datagetter.execute(None, extractor(cur.fetchall()))
     else:
         return extractor(cur.fetchall())
 
@@ -283,7 +283,8 @@ if __name__ == '__main__':
             try:
                 s = raw_input('query > ')   # Use raw_input on Python 2
                 if s == '': continue
-                runquery(cur, s)
+                v = runquery(cur, s)
+                pprint.pprint(v)
             except EOFError:
                 break
             except:

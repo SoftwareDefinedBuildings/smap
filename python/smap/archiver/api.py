@@ -327,9 +327,9 @@ class Api(resource.Resource):
         ext, query, datagetter = parser.parse(query)
         d = self.db.runQuery(query)
         d.addCallback(lambda x: (request, ext(x)))
-        print datagetter
+        print type(datagetter)
         if datagetter:
-            d.addCallback(lambda x: threads.deferToThread(datagetter, x))
+            d.addCallback(lambda x: threads.deferToThread(lambda y: datagetter.execute(*y), x))
         d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 
