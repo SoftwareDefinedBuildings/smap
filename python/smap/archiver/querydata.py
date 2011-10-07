@@ -41,16 +41,17 @@ class DataQuery:
             '/api/data/uuid/'
         query = "?starttime=%i&endtime=%i&limit=%i" % (self.range + (self.limit,))
         spec = [urlbase + x + query for x in uid_list[0:10]]
-        data = map(operator.itemgetter(0), get(spec))
-        self.apply(data)
-        return data
+        data = get(spec)
+        data = map(operator.itemgetter(1), data)
+        data = map(operator.itemgetter(0), data)
+        return self.apply(data)
 
     def apply(self, data):
         applyfn = [v['Readings'] for v in data]
         for (op, args) in map(lambda x: make_operator(*x), reversed(self.filters)):
             applyfn = op(applyfn, *args)
-        print map(list, applyfn)
-        # v['Readings'] = list(applyfn)
+        return map(list, applyfn)
+
         
 
     def __str__(self):

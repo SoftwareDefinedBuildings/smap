@@ -323,9 +323,13 @@ class Api(resource.Resource):
 
     def render_POST(self, request):
         parser = qp.QueryParser(request)
-        ext, query = parser.parse(request.content.read())
+        query = request.content.read()
+        ext, query, datagetter = parser.parse(query)
         d = self.db.runQuery(query)
         d.addCallback(lambda x: (request, ext(x)))
+        print datagetter
+        if datagetter:
+            d.addCallback(lambda x: threads.deferToThread(datagetter, x))
         d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 

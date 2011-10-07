@@ -72,6 +72,6 @@ def get(getspec, nconns=5, parser=json.load, select_timeout=1.0):
         c.close()
     m.close()
 
-    map(lambda x: x.seek(0), rv)
-    return map(parser, rv)
+    map(lambda (_, x): x.seek(0), rv)
+    return map(lambda (u, x): (u, parser(x)), rv)
     
