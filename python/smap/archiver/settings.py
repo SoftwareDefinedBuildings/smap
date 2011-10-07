@@ -16,5 +16,5 @@ READINGDB = ('gecko.cs.berkeley.edu', 4243)
 MYSQL_HOST = 'jackalope.cs.berkeley.edu'
 MYSQL_DB = 'archiver'
 MYSQL_USER = 'ar'
-MYSQL_PASS = 'password'
+MYSQL_PASS = 'K55VnsPT'
 

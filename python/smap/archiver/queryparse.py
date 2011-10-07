@@ -3,6 +3,7 @@ import pgdb as sql
 import operator
 
 import querygen as qg
+import querydata as dq
 from smap.util import build_recursive
 
 import ply
@@ -13,7 +14,7 @@ import copy
 tokens = (
     'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT', 'STAR',
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
-    'QSTRING', 'EQ', 'NUMBER', 'LVALUE'
+    'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA'
     )
 
 reserved = {
@@ -26,6 +27,8 @@ reserved = {
     'or' : 'OR',
     'not' : 'NOT',
     'like' : 'LIKE',
+    'Readings': 'DATA',
+    'in' : 'IN',
     }
 
 t_LPAREN = r'\('
@@ -78,32 +81,38 @@ def ext_plural(x):
 def p_query(t):
     '''query : SELECT selector WHERE statement
              | SELECT selector'''
+    sqlsel, datasel = t[2]
     if len(t) == 5:
-        t[0] = t[2][2], ("""SELECT %s FROM metadata2 m, stream s 
+        t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
               WHERE stream_id IN (%s) AND %s AND
                    s.id = m.stream_id""" % \
-                             (t[2][0], qg.normalize(t[4]).render(), t[2][1]))
+                               (sqlsel[0], qg.normalize(t[4]).render(), sqlsel[1])), \
+                               datasel
     else:
-        t[0] = t[2][2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
+        t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
               WHERE s.id = m.stream_id AND s.subscription_id = sub.id
                  AND %s AND %s""" % 
-                         (t[2][0], t[2][1], 
-                          qg.build_authcheck(t.parser.request)))
+                         (sqlsel[0], sqlsel[1], 
+                          qg.build_authcheck(t.parser.request))), datasel
 
 def p_selector(t):
     '''selector : tag_list
                 | STAR
+                | data_clause
                 | DISTINCT LVALUE
                 | DISTINCT TAGS'''
     if t[1] == 'distinct':
         if t[2] == 'tags':
             restrict = 'true'
-            t[0] = ("DISTINCT m.tagname", 'true', ext_default)
+            t[0] = (("DISTINCT m.tagname", 'true', ext_default), None)
         elif t[2] == 'uuid':
-            t[0] = ("DISTINCT s.uuid", "true", ext_default)
+            t[0] = (("DISTINCT s.uuid", "true", ext_default), None)
         else:
-            t[0] = ("DISTINCT m.tagval", "tagname = '%s'" % 
-                    sql.escape_string(t[2]), ext_default)
+            t[0] = (("DISTINCT m.tagval", "tagname = '%s'" % 
+                     sql.escape_string(t[2]), ext_default), None)
+    elif len(t) == 2 and t[1] != '*':
+        # get data
+        t[0] = (("DISTINCT s.uuid", "true", ext_default), t[1])
     else:
         select = "s.uuid, m.tagname, m.tagval"
         if t[1] == '*':
@@ -115,7 +124,35 @@ def p_selector(t):
                 else:
                     return "tagname = '%s'" % sql.escape_string(x)
             restrict = ('(' + " OR ".join(map(make_clause, t[1])) + ')')
-        t[0] = (select, restrict, ext_plural)
+        t[0] = ((select, restrict, ext_plural), None)
+
+def p_data_clause(t):
+    '''data_clause : apply_fn IN LPAREN NUMBER COMMA NUMBER RPAREN'''
+    t[1].set_range(t[4], t[6])
+    t[0] = t[1]
+
+def p_apply_fn(t):
+    '''apply_fn : LVALUE LPAREN apply_fn RPAREN
+                | LVALUE LPAREN apply_fn COMMA arg_list RPAREN
+                | LVALUE LPAREN DATA RPAREN
+                | LVALUE LPAREN DATA COMMA arg_list RPAREN
+                '''
+    if isinstance(t[3], dq.DataQuery):
+        qobj = t[3]
+    else:
+        qobj = dq.DataQuery()
+    if len(t) == 5:
+        qobj.add_filter(t[1], [])
+    else:
+        qobj.add_filter(t[1], t[5])
+    t[0] = qobj
+
+def p_arg_list(t):
+    '''arg_list : QSTRING
+                | NUMBER
+                | QSTRING COMMA arg_list
+                | NUMBER COMMA arg_list'''
+    p_tag_list(t)
 
 def p_tag_list(t):
     '''tag_list : LVALUE
@@ -190,6 +227,18 @@ class QueryParser:
         return self.parser.parse(s, lexer=smapql_lex)
     
 
+def runquery(cur, q):
+    extractor, v, datagetter = qp.parse(s)
+    
+    if '-v' in sys.argv:
+        print v
+
+    cur.execute(v)
+    if datagetter:
+        return datagetter.execute(extractor(cur.fetchall()))
+    else:
+        return extractor(cur.fetchall())
+
 if __name__ == '__main__':
     import os
     import readline
@@ -198,9 +247,18 @@ if __name__ == '__main__':
     import sys
     import pprint
     import settings as s
+    import atexit
+    HISTFILE = os.path.expanduser('~/.smap-query-history')
+
     readline.parse_and_bind('tab: complete')
     readline.parse_and_bind('set editing-mode emacs')
-
+    if hasattr(readline, "read_history_file"):
+        try:
+            readline.read_history_file(HISTFILE)
+        except IOError:
+            pass
+    atexit.register(readline.write_history_file, HISTFILE)
+        
     connection = pgdb.connect(host=s.MYSQL_HOST,
                           user=s.MYSQL_USER,
                           password=s.MYSQL_PASS,
@@ -211,8 +269,8 @@ if __name__ == '__main__':
     class Request(object):
         pass
     request = Request()
-    setattr(request, 'args', {'private' : [], 
-                              'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
+    setattr(request, 'args', {})# {'private' : [], 
+#                               'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
 
     qp = QueryParser(request)
 
@@ -225,17 +283,9 @@ if __name__ == '__main__':
             try:
                 s = raw_input('query > ')   # Use raw_input on Python 2
                 if s == '': continue
+                runquery(cur, s)
             except EOFError:
                 break
-
-            try:
-                extractor, v = qp.parse(s)
- 
-                if '-v' in sys.argv:
-                    print v
-                    
-                cur.execute(v)
-                pprint.pprint(extractor(cur.fetchall()))
             except:
                 traceback.print_exc()
 
