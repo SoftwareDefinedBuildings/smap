@@ -35,7 +35,14 @@ t_LPAREN = r'\('
 t_RPAREN = r'\)'
 t_STAR = r'\*'
 t_COMMA = r','
-t_QSTRING = r'("([^"]|\\")*?")|\'([^"]|\\")*?\''
+def t_QSTRING(t):
+    r'("[^"\\]*?(\\.[^"\\]*?)*?")|(\'[^\'\\]*?(\\.[^\'\\]*?)*?\')'    
+    if t.value[0] == '"':
+        t.value = t.value[1:-1].replace('\\"', '"')
+    elif t.value[0] == "'":
+        t.value = t.value[1:-1].replace("\\'", "'")
+    return t
+
 t_EQ = r'='
 
 def t_LVALUE(t):
@@ -203,15 +210,15 @@ def p_statement_binary(t):
     '''
     if t[1] == 'uuid':
         t[0] = qg.Clause(qg.build_clause(t.parser.request, "(s.uuid = '%s')" %
-                                         sql.escape_string(t[3][1:-1])))
+                                         sql.escape_string(t[3])))
     elif t[2] == '=':
         t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval = '%s')" % 
                                          (sql.escape_string(t[1]), 
-                                          sql.escape_string(t[3][1:-1]))))
+                                          sql.escape_string(t[3]))))
     elif t[2] == 'like':
         t[0] = qg.Clause (qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
                           (sql.escape_string(t[1]), 
-                           sql.escape_string(t[3][1:-1]))))
+                           sql.escape_string(t[3]))))
 
 def p_error(t):
     print("Syntax error at '%s'" % t.value)
@@ -260,18 +267,16 @@ if __name__ == '__main__':
     atexit.register(readline.write_history_file, HISTFILE)
         
     connection = pgdb.connect(host=s.MYSQL_HOST,
-                          user=s.MYSQL_USER,
-                          password=s.MYSQL_PASS,
-                          database=s.MYSQL_DB)
+                              user=s.MYSQL_USER,
+                              password=s.MYSQL_PASS,
+                              database=s.MYSQL_DB)
     cur = connection.cursor()
 
 
     class Request(object):
         pass
     request = Request()
-    setattr(request, 'args', {})# {'private' : [], 
-#                               'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
-
+    setattr(request, 'args', {})
     qp = QueryParser(request)
 
     if not os.isatty(sys.stdin.fileno()):
