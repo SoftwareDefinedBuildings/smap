@@ -1,7 +1,8 @@
 
-
+import socket
+import time
+from twisted.python import log
 from smap import driver, core, util
-
 from labjackpython import ue9
 
 """
@@ -25,6 +26,21 @@ def build_calibrate(cconf):
     elif mult == None and div == None: return lambda x: (x * mult) / div
     else: return lambda x: x
 
+class ReconnectingUE9(ue9.UE9):
+    def __init__(self, **kwargs):
+        self.openargs = kwargs
+        ue9.UE9.__init__(self, **kwargs)
+
+    def readRegister(self, reg):
+        try:
+            return ue9.UE9.readRegister(self, reg)
+        except socket.error:
+            log.err("ue9 device socket error; reopening connection")
+            self.close()
+            time.sleep(3)
+            self.open(**self.openargs)
+            return ue9.UE9.readRegister(self, reg)
+
 class LabjackDriver(driver.SmapDriver):
     def setup(self, opts):
         if not 'ConfModule' in opts:
@@ -35,7 +51,7 @@ class LabjackDriver(driver.SmapDriver):
         self.labjacks = {}
         for ljname, ljconf in mod.CONF.iteritems():
             # create all the time series and calibration functions
-            dev = ue9.UE9(ipAddress=ljconf['address'], ethernet=True)
+            dev = ReconnectingUE9(ipAddress=ljconf['address'], ethernet=True)
             self.labjacks[ljname] = (ljconf, dev)
 
             for cname, cconf in ljconf['channels'].iteritems():
