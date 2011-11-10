@@ -458,16 +458,25 @@ sMAP reporting functionality."""
         if len(metadata) > 1:
             metadata = dict([metadata])
         else: metadata = metadata[0]
+
+        for v in metadata.itervalues():
+            if not util.is_string(v):
+                raise SmapException("set_metadata: values must be strings!")
+
         o = self.lookup(path)
         o.set_metadata(metadata)
 
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()
     s = SmapInstance(ROOT_UUID)
-    s.add_collection("/steve", Collection())
+    s.add_collection("/steve")
     t = Timeseries(s.uuid("sdh"), "V", buffersz=2)
     s.add_timeseries("/sensor0", t)
-    # print t
+    s.set_metadata("/sensor0", {
+            "Foo" : "Bar",
+            "Baz" : 10
+            })
+
     t.add(util.now(), 12)
     t.add(util.now(), 13)
     print s.get_timeseries(t['uuid'])

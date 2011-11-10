@@ -5,6 +5,7 @@ import urlparse
 from binascii import hexlify
 from BeautifulSoup import BeautifulSoup as bs
 import hashlib
+import json
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -52,3 +53,7 @@ def load_http(url, cache=False, auth=None, data=None, as_fp=False):
 
 def load_html(url, **kwargs):
     return bs(load_http(url, **kwargs))
+
+def get(urls, **kwargs):
+    v = map(lambda x: load_http(x, **kwargs), urls)
+    return zip(urls, map(json.loads, v))

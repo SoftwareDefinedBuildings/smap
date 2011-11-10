@@ -49,6 +49,9 @@ if __name__ == '__main__':
 
     if len(args) > 0:
         map(lambda x: run_query(opts, x), args)
+    elif not os.isatty(sys.stdin.fileno()):
+        q = sys.stdin.read()
+        run_query(opts, q)
     else:
         print "Querying", opts.url
         readline.parse_and_bind('tab: complete')
