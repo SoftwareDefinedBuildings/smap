@@ -114,6 +114,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         else:
             raise SmapException("Invalid add arguments: must be (value), "
                                 "(time, value), or (tiem, value, seqno)")
+        time = int(time)
         if not self.milliseconds:
             time *= 1000
 
