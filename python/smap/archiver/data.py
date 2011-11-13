@@ -5,7 +5,7 @@ import pprint
 
 from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
-import MySQLdb as sql
+import pgdb as sql
 
 import readingdb as rdb
 

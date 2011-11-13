@@ -28,7 +28,6 @@ import auth
 
 BMOROOT = 'http://www.buildingmanageronline.com/members/'
 STATUSPAGE = 'client_status.php?DB=dbU216ucberkelF682'
-
 AUTH = ('ucbguest', 'ucbguest')
 
 def remove_entities(s):
@@ -46,9 +45,11 @@ if __name__ == '__main__':
                       help='show buildings as we load them')
     parser.add_option('-l', '--load', dest='load', action='store_true', default=False,
                       help='generate conf for loading data from bmo')
+    parser.add_option('-d', '--database', dest='db', action='store_true', default=False,
+                      help='generate a prototype sensordb for an instrument')
     (opts, args) = parser.parse_args()
     opts.conf = True
-    if opts.types or opts.buildings or opts.load:
+    if opts.types or opts.buildings or opts.load or opts.db:
         opts.conf = False
 
     # find all the AcquiSuite boxes
@@ -87,7 +88,6 @@ if __name__ == '__main__':
             for t in v['subdevices']:
                 if not t['type'] in mtypes:
                     mtypes[t['type']] = {'count': 0, 'locs': []}
-                print mtypes[t['type']]
                 mtypes[t['type']]['count'] = mtypes[t['type']]['count'] + 1
                 mtypes[t['type']]['locs'].append(name)
         for n, c in mtypes.iteritems():
@@ -136,8 +136,8 @@ elif opts.load:
         params = urlparse.parse_qs(urlparse.urlsplit(devs['href']).query)
         if not "AS" in params or not  "DB" in params: continue
         if location in auth.AUTH: continue
+        thisconf = {}
         for d in devs['subdevices']:
-            thisconf = {}
             if sensordb.get_map(d['type'], location) != None:
                 dlurl = BMOROOT + 'mbdev_export.php/' + params['AS'][0] + '_' +  \
                     d['address'] + '.csv' + "?DB=" + params['DB'][0] + '&AS=' + \
@@ -147,8 +147,9 @@ elif opts.load:
                 thisconf[d['name']] = (
                     d['type'],
                     dlurl)
-            if len(thisconf) > 0:
-                conf[location] = thisconf
+
+        if len(thisconf) > 0:
+            conf[location] = thisconf
 
     # generate config file
     cf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
@@ -181,3 +182,7 @@ elif opts.load:
 #             else:
 #                 print '/' + obvius.to_pathname(k) + '/' + obvius.to_pathname(v.keys()[0]) + ',' + k
 
+elif opts.db:
+    print "generate sensordb"
+    for location, devs in devices.iteritems():
+        print devs

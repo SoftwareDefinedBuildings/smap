@@ -8,6 +8,7 @@ from twisted.python import usage
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 from twisted.application import internet
+from twisted.internet import reactor
 
 from smap import core, loader, smapconf
 from smap.server import getSite
@@ -27,17 +28,20 @@ class SmapServiceMaker(object):
     options = Options
 
     def makeService(self, options):
-
         if options['data-dir'] != None:
             if not os.access(options['data-dir'], os.X_OK | os.W_OK):
                 raise core.SmapException("Cannot access " + options['data-dir'])
-        smapconf.SERVER['DataDir'] = options['data-dir']
+            smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])
         if options["port"] != None:
             port = options["port"]
         else:
             port = smapconf.SERVER['Port']
+
+        if 'SuggestThreadPool' in smapconf.SERVER:
+            reactor.suggestThreadPoolSize(int(smapconf.SERVER['SuggestThreadPool']))
+
         inst.start()
 
         return internet.TCPServer(int(port), getSite(inst))

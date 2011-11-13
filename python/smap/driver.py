@@ -99,10 +99,10 @@ class BaseDriver(SmapDriver):
         util.periodicSequentialCall(self.read).start(1)
 
     def read(self):
-        print "Add", self.counter
+        # print "Add", self.counter
         self.t.add(self.counter)
         self.counter += 1
-        print self.counter
+        # print self.counter
 
 
 if __name__ == '__main__':

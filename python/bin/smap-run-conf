@@ -7,6 +7,7 @@ import uuid
 import logging
 from optparse import OptionParser
 
+from twisted.internet import reactor
 from twisted.python import log
 
 from smap import core, server, driver, loader, smapconf
@@ -38,6 +39,9 @@ if __name__ == '__main__':
             raise core.SmapException("Cannot access " + opts.data_dir)
         smapconf.SERVER['DataDir'] = opts.data_dir
     inst = loader.load(args[0])
+    if 'SuggestThreadPool' in smapconf.SERVER:
+        print "Suggesting thread pool size:", smapconf.SERVER['SuggestThreadPool']
+        reactor.suggestThreadPoolSize(int(smapconf.SERVER['SuggestThreadPool']))
 
     if opts.port:
         server.run(inst, port=opts.port)

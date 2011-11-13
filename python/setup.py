@@ -1,6 +1,5 @@
 
 from distutils.core import setup, Extension
-import glob
 
 # build modbus extension module
 modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
@@ -10,10 +9,11 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
-      version="2.0",
+      version="2.0.79",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
+      url="http://cs.berkeley.edu/~stevedh/smap2/",
       packages=[
         # core sMAP libs and drivers
         "smap", 
@@ -36,9 +36,8 @@ setup(name="Smap",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
         ],
-      requires=["avro", "twisted"],
+      requires=["avro", "twisted", "ordereddict", "ply"],
       package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av']},
       ext_modules=[modbus_module],
-      scripts=['bin/smap-run-driver', 'bin/smap-run-conf', 
-               'bin/jprint', 'bin/uuid'])
+      scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query'])

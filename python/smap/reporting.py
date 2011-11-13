@@ -1,4 +1,5 @@
 
+import os
 import sys
 import time
 import traceback
@@ -7,6 +8,7 @@ import util
 import json
 import copy
 import pprint
+import cStringIO as StringIO
 
 from twisted.internet import reactor, task, defer, threads
 from twisted.web.client import Agent
@@ -14,9 +16,14 @@ from twisted.web.http_headers import Headers
 from twisted.python import log
 
 import core
+import disklog
+from contrib import client
 
 # this is the largest number of records we will store.
 BUFSIZE_LIMIT = 100000
+
+# the most records to pack into a single log entry/message to the server
+REPORT_RECORD_LIMIT = 10000
 
 def reporting_copy(obj):
     if isinstance(obj, dict):
@@ -83,26 +90,35 @@ class DataBuffer:
     that may mean removing less data than you read back (some may have
     been overwritten).
     """
-    def __init__(self, max_size, data=None):
+    def __init__(self, datadir):
         """
         :param int max_size: the maximum total log size, in records
         """
-        if data:
-            self.data = data
-        else:
-            self.data = util.FixedSizeList(max_size)
-        self.max_size = max_size
-
-    def __repr__(self):
-        return "DataBuffer(" + str(self.max_size) + \
-            ", data=" + repr(self.data) + ")"
+        print "Create databuffer", datadir
+        self.datadir = datadir
+        self.data = disklog.DiskLog(datadir)
+        self.head_metric = self.metric(self.data.tail())
+        # if we do a read, we have to add a new log record so we don't
+        # keep appending to the same one
+        self.clear = False
 
     def __str__(self):
-        return "DataBuffer max_size: %i streams: %i" % \
-            (self.max_size, len(self.data))
+        return "DataBuffer len: %i" % len(self.data)
 
     def __len__(self):
         return len(self.data)
+
+    def sync(self):
+        self.data.sync()
+
+    def metric(self, val):
+        if hasattr(val, '__iter__'):
+            if 'Readings' in val:
+                val_metric = len(val['Readings'])
+            else: val_metric = len(val)
+        else:
+            val_metric = 1
+        return val_metric
 
     def add(self, key, val):
         """Enqueue a new object for delivery with a subscription
@@ -110,29 +126,45 @@ class DataBuffer:
         :param string key: The key for the data stream
         :param string val: The new value for the object.  Copied.
         """
-        if len(self.data) == 0:
+        tail = self.data.tail()
+
+        # length of the head
+        val_metric = self.metric(val)
+
+        if tail == None or self.clear:
             self.data.append({key: reporting_copy(val)})
+            self.head_metric = val_metric
+            self.clear = False
         elif 'Contents' in val and len(val['Contents']) == 0:
             # okay to skip b/c it doesn't apply to anything
             pass
-        elif key in self.data[-1] and len(val) == 2 and \
-             'Readings' in val and 'uuid' in val:
-            if not 'Readings' in self.data[-1][key]:
-                self.data[-1][key]['Readings'] = []
-            if len(self.data[-1][key]['Readings']) < 100:
-                self.data[-1][key]['Readings'].extend(val['Readings'])
+        elif key in tail and len(val) == 2 and \
+                'Readings' in val and 'uuid' in val:
+            if not 'Readings' in tail[key]:
+                tail[key]['Readings'] = []
+            if self.head_metric < REPORT_RECORD_LIMIT:
+                tail[key]['Readings'].extend(val['Readings'])
+                self.data.update_tail(tail)
+                self.head_metric += val_metric
             else:
                 self.data.append({key: reporting_copy(val)})
-        # really this might just want to merge updates...
-        elif key in self.data[-1] and val == self.data[-1][key]:
-            pass
-        else:
-            self.data[-1][key] = reporting_copy(val)
+                self.head_metric = val_metric
 
-    def truncate(self, tspec):
+        # really this might just want to merge updates...
+        elif key in tail and val == tail[key]:
+            pass
+        elif not key in tail and self.head_metric < REPORT_RECORD_LIMIT:
+            tail[key] = reporting_copy(val)
+            self.data.update_tail(tail)
+            self.head_metric += val_metric
+        else:
+            self.data.append({key: reporting_copy(val)})
+            self.head_metric = val_metric
+
+    def truncate(self):
         """Truncate a set of readings based on the sequence number
         stored from a previous read"""
-        self.data.truncate(tspec)
+        self.data.pop()
         
     def read(self):
         """Read n points (per stream) back as a flat list.  AlsoFi
@@ -146,7 +178,8 @@ class DataBuffer:
         and may have wrapped while you were processing the readings.
         """
         if len(self.data) > 0:
-            return self.data[0], self.data.idxtoseq(0) + 1
+            self.clear = True
+            return self.data.head()
         else:
             raise core.SmapException("No Pending Data!")
 
@@ -154,13 +187,15 @@ class DataBuffer:
 class ReportInstance(dict):
     """Represent the stored state pending for one report destination
     """
-    def __init__(self, max_size, *args):
+    def __init__(self, datadir, *args):
         dict.__init__(self, *args)
         if not 'MinPeriod' in self:
             self['MinPeriod'] = 0
         if not 'MaxPeriod' in self:
             self['MaxPeriod'] = 2 ** 31 - 1
-        self['PendingData'] = DataBuffer(max_size)
+        self['DataDir'] = datadir
+        self['PendingData'] = DataBuffer(datadir)
+        self['ReportDeliveryIdx'] = 0
         self['LastAttempt'] = 0
         self['LastSuccess'] = 0
         self['Busy'] = False
@@ -178,30 +213,30 @@ class ReportInstance(dict):
         """Try to make a delivery
         :rvalue: a :py:class:`Deferred` of the attempt
         """
-        try:
-            data, tspec = self['PendingData'].read()
-            print "read"
-            # pprint.pprint(data)
-        except Exception, e:
-            log.err()
-            traceback.print_exc()
-            return
-
         if 'Busy' in self and self['Busy']:
             return
 
+        try:
+            data = self['PendingData'].read()
+        except Exception, e:
+            print e
+            return
+
         self['LastAttempt'] = util.now()
-        log.msg("publishing to %s: %i %s" % (str(self['ReportDeliveryLocation']),
-                                           len(data), 
-                                           str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
+        log.msg("publishing to %s: %i %s" % (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
+                                             len(data), 
+                                             str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
         # set up an agent to push the data to the consumer
         agent = Agent(reactor)
         try:
+            v = StringIO.StringIO()
+            util.dump_json(data, v)
+            v.seek(0)
             d = agent.request('POST',
-                              str(self['ReportDeliveryLocation'][0]),
+                              str(self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]),
                               Headers({'Content-type' : 
-                                       ['application/json']}), 
-                              util.AsyncJSON(data))
+                                       ['application/json']}),
+                              client.FileBodyProducer(v))
         except:
             traceback.print_exc()
             return
@@ -209,13 +244,12 @@ class ReportInstance(dict):
         def makeSuccessCb():
             # make a closure for removing the delivered data
             # on a success
-            tspec_ = tspec
             def cbResponse(resp):
                 self['Busy'] = False
                 if resp.code in [200, 201, 204]:
                     # on success record the time and remove the data
                     self['LastSuccess'] = util.now()
-                    self['PendingData'].truncate(tspec_)
+                    self['PendingData'].truncate()
                     if len(self['PendingData']) > 0:
                         # this causes a new deferred to get added to
                         # the chain, so we continue immediately at the
@@ -226,10 +260,12 @@ class ReportInstance(dict):
                 else:
                     # but most HTTP codes indicate a failure
                     log.err("Report delivery to %s returned %i" % (
-                            str(sub_['ReportDeliveryLocation']) +
+                            self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
                             resp.code))
+                    self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                                 len(self['ReportDeliveryLocation']))
                     raise core.SmapException("Report delivery to " +
-                                             str(sub_['ReportDeliveryLocation']) +
+                                             str(self['ReportDeliveryLocation']) +
                                              ' returned ' + str(resp.code))
             return cbResponse
 
@@ -237,6 +273,8 @@ class ReportInstance(dict):
             inst_ = inst
             def doneCb(resp):
                 inst_['Busy'] = False
+                self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                             len(self['ReportDeliveryLocation']))
                 return resp
             return doneCb
 
@@ -265,6 +303,7 @@ class Reporting:
         self.subscribers = []
         self.reportfile = reportfile
         self.max_size = max_size
+        self.autoflush = autoflush
         if self.reportfile:
             self.load_reports()
 
@@ -285,7 +324,9 @@ class Reporting:
         return util.find(lambda item: item['uuid'] == id, self.subscribers)
 
     def add_report(self, rpt):
-        report_instance = ReportInstance(self.max_size, rpt)
+        dir = os.path.join(self.reportfile + '-reports',
+                           str(rpt['uuid']))
+        report_instance = ReportInstance(dir, rpt)
         log.msg("Creating report -- dest is %s" % str(rpt['ReportDeliveryLocation']))
         self._update_subscriptions(report_instance)
         self.subscribers.append(report_instance)
@@ -350,6 +391,8 @@ class Reporting:
         """Save reports while holding the filesystem lock.
         """
         util.pickle_dump(self.reportfile, self.subscribers)
+        for s in self.subscribers:
+            s['PendingData'].sync()
 
         if len(args) == 1:
             return args[0]

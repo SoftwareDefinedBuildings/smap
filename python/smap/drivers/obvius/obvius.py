@@ -19,6 +19,7 @@ urllib2.install_opener(urllib2.build_opener())
 
 def to_pathname(s):
     s = re.sub('[\W/]+', '_', s)
+    s = re.sub('_*$', '', s)
     return s.lower()
 
 class Driver(smap.driver.SmapDriver):

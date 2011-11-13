@@ -23,6 +23,7 @@ parser.add_option('-l', '--location', dest='location', type='string',
 parser.add_option('-t', '--truncate', dest='truncate', type='int',
                   default=False, help='truncate log')
 opts, args = parser.parse_args()
+log.startLogging(sys.stdout)
 
 deferList = []
 for rf in args:
@@ -51,7 +52,6 @@ for rf in args:
         deferList.append(rinst._flush(force=True))
 
 if opts.deliver and len(filter(lambda x: x != None, deferList)) > 0:
-    log.startLogging(sys.stdout)
     d = defer.DeferredList(deferList, fireOnOneErrback=True, consumeErrors=True)
     d.addBoth(lambda _: reactor.stop())
     reactor.run()

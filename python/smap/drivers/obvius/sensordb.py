@@ -19,9 +19,9 @@ DB = [
     {
         "obviusname" : "Power Measurement ION 6200",
         "sensors" : [
-            ('I a', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('I b', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('I c', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('I a (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I b (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I c (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
             ('I demand', MAYBEFLOATPAT, 'ABC', 'current_demand', 'A'),
 
             ('I a demand', MAYBEFLOATPAT, 'A', 'current_demand', 'A'),
@@ -69,17 +69,17 @@ DB = [
     {
         'obviusname' : 'Shark 100',
         'sensors' : [
-            ('Volts A-N', MAYBEFLOATPAT, 'A', 'volts', 'V'),
-            ('Volts B-N', MAYBEFLOATPAT, 'B', 'volts', 'V'),
-            ('Volts C-N', MAYBEFLOATPAT, 'C', 'volts', 'V'),
+            ('Volts A-N (Volts)', MAYBEFLOATPAT, 'A', 'volts', 'V'),
+            ('Volts B-N (Volts)', MAYBEFLOATPAT, 'B', 'volts', 'V'),
+            ('Volts C-N (Volts)', MAYBEFLOATPAT, 'C', 'volts', 'V'),
 
-            ('Volts A-B', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
-            ('Volts B-C', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
-            ('Volts C-A', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Volts A-B (Volts)', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Volts B-C (Volts)', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Volts C-A (Volts)', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
 
-            ('Amps A', MAYBEFLOATPAT, 'A', 'current', 'A'),
-            ('Amps B', MAYBEFLOATPAT, 'B', 'current', 'A'),
-            ('Amps C', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('Amps A (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Amps B (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Amps C (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
 
             ('Watts, 3-Ph total', r'^(\d+)', 'ABC', 'real_power', 'kW'),
             ('VAs, 3-Ph total', r'^(\d+)', 'ABC', 'apparent_power', 'kVA'),
@@ -87,7 +87,7 @@ DB = [
 
             ('Power Factor, 3-Ph total', r'^(-?\d+\.\d+)', 'ABC', 'pf', 'PF'),
 
-            ('Frequency', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Frequency (Hz)', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
 
             ('Angle, Phase A Current', MAYBEFLOATPAT, 'A', 'current_phase_angle', 'deg'),
             ('Angle, Phase B Current', MAYBEFLOATPAT, 'B', 'current_phase_angle', 'deg'),
@@ -198,14 +198,73 @@ DB = [
 
             ('kVAh', r'^(\d+)', 'ABC', 'apparent_energy_net', 'kVAh'),
             ]
+        },
+    {
+        "obviusname" : "Continental Control Systems LLC, WattNode MODBUS",
+        "sensors" : [
+            ('Energy Sum (k)', MAYBEFLOATPAT, 'ABC', 'energy_sum', 'kWh'),
+            ('Power Sum (kW)', MAYBEFLOATPAT, 'ABC', 'power_sum', 'kW'),
+            ('Power A (kW)', MAYBEFLOATPAT, 'A', 'energy_sum', 'kW'),
+            ('Power B (kW)', MAYBEFLOATPAT, 'B', 'energy_sum', 'kW'),
+            ('Power C (kW)', MAYBEFLOATPAT, 'C', 'energy_sum', 'kW'),
+            ('Voltage A (Volts)', MAYBEFLOATPAT, 'A', 'volts', 'V'),
+            ('Voltage B (Volts)', MAYBEFLOATPAT, 'B', 'volts', 'V'),
+            ('Voltage C (Volts)', MAYBEFLOATPAT, 'C', 'volts', 'V'),
+            ('Voltage Ave LL (Volts)', MAYBEFLOATPAT, 'ABC', 'volts', 'V'),
+            ('Voltage A-B (Volts)', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Voltage B-C (Volts)', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Voltage A-C (Volts)', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Frequency (Hz)', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Energy A Net (kWh)', MAYBEFLOATPAT, 'A', 'energy_net', 'kWh'),
+            ('Energy B Net (kWh)', MAYBEFLOATPAT, 'B', 'energy_net', 'kWh'),
+            ('Energy C Net (kWh)', MAYBEFLOATPAT, 'C', 'energy_net', 'kWh'),
+            ('Energy Pos A (kWh)', MAYBEFLOATPAT, 'A', 'energy_pos', 'kWh'),
+            ('Energy Pos B (kWh)', MAYBEFLOATPAT, 'B', 'energy_pos', 'kWh'),
+            ('Energy Pos C (kWh)', MAYBEFLOATPAT, 'C', 'energy_pos', 'kWh'),
+            ('Energy Neg Sum (kWh)', MAYBEFLOATPAT, 'ABC', 'energy_neg', 'kWh'),
+            ('Energy Neg Sum NR (kWh)', MAYBEFLOATPAT, 'ABC', 'energy_neg_nr', 'kWh'),
+            ('Energy Neg A (kWh)', MAYBEFLOATPAT, 'A', 'energy_neg', 'kWh'),
+            ('Energy Neg B (kWh)', MAYBEFLOATPAT, 'B', 'energy_neg', 'kWh'),
+            ('Energy Neg C (kWh)', MAYBEFLOATPAT, 'C', 'energy_neg', 'kWh'),
+            ('Energy Reactive Sum (kVARh)', MAYBEFLOATPAT, 'ABC', 'reactive_energy', 'kVARh'),
+            ('Energy Reactive A (kVARh)', MAYBEFLOATPAT, 'A', 'reactive_energy', 'kVARh'),
+            ('Energy Reactive B (kVARh)', MAYBEFLOATPAT, 'B', 'reactive_energy', 'kVARh'),
+            ('Energy Reactive C (kVARh)', MAYBEFLOATPAT, 'C', 'reactive_energy', 'kVARh'),
+            ('Energy Apparent Sum (kVAh)', MAYBEFLOATPAT, 'ABC', 'apparent_energy', 'kVAh'),
+            ('Energy Apparent A (kVAh)', MAYBEFLOATPAT, 'A', 'apparent_energy', 'kVAh'),
+            ('Energy Apparent B (kVAh)', MAYBEFLOATPAT, 'B', 'apparent_energy', 'kVAh'),
+            ('Energy Apparent C (kVAh)', MAYBEFLOATPAT, 'C', 'apparent_energy', 'kVAh'),
+            ('Power Factor Ave', MAYBEFLOATPAT, 'ABC', 'pf', 'PF'),
+            ('Power Factor A', MAYBEFLOATPAT, 'A', 'pf', 'PF'),
+            ('Power Factor B', MAYBEFLOATPAT, 'B', 'pf', 'PF'),
+            ('Power Factor C', MAYBEFLOATPAT, 'C', 'pf', 'PF'),
+            ('Power Reactive Sum (kVAR)', MAYBEFLOATPAT, 'ABC', 'reactive_power', 'kVAR'),
+            ('Power Reactive A (kVAR)', MAYBEFLOATPAT, 'A', 'reactive_power', 'kVAR'),
+            ('Power Reactive B (kVAR)', MAYBEFLOATPAT, 'B', 'reactive_power', 'kVAR'),
+            ('Power Reactive C (kVAR)', MAYBEFLOATPAT, 'C', 'reactive_power', 'kVAR'),
+            ('Power Apparent Sum (kVA)', MAYBEFLOATPAT, 'ABC', 'apparent_power', 'kVA'),
+            ('Power Apparent A (kVA)', MAYBEFLOATPAT, 'A', 'apparent_power', 'kVA'),
+            ('Power Apparent B (kVA)', MAYBEFLOATPAT, 'B', 'apparent_power', 'kVA'),
+            ('Power Apparent C (kVA)', MAYBEFLOATPAT, 'C', 'apparent_power', 'kVA'),
+            ('Current A (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Current B (Amps)', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Current C (Amps)', MAYBEFLOATPAT, 'C', 'current', 'A'),
+#             ('Demand (kW)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand Min (kW)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand Max (kW)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand Apparent (kVA)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand A (kW)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand B (kW)', MAYBEFLOATPAT, 'ABC', '', ''),
+#             ('Demand C (kW)', MAYBEFLOATPAT, 'ABC', '', '') 
+            ],
+        "meters" : [],
         }
-
     ]
 
 TYPES = [x['obviusname'] for x in DB]
 def get_map(type, location=None):
     for m in DB:
-        if m['obviusname'] == type and ( \
+        if type.startswith(m['obviusname']) and ( \
             location == None or not 'locations' in m or location in m['locations']):
             return m
     return None

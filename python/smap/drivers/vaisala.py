@@ -62,6 +62,12 @@ class VaisalaDriver(SmapDriver):
     class VaisalaListener(LineReceiver):
         def lineReceived(self, line):
             self.log.debug("Read: " + line)
+            try:
+                self.process(line)
+            except Exception, e:
+                self.log.error("Error in update: " + str(e))
+
+        def process(self, line):
             fields = line.split(',')
             reg = fields[0][1:]
             def proc_field(f):

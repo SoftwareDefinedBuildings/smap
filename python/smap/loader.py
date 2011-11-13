@@ -96,11 +96,7 @@ contain a ``uuid`` key to set the root identifier for the source.
         smapconf.SERVER = util.dict_merge(smapconf.SERVER, server_conf)
 
     # we need the root to have a uuid
-    if conf.has_option('/', 'NoReportFile'):
-        inst = core.SmapInstance(conf.get('/', 'uuid'), 
-                                 reportfile=None, **instargs)
-    else:
-        inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
+    inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
     inst.loading = True
     reports = []
 
@@ -111,9 +107,13 @@ contain a ``uuid`` key to set the root identifier for the source.
                 resource = conf.get(s, 'ReportResource')
             else:
                 resource = '/+'
+            dest = [conf.get(s, 'ReportDeliveryLocation')]
+            for i in xrange(0, 10):
+                if conf.has_option(s, 'ReportDeliveryLocation%i' % i):
+                    dest.append(conf.get(s, 'ReportDeliveryLocation%i' % i))
 
             reportinst = {
-                'ReportDeliveryLocation' : [conf.get(s, 'ReportDeliveryLocation')],
+                'ReportDeliveryLocation' : dest,
                 'ReportResource' : resource,
                 'uuid' : inst.uuid(s),
                 }
@@ -209,22 +209,3 @@ contain a ``uuid`` key to set the root identifier for the source.
     inst.reports.update_subscriptions()
     inst.loading = False
     return inst
-
-
-if __name__ == '__main__':
-    i = core.SmapInstance(uuid.uuid1())
-    i.add_collection("/steve", "steve")
-    i.add_timeseries("/sensor0", "sdh", "V", buffersz=2)
-    i.get_timeseries("/sensor0")['Metadata'] = \
-        {'Instrument' : {
-            'Manufacturer' : "Stephen Dawson-Haggerty"
-            },
-         'Extra' : {
-            'Sucks' : 'Andrew'
-            }
-         }
-    i.get_collection("/")["Metadata"] = {"Extra" : {"foo" : "bar"} }
-    dump(i, "out.ini")
-
-
-    load("out.ini")
