@@ -4,6 +4,8 @@ import uuid
 from zope.interface import implements
 from twisted.web import resource
 from twisted.internet import reactor
+import exceptions
+import sys
 
 import schema
 import util
@@ -358,7 +360,10 @@ sMAP reporting functionality."""
         """Utility to call the version of :py:meth:`~smap.core.Timeseries.add`
         associated with *path*.  The same as ``inst.get_timeseries(path).add(...)``
         """
-        return self.get_timeseries(path).add(*args, **kwargs)
+        try:
+            return self.get_timeseries(path).add(*args, **kwargs)
+        except exceptions.AttributeError, e:
+            raise SmapException("add failed: no such path: %s" % path)
 
     def _add_parents(self, path):
         for i in xrange(0, len(path)):

@@ -147,7 +147,11 @@ snippet from before::
 
 We can now run this just as easily as before either using ``twistd``.
 
-When writing a driver, the keys or paths which are used to create
+When writing a driver, paths should be relative to a root path ("/")
+and not include any other path components; the full path is created by
+combining the attachment point from the config file (``/instrument0``)
+with the paths supplied in the driver (``/sensor0``), so the full path
+of this sensor is ``/instrument0/sensor0``.  Paths used to create
 timeseries and collections inside of a driver only need to be unique
 within that driver, not the whole sMAP source because the keys are
 combined with the driver's UUID to generate their full identifier.
