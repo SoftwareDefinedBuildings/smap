@@ -8,12 +8,12 @@ import operator
 import smap.util as util
 
 try:
-    from iface.http.httpcurl import get
+    from smap.iface.http.httpcurl import get
 except ImportError:
     print >>sys.stderr, """Warning -- can't find httpcurl
   --> Falling back on urllib2
   --> Install pycURL for parallel data downloads"""
-    from iface.http.httputils import get
+    from smap.iface.http.httputils import get
 
 class SmapClient:
     def __init__(self, base, key=None, private=False, timeout=5.0):
@@ -62,13 +62,14 @@ class SmapClient:
         data = get(urls)
         data.sort(key=lambda x: x[1][0]['uuid'])
         uids = map(lambda x: x[1][0]['uuid'], data)
-        data = map(lambda x: x[1][0]['Readings'], data)
+        data = map(lambda x: x[1][0]['Readings'], data)[0]
+
         return uids, data
 
     def data(self, qbody, start, end, limit=10000):
         return self._data(qbody, 'data', 
-                          starttime=str(start*1000), 
-                          endtime=str(end*1000),
+                          starttime=str(int(start)*1000), 
+                          endtime=str(int(end)*1000),
                           limit=str(limit))
 
     def prev(self, qbody, ref, limit=1):

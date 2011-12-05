@@ -89,6 +89,7 @@ def p_query(t):
     '''query : SELECT selector WHERE statement
              | SELECT selector'''
     sqlsel, datasel = t[2]
+    print t[2]
     if len(t) == 5:
         t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
               WHERE stream_id IN (%s) AND %s AND
@@ -117,9 +118,9 @@ def p_selector(t):
         else:
             t[0] = (("DISTINCT m.tagval", "tagname = '%s'" % 
                      sql.escape_string(t[2]), ext_default), None)
-    elif len(t) == 2 and t[1] != '*':
-        # get data
-        t[0] = (("DISTINCT s.uuid", "true", ext_default), t[1])
+#     elif len(t) == 2 and t[1] != '*':
+#         # get data
+#         t[0] = (("DISTINCT s.uuid", "true", ext_default), t[1])
     else:
         select = "s.uuid, m.tagname, m.tagval"
         if t[1] == '*':
@@ -236,10 +237,12 @@ class QueryParser:
 
 def runquery(cur, q):
     extractor, v, datagetter = qp.parse(s)
-    
+    print v, datagetter
+
     if '-v' in sys.argv:
         print v
 
+    
     cur.execute(v)
     if datagetter:
         return datagetter.execute(None, extractor(cur.fetchall()))

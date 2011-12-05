@@ -4,6 +4,7 @@ import time
 import json
 import operator
 import urllib
+import csv
 
 from twisted.internet import threads, defer
 from twisted.web import resource, server
@@ -308,7 +309,52 @@ class Api(resource.Resource):
         else:
             return defer.succeed((request, []))
 
+    def write_one_stream(self, request, stream, stags, mime_header=False):
+        writer = csv.writer(request)
+        if 'tags' in request.args and not 'none' in request.args['tags']:
+            request.write("# uuid: %s\n" % stream['uuid'])
+            request.write("# DownloadTime: " + time.ctime() + "\n")
+            request.write("# ")
+            request.write('\n# '.join((': '.join(x) for x in stags)))
+            request.write('\n')
+        map(writer.writerow, stream['Readings'])
+
+    def send_csv_reply(self, request, result, tags):        
+        request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % result[0]['uuid'])
+        self.write_one_stream(request, 
+                              result[0], 
+                              sorted(map(operator.itemgetter(1,2), tags[0][1])))
+        
+        request.finish()
+
+    def send_data_reply(self, (request, result)):
+        if not 'format' in request.args or 'json' in  request.args['format']:
+            request.setHeader('Content-type', 'application/json')
+            request.write(util.json_encode(result))
+            request.finish()
+        elif 'format' in request.args and 'csv' in request.args['format']:
+            if len(result) > 1:
+                request.setResponseCode(400)
+                request.write("CSV only supported for one data stream")
+                request.finish()
+                return
+            # return cvs
+            request.setHeader('Content-type', 'text/csv')
+            if 'tags' in request.args:
+                dl = []
+                for str in result:
+                    dl.append(build_tag_query(self.db, request, [('uuid', str['uuid'])]))
+                d = defer.DeferredList(dl)
+                d.addCallback(lambda x: self.send_csv_reply(request, result, x))
+                return d
+            else:
+                return self.send_csv_reply(request, result, [(False, [])] * len(result))
+        else:
+            request.setResponseCode(400)
+            request.finish()
+
     def send_reply(self, (request, result)):
+        request.setHeader('Content-type', 'application/json')
         request.write(util.json_encode(result))
         request.finish()
 
@@ -327,7 +373,6 @@ class Api(resource.Resource):
         ext, query, datagetter = parser.parse(query)
         d = self.db.runQuery(query)
         d.addCallback(lambda x: (request, ext(x)))
-        print type(datagetter)
         if datagetter:
             d.addCallback(lambda x: threads.deferToThread(lambda y: datagetter.execute(*y), x))
         d.addCallback(self.send_reply)
@@ -348,7 +393,6 @@ class Api(resource.Resource):
                 request.finish()
                 return server.NOT_DONE_YET
             path.append('uuid')            
-
         if method == 'query':
             # this allows a user to enumerate tags
             d = build_query(self.db,
@@ -356,6 +400,7 @@ class Api(resource.Resource):
                             zip(path[::2], 
                                 path[1::2] + [None]))
             d.addCallback(lambda r: self.generic_extract_result(request, r))
+            d.addCallback(self.send_reply)
         elif method == 'tags':
             # retrieve tags
             d = build_tag_query(self.db,
@@ -363,6 +408,7 @@ class Api(resource.Resource):
                                 zip(path[::2], 
                                     path[1::2] + [None]))
             d.addCallback(lambda r: self.tag_extract_result(request, r))
+            d.addCallback(self.send_reply)
         elif method in ['data', 'next', 'prev']:
             # retrieve data
             d = self.db.runQuery("""SELECT uuid, id FROM stream WHERE
@@ -370,12 +416,12 @@ id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
             d.addCallback(lambda r: self.data_load_result(request, method, r))
+            d.addCallback(self.send_data_reply)
         else:
             request.setResponseCode(404)
             request.finish()
             return server.NOT_DONE_YET
 
-        d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 
 
