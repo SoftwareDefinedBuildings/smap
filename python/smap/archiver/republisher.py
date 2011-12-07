@@ -3,11 +3,6 @@ from twisted.web import resource, server
 
 import smap.util as util
 
-def cl(*args):
-    print "connection lost"
-    print args
-
-
 class ReResource(resource.Resource):
     def __init__(self):
         resource.Resource.__init__(self)
@@ -27,5 +22,5 @@ class ReResource(resource.Resource):
     def republish(self, obj):
         data = util.json_encode(obj)
         for client in self.listeners:
-            print client.write(data)
-            print client.write("\n\n")
+            client.write(data)
+            client.write("\n\n")
