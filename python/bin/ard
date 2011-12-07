@@ -15,22 +15,25 @@ from twisted.python import log
 from smap import subscriber, reporting
 from smap.server import RootResource
 import smap.util as util
-from smap.archiver import settings, data, api
+from smap.archiver import settings, data, api, republisher
 
 
 class DataResource(resource.Resource):
-    def __init__(self, db):
+    def __init__(self, db, republisher):
         self.db = db
+        self.republisher = republisher
         self.data = data.SmapData(db)
         resource.Resource.__init__(self)
 
     def _add_data(self, subid, obj):
         if len(obj) == 0: return True
+        self.republisher.republish(obj)
         return self.data.add(subid, obj)
 
     def _check_subscriber(self, request, subid):
         if len(subid) == 1:
             subid = subid[0][0]
+            print request
             obj = json.load(request.content)
             reporting.push_metadata(obj)
             return subid, obj
@@ -83,9 +86,11 @@ def subscribe(db):
     return d
 
 def getSite(db):
-    root = RootResource(value={'Contents': ['add', 'api']})
-    root.putChild('add', DataResource(db))
+    root = RootResource(value={'Contents': ['add', 'api', 'republish']})
+    repub = republisher.ReResource()
+    root.putChild('add', DataResource(db, repub))
     root.putChild('api', api.Api(db))
+    root.putChild('republish', repub)
     return server.Site(root)
 
 
