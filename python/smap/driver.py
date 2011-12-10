@@ -66,16 +66,14 @@ class SmapDriver:
         return self.__inst.get_collection(self.__join_id(id))
     def add_timeseries(self, path, *args, **kwargs):
         kwargs['namespace'] = self.namespace
-        if len(args) == 1:
+        if len(args) <= 1:
             key = path
         elif len(args) == 2:
             key = args[0]
             args = args[1:]
-        else:
-            raise core.SmapException("SmapDriverManager.add_timeseries may "
-                                     "only be called with two or three "
-                                     "positional arguments")
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
+    def add_actuator(self, path, unit, klass, **kwargs):
+        return self.add_timeseries(path, unit, klass=klass, **kwawrgs)
     def add_collection(self, path, *args):
         self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):

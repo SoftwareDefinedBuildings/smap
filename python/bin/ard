@@ -27,14 +27,14 @@ class DataResource(resource.Resource):
 
     def _add_data(self, subid, obj):
         if len(obj) == 0: return True
-        self.republisher.republish(obj)
         return self.data.add(subid, obj)
 
     def _check_subscriber(self, request, subid):
         if len(subid) == 1:
+            public = subid[0][1]
             subid = subid[0][0]
-            print request
             obj = json.load(request.content)
+            self.republisher.republish(request.prepath[-1], public, obj)
             reporting.push_metadata(obj)
             return subid, obj
         else:
@@ -46,7 +46,7 @@ class DataResource(resource.Resource):
         return self
 
     def render_POST(self, request):
-        d = self.db.runQuery("SELECT id FROM subscription WHERE key = %s", 
+        d = self.db.runQuery("SELECT id, public FROM subscription WHERE key = %s", 
                              (request.prepath[-1],))
         d.addCallback(lambda x: self._check_subscriber(request, x))
         d.addCallback(lambda (subid, obj): self._add_data(subid, obj))

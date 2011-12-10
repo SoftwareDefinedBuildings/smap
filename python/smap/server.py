@@ -6,7 +6,7 @@ When run as the main module, runs a sample server on port 8080
 import sys
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
-from twisted.internet import reactor, task
+from twisted.internet import reactor, task, defer
 from twisted.python import log
 
 import uuid
@@ -17,6 +17,16 @@ import core
 import loader
 import schema
 import smapconf
+import actuate
+
+from interface import *
+
+def setResponseCode(request, exception, default):
+    if hasattr(exception, 'http_code') and \
+            exception.http_code != None:
+        request.setResponseCode(exception.http_code)
+    else:
+        request.setResponseCode(default)
 
 class InstanceResource(resource.Resource):
     """Resource which maps HTTP requests to requests on the sMAP
@@ -30,15 +40,44 @@ class InstanceResource(resource.Resource):
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
         # assemble the results
-        obj = self.inst.lookup(util.join_path(request.postpath))
-        # and stream them out using AsyncJSON
+        try:
+            obj = self.inst.lookup(util.join_path(request.postpath))
+        except Exception, e:
+            setResponseCode(request, exception, 404)
+            request.finish()
+            return
+            
+        d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+        d.addCallback(lambda x: self.send_reply(request, x))
+        d.addErrback(lambda x: self.send_error(request, x))
+        return server.NOT_DONE_YET
+
+    def render_PUT(self, request):
+        request.setHeader('Content-type', 'application/json')
+        # you can only PUT actuators
+        obj = self.inst.lookup(util.join_path(request.postpath),
+                               pred=IActuator.providedBy)
+        d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+        d.addCallback(lambda x: self.send_reply(request, x))
+        d.addErrback(lambda x: self.send_error(request, x))
+        return server.NOT_DONE_YET
+
+
+    def send_reply(self, request, obj):
+        # the result out using AsyncJSON
         if obj != None:
             d = util.AsyncJSON(obj).startProducing(request)
             d.addBoth(lambda _: request.finish())
         else:
-            request.setResponseCode(404)
-            request.finish()
-        return server.NOT_DONE_YET
+            self.send_error(request, None)
+
+    def send_error(self, request, err):
+        if err:
+            setResponseCode(request, err.value, 500)
+        else:
+            request.setResponseCode(500)
+        request.write(str(err.value))
+        request.finish()
 
 def read_report(self, request, duplicate_error=True):
     """Read a Reporting object sent by the client.  Will validate the
@@ -47,9 +86,9 @@ def read_report(self, request, duplicate_error=True):
     """
     obj = schema.filter_fields('Reporting', json.load(request.content))
     if not schema.validate("Reporting", obj):
-        raise core.SmapSchemaException("Invalid Reporting object (does not validate)")
+        raise core.SmapSchemaException("Invalid Reporting object (does not validate)", 400)
     if duplicate_error and self.reports.get_report(obj['uuid']):
-        raise core.SmapException("Report instance already exists!")
+        raise core.SmapException("Report instance already exists!", 400)
     return obj
 
 class ReportingInstanceResource(resource.Resource):
@@ -86,7 +125,7 @@ class ReportingInstanceResource(resource.Resource):
                 self.reports.add_report(obj)
                 request.setResponseCode(201) # created
         except Exception, e:
-            request.setResponseCode(400) # parameter problem
+            setResponseCode(request, e, 400)
             request.setHeader('Content-type', 'text/plain')
             request.write(str(e))
         request.finish()
@@ -136,7 +175,7 @@ class ReportingResource(resource.Resource):
             request.setResponseCode(201)
         except Exception, e:
             request.setHeader('Content-type', 'text/plain')
-            request.setResponseCode(400)
+            setResponseCode(request, e, 400)
             request.write(str(e))
         request.finish()
         return server.NOT_DONE_YET

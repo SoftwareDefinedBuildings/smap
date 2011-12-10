@@ -10,7 +10,7 @@ import traceback as trace
 
 from zope.interface import implements
 from twisted.internet.task import cooperate
-from twisted.internet import task, reactor, threads
+from twisted.internet import task, reactor, threads, defer
 from twisted.python.lockfile import FilesystemLock
 from twisted.web import iweb
 from twisted.python import log
@@ -296,7 +296,18 @@ different thread.
 You also need to call `start(interval)` on the result.
     """
     return PeriodicCaller(fn, args)
-    
+
+
+def syncMaybeDeferred(fn, *args):
+    """Version of maybeDeferred which calls fn(*args) immediately,
+    rather than from the event loop as the library version does.
+    """
+    rv = fn(*args)
+    if issubclass(rv.__class__, defer.Deferred):
+        return state
+    else:
+        return defer.succeed(rv)
+
 
 if __name__ == '__main__':
     import sys

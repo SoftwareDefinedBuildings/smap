@@ -16,6 +16,9 @@ class ITimeseries(Interface):
         This version should only be called from the twisted main loop.
         """
 
+    def render(self):
+        pass
+
 class ITimeseriesFactory(Interface):
     def __call__(unit, 
                  data_type="integer", 
@@ -45,6 +48,23 @@ class ICollection(Interface):
     def add_child(self, child):
         """Add a child to the collection"""
 
+    def render(self):
+        pass
+
+class IActuator(Interface):
+    def setup(self, opts):
+        """Set up an actuator"""
+
+    def parse_state(self, state):
+        """Parse a state from a string into a state representation"""
+
+    def set_state(self, state):
+        """Set the state of the actuator.  The value passed in as the
+        new state will be the result of calling parse_state"""
+
+    def get_state(self, state):
+        """Read the current state of the actuator.  This should query
+        the device for the state, rather than using a cached value."""
 
 class ISmapInstance(Interface):
     """Represents a sMAP instance -- a whole tree of Collections and Timeseries.

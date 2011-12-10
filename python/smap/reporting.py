@@ -14,6 +14,7 @@ from twisted.internet import reactor, task, defer, threads
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
+import logging
 
 import core
 import disklog
@@ -94,7 +95,7 @@ class DataBuffer:
         """
         :param int max_size: the maximum total log size, in records
         """
-        print "Create databuffer", datadir
+        log.msg("Create databuffer " + datadir)
         self.datadir = datadir
         self.data = disklog.DiskLog(datadir)
         self.head_metric = self.metric(self.data.tail())
@@ -223,9 +224,13 @@ class ReportInstance(dict):
             return
 
         self['LastAttempt'] = util.now()
-        log.msg("publishing to %s: %i %s" % (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
-                                             len(data), 
-                                             str([len(x['Readings']) for x in data.itervalues() if 'Readings' in x])))
+        log.msg("publishing to %s: %i %s" % 
+                (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
+                 len(data), 
+                 str([len(x['Readings']) 
+                      for x in data.itervalues() 
+                      if 'Readings' in x])),
+                logLevel=logging.DEBUG)
         # set up an agent to push the data to the consumer
         agent = Agent(reactor)
         try:

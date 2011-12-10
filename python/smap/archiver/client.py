@@ -5,7 +5,16 @@ import urllib
 import json
 import operator
 
+
 import smap.util as util
+
+from twisted.internet import reactor
+from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.protocols.basic import LineReceiver
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
+from twisted.python import log
 
 try:
     from smap.iface.http.httpcurl import get
@@ -86,6 +95,74 @@ class SmapClient:
         return self._data(qbody, 'prev', 
                           starttime=str(0xffffffff*1000),
                           limit=str(limit))
+
+
+class RepublishClient:
+    def __init__(self, url, datacb, reconnect=True):
+        self.url = url
+        self.datacb = datacb
+        self.agent = Agent(reactor)
+        self.reconnect = reconnect
+        self.failcount = 0
+
+    class DataReceiver(LineReceiver):
+        """Make our own LineReceiver to read back the streaming data
+        from the server.  Use the right delimiter and make sure we can
+        handle big objects."""
+        MAX_LENGTH = 1e6
+        delimiter = '\n\n'
+
+        def __init__(self, client):
+            self.client = client
+
+        def lineReceived(self, line):
+            self.failcount = 0
+            try:
+                obj = util.json_decode(line)
+                self.client.datacb(obj)
+            except:
+                log.err()
+                print line
+
+        def connectionLost(self, reason):
+            self.client.failed()
+            self.client._reconnect()
+
+    def failed(self):
+        if self.failcount < 10:
+            self.failcount += 1
+
+    def __request(self, response):
+        receiver = RepublishClient.DataReceiver(self)
+        receiver.setLineMode()
+        response.deliverBody(receiver)
+
+    def _reconnect(self):
+        """Exponential backup on the reconnect policy"""
+        if self.reconnect and self.failcount < 5:
+            print "connection failed, reconnecting in", (self.failcount ** 2)
+            reactor.callLater(self.failcount ** 2, self.connect)
+
+    def _connect_failed(self, reason):
+        self.failed()
+        self._reconnect()
+
+    def connect(self):
+        d = self.agent.request('GET',
+                               self.url + '/republish',
+                               Headers(),
+                               None)
+        d.addCallback(self.__request)
+        d.addErrback(self._connect_failed)
+
+if __name__ == '__main__':
+    def cb(line):
+        print line
+        pass
+
+    c = RepublishClient('http://smote.cs.berkeley.edu:8079', cb)
+    c.connect()
+    reactor.run()
 
 
 if __name__ == '__main__':

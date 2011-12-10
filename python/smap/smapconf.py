@@ -1,5 +1,5 @@
 
 # default configuration 
 SERVER = {
-    'Port' : 8080,
+    'port' : 8080,
 }

@@ -44,9 +44,9 @@ def dt2ts(dt):
     raise ValueError('dt must be an aware datetime')
   return calendar.timegm(dt.utctimetuple())
 
-def ts2dt(ts):
+def ts2dt(ts, tzstr='UTC'):
   '''Convert a UTC timestamp to an aware datetime object with UTC timezone'''
-  return datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=gettz('UTC'))
+  return datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=gettz(tzstr))
 
 def ts2pylabts(ts, tzstr='UTC'):
   '''Convert a UTC timestamp to float days since 0001-01-01 UTC.'''

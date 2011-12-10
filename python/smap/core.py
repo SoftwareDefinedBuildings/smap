@@ -3,9 +3,10 @@ import os
 import uuid
 from zope.interface import implements
 from twisted.web import resource
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 import exceptions
 import sys
+import operator
 
 import schema
 import util
@@ -15,6 +16,9 @@ from interface import *
 
 class SmapException(Exception):
     """Generic error"""
+    def __init__(self, message, http_code=None):
+        Exception.__init__(self, message)
+        self.http_code = http_code
 
 class SmapSchemaException(SmapException):
     """Exception generated if a json object doesn't validate as the
@@ -175,6 +179,10 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
                                            util.build_recursive(metadata))
 
+    
+    def render(self, request):
+        return self
+
 class Collection(dict):
     """Represent a collection of sMAP resources"""
     implements(ICollection)
@@ -232,6 +240,9 @@ class Collection(dict):
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
                                            util.build_recursive(metadata))
         self.dirty_children()
+
+    def render(self, request):
+        return self
 
 
 class SmapInstance:
@@ -308,16 +319,15 @@ sMAP reporting functionality."""
 """
         if util.is_string(id):
             path = util.split_path(id)
-            pred = None
             if len(path) > 0 and path[-1][0] == "+":
-                return self._lookup_r(util.join_path(path[:-1]))
+                return self._lookup_r(util.join_path(path[:-1]), pred=pred)
             else:
                 obj = self.OBJS_PATH.get(util.join_path(path), None)
         elif isinstance(id, uuid.UUID):
             return self.OBJS_UUID.get(id, None)
         else:
             obj = None
-
+        
         if not pred or pred(obj):
             return obj
         else: return None
@@ -339,6 +349,47 @@ sMAP reporting functionality."""
                 rvpath = util.norm_path(getattr(cur, 'path')[len(root_path):])
                 rv[rvpath] = cur
         return rv
+
+    @staticmethod
+    def render_lookup(request, val):
+        """Render a return value of lookup, by calling render()
+        methods on all the results.  Returns either the object or a
+        deferred that you must wait on for the result to be ready.
+        """
+        if hasattr(val, "render") and callable(val.render):
+            # if its not a collection of objects, just render it
+            return val.render(request)
+        elif isinstance(val, dict):
+            # otherwise we might need to render() multiple objects and
+            # wait for all of them -- this can happen if we are
+            # reading multiple actuators.
+            rv = {}
+            deferreds = []
+
+            # start all the rendering
+            for k, v in val.iteritems():
+                rendered = v.render(request)
+                if isinstance(rendered, defer.Deferred):
+                    deferreds.append((k, rendered))
+                else:
+                    rv[k] = rendered
+
+            # set up a deferred task which will fire when all results are ready
+            if len(deferreds) == 0:
+                return rv
+            else:
+
+                # and insert the ones which succeeded into the result
+                # set.
+                def insertResults(vals):
+                    for ((path, d), (success, yld)) in zip(deferreds, vals):
+                        if success:
+                            rv[path] = yld
+                    return rv
+
+                d = defer.DeferredList(map(operator.itemgetter(1), deferreds), consumeErrors=True)
+                d.addCallback(insertResults)
+                return d
 
     def get_timeseries(self, path): 
         """Returns a :py:class:`Timeseries` if an object is found
@@ -386,11 +437,13 @@ sMAP reporting functionality."""
         :param boolean recurse: recursively create parent collections instead of thrwoing an exception.  Default is True.
 
         :raises: :py:class:`SmapException` if the parent isn't a collection or the path already exists.
-        """
+        """ 
         replace = kwargs.pop('replace', False)
         recurse = kwargs.pop('recurse', True)
+        klass = kwargs.pop('klass', Timeseries)
 
-        if not ITimeseries.providedBy(args[0]):
+        if len(args) == 0 or \
+                not ITimeseries.providedBy(args[0]) and not IActuator.providedBy(args[0]):
             if len(args) == 2:
                 if not isinstance(args[0], uuid.UUID):
                     id = self.uuid(args[0], namespace=kwargs.get('namespace', None))
@@ -400,11 +453,12 @@ sMAP reporting functionality."""
             elif len(args) == 1:
                 id = self.uuid(util.norm_path(path), kwargs.get('namespace', None))
             else:
-                raise SmapException("SmapInstance.add_timeseries may only be called "
-                                    "with two or three arguments")
+                id = self.uuid(util.norm_path(path))
+#                 raise SmapException("SmapInstance.add_timeseries may only be called "
+#                                     "with two or three arguments")
 
             kwargs.pop('namespace', None)
-            timeseries = Timeseries(id, *args, **kwargs)
+            timeseries = klass(id, *args, **kwargs)
             if id != args[0]:
                 setattr(timeseries, "key", args[0])
         else:
@@ -459,6 +513,13 @@ sMAP reporting functionality."""
         self.OBJS_PATH[util.join_path(path)] = collection
         if not self.loading: self.reports.update_subscriptions()
         return collection
+
+    def add_actuator(self, path, unit, actclass, **kwargs):
+        setup = kwargs.pop('setup', None)
+        a = self.add_timeseries(path, unit, klass=actclass, **kwargs)
+        if setup != None:
+            a.setup(setup)
+        return a
 
     def set_metadata(self, path, *metadata):
         if len(metadata) > 1:
