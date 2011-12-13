@@ -4,6 +4,7 @@ import time
 import re
 import json
 import uuid
+import errno
 import cPickle as pickle
 import ConfigParser
 import traceback as trace
@@ -228,10 +229,15 @@ def pickle_dump(filename, obj):
     try:
         # move it atomically if we were able to pickle the object
         os.rename(filename + '.tmp', filename)
+    except OSError, e:
+        # Windows versions prior to Vista don't support atomic renames
+        if e.errno != errno.EEXIST:
+            raise
+        os.remove(filename)
+        os.rename(filename + '.tmp', filename)
     except IOError, e:
         trace.print_exc()
         pass
-        
 
 def periodicCallInThread(fn, *args):
     """Periodically enqueue a task to be run in the ``twisted``
