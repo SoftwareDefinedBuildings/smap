@@ -13,7 +13,7 @@ from smap.iface.modbustcp.ModbusTCP import ModbusTCP
 class HeatX(driver.SmapDriver):
     def setup(self, opts):
         host = opts.get("Host", "10.0.50.118")
-        self.rate = opts.get("Rate", 20)
+        self.rate = int(opts.get("Rate", 20))
         self.modbus = ModbusTCP(host)
         self.add_timeseries('/energy0', 'BTU', data_type="double")
         self.add_timeseries('/energy1', 'BTU', data_type="double")

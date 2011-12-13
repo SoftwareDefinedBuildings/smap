@@ -263,8 +263,9 @@ sMAP reporting functionality."""
         # if we're not given an explicit report file, put it in the
         # datadir or else the cwd
         if not 'reportfile' in kwargs:
-            if 'DataDir' in smapconf.SERVER:
-                rf = os.path.join(smapconf.SERVER['DataDir'], str(root_uuid))
+            if 'datadir' in smapconf.SERVER:
+                print smapconf.SERVER
+                rf = os.path.join(smapconf.SERVER['datadir'], str(root_uuid))
             else:
                 rf = str(root_uuid)
 

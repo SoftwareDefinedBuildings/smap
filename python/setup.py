@@ -27,6 +27,7 @@ setup(name="Smap",
 
         # interfaces for talking to different backends
         "smap.iface", "smap.iface.http", "smap.iface.modbus",
+        "smap.iface.modbustcp",
 
         # hack to support ipv6 sockets -- needed for acme, at least
         "tx", "tx.ipv6", "tx.ipv6.application", "tx.ipv6.internet",
