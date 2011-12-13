@@ -1,0 +1,44 @@
+#!/usr/bin/python
+# -*- python -*-
+
+import sys
+from optparse import OptionParser
+
+from twisted.internet import reactor
+from twisted.python import log
+
+from smap import loader
+
+def get_parser():
+    usage = 'usage: %prog [options] conf-file'
+    parser = OptionParser(usage=usage)
+#     parser.add_option('-p', '--port', dest='port', default=None,
+#                       type='int',
+#                       help='port to run server on')
+#     parser.add_option('-d', '--data-dir', dest='data_dir', default=None,
+#                       type='str', help='directory for cached data')
+    return parser
+
+
+if __name__ == '__main__':
+    p = get_parser()
+    opts, args = p.parse_args()
+    if len(args) != 1:
+        p.error("conf file is a required argument")
+
+    log.startLogging(sys.stdout)
+    
+    inst = loader.load(args[0])
+    if len(inst.drivers) != 1:
+        log.err("Error: can only load config files with one driver")
+        sys.exit(1)
+        
+
+    driver = inst.drivers[inst.drivers.keys()[0]]
+    if not hasattr(driver, "load"):
+        log.err('Error: driver does not have "load" method')
+        sys.exit(1)
+
+    d = driver.load(None, None)
+    # d.addCallbacks(lambda x: reactor.stop())
+    reactor.run()

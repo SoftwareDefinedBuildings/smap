@@ -80,7 +80,7 @@ class Timeseries(dict):
                 self.__setitem__("Description", description)
             reading_init = []
         self.dirty = True
-        self.milliseconds = False
+        self.milliseconds = milliseconds
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
 
     def _check_type(self, value):

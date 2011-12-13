@@ -40,7 +40,7 @@ class SmapClient:
             rv['private'] = ''
         return rv
 
-    def _query(self, q):
+    def query(self, q):
         """ """
         fp = urllib2.urlopen(self.base + '/api/query?' + 
                              urllib.urlencode(self._build_qdict()),
@@ -52,7 +52,7 @@ class SmapClient:
 
     def tags(self, qbody, tags='*', nest=False):
         """Look up tags associated with a specific query body"""
-        tags = self._query('select %s where %s' % (tags, qbody))
+        tags = self.query('select %s where %s' % (tags, qbody))
         if not nest:
             return map(lambda t: dict(util.buildkv('', t)), tags)
         else:
@@ -60,7 +60,7 @@ class SmapClient:
 
     def _data(self, qbody, op, **kwargs):
         """Load data for streams matching a particular query"""
-        uids = self._query('select distinct uuid where %s' % qbody)
+        uids = self.query('select distinct uuid where %s' % qbody)
         qdict = self._build_qdict()
         qdict.update(kwargs)
 
