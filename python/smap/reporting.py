@@ -219,6 +219,9 @@ class ReportInstance(dict):
 
         try:
             data = self['PendingData'].read()
+            if data == None:
+                self['PendingData'].truncate()
+                return
         except Exception, e:
             print e
             return

@@ -56,9 +56,15 @@ class SmapMetadata:
         """
         vals = []
         def addTag(uid, tn, tv):
-            vals.append("add_tag(%i,'%s','%s')" % (ids[uid],
-                        sql.escape_string(tn),
-                        sql.escape_string(tv)))
+            try:
+                vals.append("add_tag(%i,'%s','%s')" % (ids[uid],
+                                                       sql.escape_string(tn),
+                                                       sql.escape_string(tv)))
+            except Exception, e:
+                print ids[uid]
+                print tn, tv
+                print e
+                raise e
         ids = dict(ids)
         for path, ts in obj.iteritems():
             addTag(ts['uuid'], 'Path', path)
@@ -98,7 +104,8 @@ class SmapData:
 
     def _add_data_real(self, ids, obj):
         """Send data to a readingdb backend
-        """        
+        """
+        r = None
         try:
             r = rdb_pool.get()
             for ts in obj.itervalues():
@@ -112,7 +119,10 @@ class SmapData:
         except:
             return False
         finally:
-            rdb_pool.put(r)
+            if r != None:
+                rdb_pool.put(r)
+            else:
+                raise Exception("Error creating RDB connection!")
         return True
 
     def _add_data(self, subid, ids, obj):

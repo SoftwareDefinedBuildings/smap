@@ -21,6 +21,10 @@ class Ted5000Driver(SmapDriver):
         self.add_timeseries('/real_power', 'W')
         self.add_timeseries('/apparent_power', 'VA')
 
+        self.set_metadata('/', {
+            'Extra/Driver' : 'smap.drivers.ted.Ted5000Driver',
+            })
+
     def start(self):
         util.periodicCallInThread(self.update).start(self.rate)
     
