@@ -3,7 +3,7 @@
 #
 
 # sample config:
-[/cory]
+# [/cory]
 # type = smap.drivers.forecastTemp.ForecastTempDriver
 # Latitude = 37.875331
 # Longitude = -122.258309

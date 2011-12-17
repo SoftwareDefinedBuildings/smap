@@ -6,7 +6,7 @@ from xml.parsers.expat import ExpatError
 
 from twisted.internet import reactor
 from twisted.python import log
-from smap import driver
+from smap import driver, util
 
 def get_val(dom, key):
     v = dom.getElementsByTagName(key)[0].firstChild.nodeValue
@@ -17,19 +17,20 @@ class WunderGround(driver.SmapDriver):
         self.url = opts.get("Address", 
                             "http://api.wunderground.com/weatherstation/WXCurrentObXML.asp")
         self.id = opts.get("ID", "KCABERKE7")
+        self.rate = int(opts.get("Rate", 60))
         self.last_time = 0
         self.metadata_done = False
         
-        self.add_timeseries("wind_dir", "deg")
-        self.add_timeseries("wind_speed", "m/s", data_type="double")
-        self.add_timeseries("wind_gust", "m/s", data_type="double") 
-        self.add_timeseries("humidity", "rh")
-        self.add_timeseries("temperature", "C", data_type="double") 
-        self.add_timeseries("pressure", "mb", data_type="double")   
-        self.add_timeseries("dew_point", "C", data_type="double")   
+        self.add_timeseries("/wind_dir", "deg")
+        self.add_timeseries("/wind_speed", "m/s", data_type="double")
+        self.add_timeseries("/wind_gust", "m/s", data_type="double") 
+        self.add_timeseries("/humidity", "rh")
+        self.add_timeseries("/temperature", "C", data_type="double") 
+        self.add_timeseries("/pressure", "mb", data_type="double")   
+        self.add_timeseries("/dew_point", "C", data_type="double")   
 
     def start(self):
-        reactor.callInThread(self.update)
+        util.periodicSequentialCall(self.update).start(self.rate)
 
     def update(self):
         try:
