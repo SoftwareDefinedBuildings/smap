@@ -25,7 +25,7 @@ except ImportError:
     from smap.iface.http.httputils import get
 
 class SmapClient:
-    def __init__(self, base, key=None, private=False, timeout=5.0):
+    def __init__(self, base='http://new.openbms.org/backend', key=None, private=False, timeout=5.0):
         self.base = base
         self.timeout = timeout
         self.key = key
@@ -80,6 +80,27 @@ class SmapClient:
                           starttime=str(int(start)*1000), 
                           endtime=str(int(end)*1000),
                           limit=str(limit))
+
+    def data_uuid(self, uuids, start, end, limit = -1):
+        qdict = self._build_qdict()
+        qdict['starttime'] = str(int(start)*1000)
+        qdict['endtime'] = str(int(end)*1000)
+        qdict['limit'] = str(limit)
+
+        urls = []
+        for u in uuids:
+            urls.append(str(self.base + '/api/data/uuid/' + u +
+                            '?' + urllib.urlencode(qdict)))
+        data = get(urls)
+        map = {}
+        for d in data:
+          map[d[1][0]['uuid']] = d[1][0]['Readings']
+
+        data = []
+        for u in uuids:
+          data.append(map[u])
+        
+        return data
 
     def prev(self, qbody, ref, limit=1):
         return self._data(qbody, 'prev', 
