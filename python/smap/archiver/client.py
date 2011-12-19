@@ -71,7 +71,7 @@ class SmapClient:
         data = get(urls)
         data.sort(key=lambda x: x[1][0]['uuid'])
         uids = map(lambda x: x[1][0]['uuid'], data)
-        data = map(lambda x: x[1][0]['Readings'], data)[0]
+        data = map(lambda x: x[1][0]['Readings'], data)
 
         return uids, data
 
