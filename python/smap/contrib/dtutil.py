@@ -8,31 +8,41 @@ Also, includes matplotlib helpers to setup date plotting.
 from dateutil.tz import *
 import datetime, calendar
 
-def now():
-  '''Returns an aware datetime object with the current time in UTC timezone'''
-  return datetime.datetime.now(gettz('UTC'))
+utc = gettz('UTC')
+local = tzlocal()
 
-def strptime_tz(str, format, tzstr='Local'):
+def now(tzstr = 'UTC'):
+  '''Returns an aware datetime object with the current time in tzstr timezone'''
+  if tzstr == 'Local':
+    tz = local
+  else:
+    tz = gettz(tzstr)
+  return datetime.datetime.now(tz)
+
+def strptime_tz(str, format='%x %X', tzstr='Local'):
   '''Returns an aware datetime object. tzstr is a timezone string such as
      'US/Pacific' or 'Local' by default which uses the local timezone.
   '''
   dt = datetime.datetime.strptime(str, format)
   if tzstr == 'Local':
-    tz = tzlocal()
+    tz = local
   else:
     tz = gettz(tzstr)
   return dt.replace(tzinfo = tz)
 
-def strftime_tz(dt, format, tzstr=None):
+def strftime_tz(dt=None, format='%x %X', tzstr=None):
   '''Returns a string from an aware datetime object. tzstr specifies the
      timezone of the result. A value of None uses the datetime object's timezone
      and a value of 'Local' uses the local system timezone.'''
+  if dt == None:
+    dt = now('Local')
+
   if not dt.tzinfo:
     raise ValueError('dt must be an aware datetime')
 
   if tzstr:
     if tzstr == 'Local':
-      tz = tzlocal()
+      tz = local
     else:
       tz = gettz(tzstr)
     dt = dt.astimezone(tz)
@@ -44,9 +54,9 @@ def dt2ts(dt):
     raise ValueError('dt must be an aware datetime')
   return calendar.timegm(dt.utctimetuple())
 
-def ts2dt(ts, tzstr='UTC'):
+def ts2dt(ts):
   '''Convert a UTC timestamp to an aware datetime object with UTC timezone'''
-  return datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=gettz(tzstr))
+  return datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=utc)
 
 def ts2pylabts(ts, tzstr='UTC'):
   '''Convert a UTC timestamp to float days since 0001-01-01 UTC.'''
