@@ -3,21 +3,21 @@ import pgdb as sql
 import time
 import operator
 
-def build_authcheck(request):
+def build_authcheck(request, ti=''):
     """Build an SQL WHERE clause which enforces access restrictions.
     Will pull any credentials out of the request object passed in.
     """
     if not 'private' in request.args:
-        query = "(sub.public "
+        query = "(sub%s.public " % ti
     else:
         query = "(false "
     if 'key' in request.args:
-        query += 'OR ' + ' OR '.join(["sub.key = '%s'" % sql.escape_string(x) 
+        query += 'OR ' + ' OR '.join(["sub.key = '%s%s'" % (sql.escape_string(x), ti)
                                       for x in request.args['key']])
     query += ")"
     return query
 
-def build_clause(request, clause):
+def build_clause(request, clause, ti=''):
     """Build an "inner query" -- a query which yields a list of stream
     ids (indexes in the stream table).  These match the identifiers
     used in the reading db, or can be used as part of a join.  The
@@ -31,10 +31,10 @@ def build_clause(request, clause):
     # can't access.
     inner_query = ("""
 (SELECT stream_id AS cnt
-FROM metadata2 mi, subscription sub, stream si
-WHERE (%s) AND """ + build_authcheck(request) + """ AND
-   mi.stream_id = si.id AND si.subscription_id = sub.id)
-""") % clause
+FROM metadata2 mi%(ti)s, subscription sub%(ti)s, stream si%(ti)s
+WHERE (%(clause)s) AND """ + build_authcheck(request, ti) + """ AND
+   mi%(ti)s.stream_id = si%(ti)s.id AND si%(ti)s.subscription_id = sub%(ti)s.id)
+""") % {'clause' : clause, 'ti' : ti}
     return inner_query
 
 class QueryException(Exception):

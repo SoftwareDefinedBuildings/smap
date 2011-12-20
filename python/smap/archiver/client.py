@@ -4,9 +4,11 @@ import urllib2
 import urllib
 import json
 import operator
+import pprint
 
-
+import numpy as np
 import smap.util as util
+import tscache
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
@@ -25,6 +27,8 @@ except ImportError:
     from smap.iface.http.httputils import get
 
 class SmapClient:
+    """Blocking client class for the archiver API.
+    """
     def __init__(self, base='http://new.openbms.org/backend', key=None, private=False, timeout=5.0):
         self.base = base
         self.timeout = timeout
@@ -41,7 +45,12 @@ class SmapClient:
         return rv
 
     def query(self, q):
-        """ """
+        """Send a query using the ARD query language to the server, and return
+the result.
+
+:param str q: the query
+:return: the parsed JSON object returned by the server
+"""
         fp = urllib2.urlopen(self.base + '/api/query?' + 
                              urllib.urlencode(self._build_qdict()),
                              data=q, 
@@ -57,50 +66,92 @@ class SmapClient:
             return map(lambda t: dict(util.buildkv('', t)), tags)
         else:
             return tags
+        
+    def _data_uuid(self, uuid, start, end):
+        """Construct a list of urls we need to load for a single uuid"""
+        cache = tscache.TimeseriesCache(uuid)
+        cached_data = cache.read(0, start, end)
 
-    def _data(self, qbody, op, **kwargs):
+        cache.close()
+        cached_data = [((0, start), None)] + \
+            cached_data + \
+            [((end, 0), None)]
+        load_list = []
+        for idx in range(0, len(cached_data) - 1):
+            fetch_start, fetch_end = cached_data[idx][0][1], cached_data[idx+1][0][0]
+            load_list.append([(fetch_start, fetch_end)])
+            
+        return load_list, map(operator.itemgetter(1), cached_data[1:-1])
+        
+    def data_uuid(self, uuids, start, end):
+        """Load a time range of data for a list of uuids
+        
+        Attempts to use cached data and load missing data in parallel.
+
+:param list uuids: a list of stringified UUIDs
+:param int start: the timestamp of the first record in seconds, inclusive
+:param int end: the timestamp of the last record, exclusive
+:return: a list of data vectors.  Each element is
+  :py:class:`numpy.array` of data in the same order as the input list of
+  uuids
+        """
+        qdict = self._build_qdict()
+        qdict['limit'] = -1
+        data, urls = {}, []
+        start, end = start * 1000, end * 1000
+
+        # construct a list of all holes in the cache
+        for u in uuids:
+            data[u] = self._data_uuid(u, start, end)
+
+            # these are the regions of missing data
+            for region in data[u][0]:
+                qdict['starttime'] = str(region[0][0])
+                qdict['endtime'] = str(region[0][1])
+                dlurl = str(self.base + '/api/data/uuid/' + u + '?' +
+                            urllib.urlencode(qdict))
+                if qdict['starttime'] != qdict['endtime']:
+                    region.append(dlurl)
+                    urls.append(dlurl)
+                else:
+                    region.append(None)
+
+        # load all of the missing chunks in parallel
+        newdata = dict(get(urls))
+
+        # insert all the new data and return the result
+        rv = []
+        for u in uuids:
+            loaddata = []
+            for range, url in data[u][0]:
+                if url != None and len(newdata[url][0]['Readings']) > 0:
+                    assert newdata[url][0]['uuid'] == u
+                    loaddata.append(np.array(newdata[url][0]['Readings']))
+                    cache = tscache.TimeseriesCache(u)
+                    cache.insert(0, range[0], range[1], loaddata[-1])
+                    print "downloaded", len(loaddata[-1])
+                    cache.close()
+                else:
+                    v = np.array([])
+                    v.shape = (0, 2)
+                    loaddata.append(v)
+
+            def interleave(x, y):
+                lst = [None] * (len(x) * 2 - 1)
+                for idx in xrange(0, len(x)):
+                    lst[idx * 2] = x[idx]
+                for idx in xrange(0, len(y)):
+                    lst[idx * 2 + 1] = y[idx]
+                return lst
+            rv.append(np.vstack(interleave(loaddata, data[u][1])))
+
+        return rv
+
+    def data(self, qbody, start, end):
         """Load data for streams matching a particular query"""
         uids = self.query('select distinct uuid where %s' % qbody)
-        qdict = self._build_qdict()
-        qdict.update(kwargs)
-
-        urls = []
-        for u in uids:
-            urls.append(str(self.base + ('/api/%s/uuid/' % op) + u + 
-                            '?' + urllib.urlencode(qdict)))
-        data = get(urls)
-        data.sort(key=lambda x: x[1][0]['uuid'])
-        uids = map(lambda x: x[1][0]['uuid'], data)
-        data = map(lambda x: x[1][0]['Readings'], data)
-
+        data = self.data_uuid(uids, start, end)
         return uids, data
-
-    def data(self, qbody, start, end, limit=10000):
-        return self._data(qbody, 'data', 
-                          starttime=str(int(start)*1000), 
-                          endtime=str(int(end)*1000),
-                          limit=str(limit))
-
-    def data_uuid(self, uuids, start, end, limit = -1):
-        qdict = self._build_qdict()
-        qdict['starttime'] = str(int(start)*1000)
-        qdict['endtime'] = str(int(end)*1000)
-        qdict['limit'] = str(limit)
-
-        urls = []
-        for u in uuids:
-            urls.append(str(self.base + '/api/data/uuid/' + u +
-                            '?' + urllib.urlencode(qdict)))
-        data = get(urls)
-        map = {}
-        for d in data:
-          map[d[1][0]['uuid']] = d[1][0]['Readings']
-
-        data = []
-        for u in uuids:
-          data.append(map[u])
-        
-        return data
 
     def prev(self, qbody, ref, limit=1):
         return self._data(qbody, 'prev', 
@@ -119,7 +170,14 @@ class SmapClient:
 
 
 class RepublishClient:
+    """Listener for streaming data from a sMAP source or archiver's /republish feed
+    """
     def __init__(self, url, datacb, reconnect=True):
+        """
+:param str url: url of the source
+:param datacb: callable to be called with each new sMAP object
+:param bool reconnect: weather to reconnect if the socket connection is dropped.
+        """
         self.url = url
         self.datacb = datacb
         self.agent = Agent(reactor)
@@ -176,19 +234,27 @@ class RepublishClient:
         d.addCallback(self.__request)
         d.addErrback(self._connect_failed)
 
-if __name__ == '__main__':
-    def cb(line):
-        print line
-        pass
+# if __name__ == '__main__':
+#     def cb(line):
+#         print line
+#         pass
 
-    c = RepublishClient('http://smote.cs.berkeley.edu:8079', cb)
-    c.connect()
-    reactor.run()
+#     c = RepublishClient('http://smote.cs.berkeley.edu:8079', cb)
+#     c.connect()
+#     reactor.run()
 
 
 if __name__ == '__main__':
     import time
     # c = SmapClient('http://new.openbms.org/backend')
-    c = SmapClient('http://local.cs.berkeley.edu:8079')
-    print c.tags('Metadata/SourceName = "410 Labjacks"')
-    print c.latest('Metadata/SourceName = "Cory Hall Dent Meters"', limit=1)
+    # c = SmapClient('http://local.cs.berkeley.edu:8079')
+    c = SmapClient('http://localhost:8079')
+#     print c.tags('Metadata/SourceName = "410 Labjacks"')
+#     print c.latest('Metadata/SourceName = "Cory Hall Dent Meters"', limit=1)
+    #c._data_uuid('018eba5e-51b6-5a8d-920f-b5a831546610', 
+    #             int(time.time()) - 3600 * 24, int(time.time()))
+    data = c.data_uuid(['018eba5e-51b6-5a8d-920f-b5a831546610'], 
+                       int(time.time()) - 3600 * 300, int(time.time()))
+    
+    # print data
+    print len(np.unique(data[0][:,0])), len(data[0][:,0])

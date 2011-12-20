@@ -105,7 +105,7 @@ class DataRequester:
                             qlimit -= min(len(data), qlimit)
                             if len(data) < 10000 or \
                                qlimit <= 0: break
-                            qstart = (rv[-1][0])*1000
+                            qstart = (rv[-1][0] + 1) * 1000
                         return request, rv
                     except:
                         traceback.print_exc()

@@ -208,8 +208,15 @@ def p_statement_unary(t):
 def p_statement_binary(t):
     '''statement_binary : LVALUE EQ QSTRING
                         | LVALUE LIKE QSTRING
+                        | LVALUE IN LPAREN statement RPAREN
     '''
-    if t[1] == 'uuid':
+    if t[2] == 'in':
+        t[0] = qg.Clause(qg.build_clause(t.parser.request,
+                                         """
+  mi1.tagname = '%s' AND
+  si1.uuid = mi1.tagval AND
+  si1.id IN (%s)""" % (t[1], t[4]), ti='1'))
+    elif t[1] == 'uuid':
         t[0] = qg.Clause(qg.build_clause(t.parser.request, "(s.uuid = '%s')" %
                                          sql.escape_string(t[3])))
     elif t[2] == '=':
@@ -220,6 +227,10 @@ def p_statement_binary(t):
         t[0] = qg.Clause (qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
                           (sql.escape_string(t[1]), 
                            sql.escape_string(t[3]))))
+
+        
+
+        print "IN"
 
 def p_error(t):
     print("Syntax error at '%s'" % t.value)
@@ -242,6 +253,7 @@ def runquery(cur, q):
     if '-v' in sys.argv:
         print v
 
+    return
     
     cur.execute(v)
     if datagetter:
