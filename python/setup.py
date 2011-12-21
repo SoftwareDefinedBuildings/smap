@@ -41,4 +41,6 @@ setup(name="Smap",
       package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av']},
       ext_modules=[modbus_module],
-      scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query'])
+      scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
+               'bin/smap-run-driver', 'bin/smap-load',
+               'bin/smap-reporting'])

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     if len(args) != 1: parser.error("driver class name is a required argument")
 
     log.startLogging(sys.stdout)
-    inst = core.SmapInstance(opts.uuid)
+    inst = core.SmapInstance(opts.uuid, reportfile=None)
     dmgr = driver.SmapDriver.get_driver(inst, args[0], '/', inst.root_uuid)
     dmgr.setup(opts={})
     server.run(inst, port=opts.port)

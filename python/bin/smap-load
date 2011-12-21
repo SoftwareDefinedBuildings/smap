@@ -2,21 +2,30 @@
 # -*- python -*-
 
 import sys
+import time 
 from optparse import OptionParser
 
 from twisted.internet import reactor
 from twisted.python import log
 
 from smap import loader
+from smap.contrib import dtutil
 
 def get_parser():
     usage = 'usage: %prog [options] conf-file'
     parser = OptionParser(usage=usage)
-#     parser.add_option('-p', '--port', dest='port', default=None,
-#                       type='int',
-#                       help='port to run server on')
-#     parser.add_option('-d', '--data-dir', dest='data_dir', default=None,
-#                       type='str', help='directory for cached data')
+    parser.add_option('-t', '--timefmt', dest='timefmt', default='%s',
+                      type='str', 
+                      help='time format string for start and end ("%s")')
+    parser.add_option('-s', '--start-time', dest='start_time', 
+                      default=str(int(time.time()) - 3600), type='str',
+                      help='start time of import (1 hour ago)')
+    parser.add_option('-e', '--end-time', dest='end_time',
+                      default=str(int(time.time())), type='str',
+                      help='end time of import (now)')
+    parser.add_option('-z', '--timezone', dest='timezone',
+                      default='Local', type='str',
+                      help='time zone for time conversion')
     return parser
 
 
@@ -39,6 +48,15 @@ if __name__ == '__main__':
         log.err('Error: driver does not have "load" method')
         sys.exit(1)
 
-    d = driver.load(None, None)
-    # d.addCallbacks(lambda x: reactor.stop())
+    if opts.timefmt != '%s':
+        st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
+        et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
+    else:
+        st = dtutil.ts2dt(int(opts.start_time))
+        et = dtutil.ts2dt(int(opts.end_time))
+    print st, et
+
+    d = driver.load(st, et)
+    d.addCallback(lambda x: inst._flush())
+    d.addCallbacks(lambda x: reactor.stop())
     reactor.run()
