@@ -67,3 +67,5 @@ def ts2pylabts(ts, tzstr='UTC'):
   delta = dt - dt_0
   return delta.days + (delta.seconds / (3600. * 24))
 
+def ts(str, format='%x %X', tzstr='Local'):
+  return dt2ts(strptime_tz(str, format, tzstr))
