@@ -4,6 +4,7 @@ import shelve
 import time
 import urllib
 import pprint
+import traceback
 
 from twisted.internet import reactor, threads
 import numpy as np
@@ -17,7 +18,7 @@ from twisted.web.client import getPage
 
 class Operator:
     # data type of operator output
-    data_type = 'double'
+    data_type = ('double', float)
 
     def __init__(self, inputs):
         """
@@ -28,11 +29,12 @@ class Operator:
     def _uuid(self):
         """Return the UUID for the substream"""
         return uuid.uuid5(uuid.UUID(self.inputs[0]), self.name)
-    uuid = property(_uuid)
 
     def _name(self):
         """Return a stringified name for the operator"""
         raise NotImplementedError()
+
+    uuid = property(_uuid)
     name = property(_name)
 
     def reset(self):
@@ -57,7 +59,7 @@ class SubsampleOperator(Operator):
     def _name(self):
         """Human-readable name for the operator"""
         return 'subsample-%i' % self.period
-
+    name = property(_name)
 
     def reset(self):
         """Reset the internal state"""
@@ -65,13 +67,13 @@ class SubsampleOperator(Operator):
 
     def __str__(self):
         return "subsample period: %i last: %s" % (self.period, 
-                                                  time.ctime(self.last / 1000))
+                                                  time.ctime(self.last))
 
     def bulk(self, recs):
         tic = time.time()
         rv = []
         for rec in recs:
-            newts = rec[0] - (rec[0] % (self.period * 1000))
+            newts = rec[0] - (rec[0] % (self.period))
             if newts > self.last:
                 rv.append((newts, float(rec[1])))
                 self.last = newts
@@ -96,12 +98,12 @@ class OperatorDriver(driver.SmapDriver):
     data, using `smap-load` to load source data and pipe it through
     operators.
     """
-    def add_operator(self, path, op, unit, **tsargs):
+    def add_operator(self, path, op, unit):
         """Add an operator to the driver
         """
         self.add_timeseries(path, op.uuid, unit, 
-                            data_type=op.data_type,
-                            **tsargs)
+                            data_type=op.data_type[0],
+                            milliseconds=False)
         self.set_metadata(path, {
                 'Extra/SourceStream' : str(op.inputs[0]),
                 'Extra/Operator' : str(op.name)
@@ -130,12 +132,14 @@ class OperatorDriver(driver.SmapDriver):
             data = v['Readings']
             if not isinstance(data, np.ndarray):
                 data = np.array(data)
+            data[:,0] /= 1000
+
             # push all data through the appropriate operators
             for addpath, op in self.operators[source_id].itervalues():
-                print "processing", addpath
                 new = op.bulk(data)
                 for newv in new:
-                    self._add(addpath, *newv)
+                    ts, v = int(newv[0]), op.data_type[1](newv[1])
+                    self._add(addpath, ts, v)
 
     def setup(self, opts, shelveoperators=True, cache=False):
         self.source_url = opts.get('SourceUrl', 'http://smote.cs.berkeley.edu:8079')
