@@ -55,6 +55,7 @@ class SubsampleOperator(Operator):
     def __init__(self, input, period):
         Operator.__init__(self, [input])
         self.period = period
+        self.reset()
 
     def _name(self):
         """Human-readable name for the operator"""
@@ -77,7 +78,7 @@ class SubsampleOperator(Operator):
             if newts > self.last:
                 rv.append((newts, float(rec[1])))
                 self.last = newts
-        print "in: %i out: %i (%0.3f)" % (len(recs), len(rv), (time.time() - tic))
+        # print "in: %i out: %i (%0.3f)" % (len(recs), len(rv), (time.time() - tic))
         return rv
 
 class OperatorDriver(driver.SmapDriver):
@@ -125,6 +126,8 @@ class OperatorDriver(driver.SmapDriver):
         """Process incoming data by pushing it through the operators
         """
         for v in data.itervalues():
+            if not 'uuid' in v: 
+                continue
             source_id = str(v['uuid'])
             if not source_id in self.operators: 
                 continue
