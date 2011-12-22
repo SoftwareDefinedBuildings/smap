@@ -67,12 +67,15 @@ the result.
         else:
             return tags
         
-    def _data_uuid(self, uuid, start, end):
+    def _data_uuid(self, uuid, start, end, cache):
         """Construct a list of urls we need to load for a single uuid"""
-        cache = tscache.TimeseriesCache(uuid)
-        cached_data = cache.read(0, start, end)
+        if cache:
+            cache = tscache.TimeseriesCache(uuid)
+            cached_data = cache.read(0, start, end) 
+            cache.close()
+        else:
+            cached_data = []
 
-        cache.close()
         cached_data = [((0, start), None)] + \
             cached_data + \
             [((end, 0), None)]
@@ -83,7 +86,7 @@ the result.
             
         return load_list, map(operator.itemgetter(1), cached_data[1:-1])
         
-    def data_uuid(self, uuids, start, end):
+    def data_uuid(self, uuids, start, end, cache=True):
         """Load a time range of data for a list of uuids
         
         Attempts to use cached data and load missing data in parallel.
@@ -102,7 +105,7 @@ the result.
 
         # construct a list of all holes in the cache
         for u in uuids:
-            data[u] = self._data_uuid(u, start, end)
+            data[u] = self._data_uuid(u, start, end, cache)
 
             # these are the regions of missing data
             for region in data[u][0]:
@@ -127,10 +130,12 @@ the result.
                 if url != None and len(newdata[url][0]['Readings']) > 0:
                     assert newdata[url][0]['uuid'] == u
                     loaddata.append(np.array(newdata[url][0]['Readings']))
-                    cache = tscache.TimeseriesCache(u)
-                    cache.insert(0, range[0], range[1], loaddata[-1])
                     print "downloaded", len(loaddata[-1])
-                    cache.close()
+
+                    if cache:
+                        c = tscache.TimeseriesCache(u)
+                        c.insert(0, range[0], range[1], loaddata[-1])
+                        c.close()
                 else:
                     v = np.array([])
                     v.shape = (0, 2)

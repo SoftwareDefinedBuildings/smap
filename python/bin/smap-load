@@ -26,6 +26,9 @@ def get_parser():
     parser.add_option('-z', '--timezone', dest='timezone',
                       default='Local', type='str',
                       help='time zone for time conversion')
+    parser.add_option('-r', '--reset', dest='reset',
+                      default=False, action='store_true',
+                      help='reset drivers before running')
     return parser
 
 
@@ -47,6 +50,11 @@ if __name__ == '__main__':
     if not hasattr(driver, "load"):
         log.err('Error: driver does not have "load" method')
         sys.exit(1)
+    if hasattr(driver, 'reset') and \
+            callable(driver.reset) and \
+            opts.reset:
+        log.msg("Resetting driver")
+        driver.reset()
 
     if opts.timefmt != '%s':
         st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)

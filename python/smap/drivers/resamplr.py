@@ -5,53 +5,62 @@ import time
 import urllib
 import pprint
 
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
+import numpy as np
 
 import smap.driver as driver
 import smap.util as util
 import smap.smapconf as smapconf
+from smap.contrib import dtutil
 from smap.archiver.client import RepublishClient, SmapClient
 from twisted.web.client import getPage
 
 class Operator:
-    # int minwindow: the minimum number of records which must be present to process
-    minwindow = 1
-    # int maxwindow: the maximum number of records we can handle at once
-    maxwindow = 10000
-    #
-    timeout = None
-
+    # data type of operator output
     data_type = 'double'
 
-    # timestamp of the last piece of data we looked at
-    last = 0
+    def __init__(self, inputs):
+        """
+        :param inputs: list of uuids the operator examines
+        """
+        self.inputs = inputs
 
-    def __init__(self):
-        self.__data = []
-        self.state = {}
+    def _uuid(self):
+        """Return the UUID for the substream"""
+        return uuid.uuid5(uuid.UUID(self.inputs[0]), self.name)
+    uuid = property(_uuid)
+
+    def _name(self):
+        """Return a stringified name for the operator"""
+        raise NotImplementedError()
+    name = property(_name)
+
+    def reset(self):
+        """Reset the internal state to discard any changes made"""
+        raise NotImplementedError()
 
     def bulk(self, recs):
         """Process a number of records in bulk
 
 :param list recs: a list of (timestamp, value) tuples
 :return list: a list of (timestamp, value)  """
-    
-    def push(self, streamid, val):
-        """Push a new reading to the operator"""
-        if not streamid in self.__data:
-            self.__data[streamid] = []
-        self.__data[streamid].append(val)
-        if len(self.__data[streamid]) > self.minwindow:
-            self.bulk(self.__data[streamid])
+        raise NotImplementedError()
 
 
 class SubsampleOperator(Operator):
-    def name(self):
+    """An operator which returns the first record in a window.
+    """
+    def __init__(self, input, period):
+        Operator.__init__(self, [input])
+        self.period = period
+
+    def _name(self):
+        """Human-readable name for the operator"""
         return 'subsample-%i' % self.period
 
-    def __init__(self, period):
-        Operator.__init__(self)
-        self.period = period
+
+    def reset(self):
+        """Reset the internal state"""
         self.last = 0
 
     def __str__(self):
@@ -70,86 +79,99 @@ class SubsampleOperator(Operator):
         return rv
 
 class OperatorDriver(driver.SmapDriver):
-    # a list of operators the driver will compute.  Each list element
-    # is the constructor for an operator which will create a new
-    oplist = [lambda: SubsampleOperator(300), lambda: SubsampleOperator(3600)]
+    """Base class for code which wants to process single streams.
 
-    # chunksize for reading with loading
-    limit = 50000
+    To do this you should:
 
-    def data(self, data):
+     a) implement an :py:class:`Operator`, which contains your
+      specific logic.  You should at least override name() to provide
+      a human-readable name for your operator, and and bulk() which
+      processes chunks of data..
+     b) subclass OperatorDriver, implementing a "setup" method which
+      creates operators and adds them using :py:method:`add_operator`.
+      Make sure you call OperatorDriver.setup.
+
+    If you do this, you'll be able to use your operator both in
+    real-time mode (via a twistd smap source) and to run on historical
+    data, using `smap-load` to load source data and pipe it through
+    operators.
+    """
+    def add_operator(self, path, op, unit, **tsargs):
+        """Add an operator to the driver
+        """
+        self.add_timeseries(path, op.uuid, unit, 
+                            data_type=op.data_type,
+                            **tsargs)
+        self.set_metadata(path, {
+                'Extra/SourceStream' : str(op.inputs[0]),
+                'Extra/Operator' : str(op.name)
+                })
+
+        for source in op.inputs:
+            if not source in self.operators:
+                self.operators[source] = {}
+            if not op.uuid in self.operators[source]:
+                self.operators[source][op.uuid] = (path, op)
+
+    def reset(self):
+        """Reset all operators"""
+        for oplist in self.operators.itervalues():
+            for path, op in oplist.itervalues():
+                op.reset()
+
+    def _data(self, data):
         """Process incoming data by pushing it through the operators
         """
         for v in data.itervalues():
             source_id = str(v['uuid'])
+            if not source_id in self.operators: 
+                continue
 
-            # create new operators if this is a new uuid
-            if not source_id in self.operators:
-                self.operators[source_id] = []
-                for op in self.oplist:
-                    newop = op()
-                    # operator uuids use the parent stream as a
-                    # namespace, and the operator name as a hash.
-                    id = uuid.uuid5(uuid.UUID(v['uuid']), newop.name())
-                    path = '/' + str(v['uuid']) + '/' + newop.name()
-                    self.add_timeseries(path, id, '', 
-                                        data_type=newop.data_type,
-                                        milliseconds=True)
-                    self.operators[source_id] = self.operators[source_id] + \
-                        [(path, id, str(v['uuid']), newop)]
-                    self.set_metadata(path, {
-                            'Extra/SourceStream' : str(v['uuid']),
-                            'Extra/Operator' : newop.name()
-                            })
-
-            for _,__,___,o in self.operators[source_id]:
-                new = o.bulk(v['Readings'])
-                addpath = "/" + str(v['uuid']) + '/' + o.name()
+            data = v['Readings']
+            if not isinstance(data, np.ndarray):
+                data = np.array(data)
+            # push all data through the appropriate operators
+            for addpath, op in self.operators[source_id].itervalues():
+                print "processing", addpath
+                new = op.bulk(data)
                 for newv in new:
-                    self.add(addpath, *newv)
+                    self._add(addpath, *newv)
 
-    def setup(self, opts):
+    def setup(self, opts, shelveoperators=True, cache=False):
         self.source_url = opts.get('SourceUrl', 'http://smote.cs.berkeley.edu:8079')
-        self.operators = shelve.open(opts.get('OperatorCache', '.operators'),
-                                     protocol=2, writeback=True)
-        self.restrict = opts.get("Restrict", "has Path and not has Metadata/Extra/SourceStream")
-        self.lastmap = {}
-        # create timeseries from cached operator state
-        for oplist in self.operators.itervalues():
-            for path, id, sid, op in oplist:
-                self.add_timeseries(path, id, '', 
-                                    data_type=op.data_type,
-                                    milliseconds=True)
-                self.set_metadata(path, {
-                        'Extra/SourceStream' : sid,
-                        'Extra/Operator' : op.name()
-                        })
-                lst = self.lastmap.get(sid, [])
-                lst.append(op.last)
-                self.lastmap[sid] = lst
+        if shelveoperators:
+            self.operators = shelve.open(opts.get('OperatorCache', '.operators'),
+                                         protocol=2, writeback=True)
+            # sync the operator state periodically and at exit
+            util.periodicCallInThread(self.operators.sync).start(60)
+            reactor.addSystemEventTrigger('after', 'shutdown', 
+                                          self.operators.close)
+        else:
+            self.operators = {}
+        self.arclient = SmapClient(self.source_url)
+        self.cache = cache
 
-        util.periodicCallInThread(self.operators.sync).start(60)
-        reactor.addSystemEventTrigger('after', 'shutdown', 
-                                      self.operators.close)
+        # create timeseries from cached operator state
+        for sid, oplist in self.operators.iteritems():
+            for path, op in oplist.itervalues():
+                self.add_operator(path, op, '')
 
     def start(self):
         """Start receiving real-time data when used in daemon mode"""
         # set up clients to provide the data
-        self.client = RepublishClient(self.source_url, self.data)
+        self.client = RepublishClient(self.source_url, self._data)
         self.client.connect()
 
         # can have multiple sources
-        RepublishClient('http://local.cs.berkeley.edu:8079', self.data).connect()
-
-        # sync the operator state periodically and at exit
+        # RepublishClient('http://local.cs.berkeley.edu:8079', self.data).connect()
 
     def load(self, start_dt, end_dt):
         """Load a range of time by pulling it from the database and
         pushing it through the operators"""
-        self.client = SmapClient(smapconf.BACKEND)
-        self.load_uids = self.client.query("select distinct uuid where %s" % self.restrict)
-        d = self._flush()
-        d.addCallbacks(lambda x: self._flush())
+        print "starting load..."
+        self.load_uids = self.operators.keys()
+        self.start, self.end  = dtutil.dt2ts(start_dt), \
+            dtutil.dt2ts(end_dt)
 
         if len(self.load_uids) > 0:
             return self.load_next_uid()
@@ -157,28 +179,39 @@ class OperatorDriver(driver.SmapDriver):
             return None
 
     def load_next_uid(self):
-        self.current_uid = self.load_uids.pop()
-        self.current_starttime = min(self.lastmap.get(self.current_uid, [0])) / 1000
-        print time.ctime(self.current_starttime)
-        return self.load_next_time()
+        if len(self.load_uids):
+            self.current_uid = self.load_uids.pop()
+            print self.current_uid
+            return self.load_next_time()
 
     def load_next_time(self):
-        now = int(time.time())
-        d = getPage(smapconf.BACKEND + \
-                        ("/api/data/uuid/%s?" % str(self.current_uid)) +\
-                        urllib.urlencode({'starttime' : (self.current_starttime * 1000),
-                                          'endtime' : now * 1000,
-                                          'limit' : self.limit}))
+        d = threads.deferToThread(self.arclient.data_uuid, [self.current_uid], 
+                                  self.start, self.end, self.cache)
         d.addCallback(self.load_data)
-        d.addErrback(lambda x: self.load_next_time())
+        d.addErrback(lambda x: self.load_next_uid())
         return d
 
     def load_data(self, data):
-        obj = util.json_decode(data)
-        self.data({'/%s' % str(self.current_uid) : obj[0]})
-        if len(obj[0]["Readings"]) == self.limit:
-            self.current_starttime = (obj[0]["Readings"][-1][0] / 1000)
-            print "new starttime", time.ctime(self.current_starttime)
-            return self.load_next_time()
-        else:
-            return self.load_next_uid()
+        self._data({'/%s' % str(self.current_uid) : {
+                    'uuid': self.current_uid,
+                    'Readings': data[0]}})
+        return self.load_next_uid()
+
+class SubsampleDriver(OperatorDriver):
+    def setup(self, opts):
+        """Set up what streams are to be subsampled.
+
+        We'll only find new streams on a restart ATM.
+        """
+        OperatorDriver.setup(self, opts)
+        self.restrict = opts.get("Restrict", 
+                                 "has Path and not has Metadata/Extra/SourceStream")
+        client = SmapClient(smapconf.BACKEND)
+        source_ids = client.tags(self.restrict, 'distinct uuid')
+        for new in source_ids:
+            id = str(new[''])
+            if not id in self.operators:
+                o1 = SubsampleOperator(id, 300)
+                self.add_operator('/%s/%s' % (id, o1.name), o1, '')
+                o2 = SubsampleOperator(id, 3600)
+                self.add_operator('/%s/%s' % (id, o2.name), o2, '')
