@@ -14,13 +14,16 @@ import copy
 tokens = (
     'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT', 'STAR',
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
-    'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA'
+    'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
+    'SET',
     )
 
 reserved = {
     'where' : 'WHERE',
     'distinct' : 'DISTINCT',
     'select' : 'SELECT',
+    'delete' : 'DELETE',
+    'set' : 'SET',
     'tags' : 'TAGS',
     'has' : 'HAS',
     'and' : 'AND',
@@ -87,21 +90,47 @@ def ext_plural(x):
 
 def p_query(t):
     '''query : SELECT selector WHERE statement
-             | SELECT selector'''
-    sqlsel, datasel = t[2]
-    print t[2]
-    if len(t) == 5:
-        t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
+             | SELECT selector
+             | DELETE tag_list WHERE statement
+             | DELETE STAR WHERE statement
+             '''
+    if t[1] == 'select':
+        sqlsel, datasel = t[2]
+        if len(t) == 5:
+            t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
               WHERE stream_id IN (%s) AND %s AND
                    s.id = m.stream_id""" % \
-                               (sqlsel[0], qg.normalize(t[4]).render(), sqlsel[1])), \
-                               datasel
-    else:
-        t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
+                                   (sqlsel[0], qg.normalize(t[4]).render(), sqlsel[1])), \
+                                   datasel
+        else:
+            t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
               WHERE s.id = m.stream_id AND s.subscription_id = sub.id
                  AND %s AND %s""" % 
-                         (sqlsel[0], sqlsel[1], 
-                          qg.build_authcheck(t.parser.request))), datasel
+                               (sqlsel[0], sqlsel[1], 
+                                qg.build_authcheck(t.parser.request))), datasel
+    elif t[1] == 'delete':
+        # a new delete inner statement enforces that we only delete
+        # things which we have the key for.
+        delete_inner = """
+   (SELECT s.id FROM stream s, subscription sub WHERE s.id IN %s
+          AND s.subscription_id = sub.id AND %s)
+    """ % (t[4], qg.build_authcheck(t.parser.request, forceprivate=True))
+        if t[2] == '*':
+            # STAR deletes the whole stream, gone.
+            t[0] = None, \
+                """DELETE FROM stream s WHERE id IN %s""" % delete_inner, \
+                None
+        else:
+            t[0] = None, \
+                ("""DELETE FROM metadata2 WHERE stream_id IN %s
+                    AND (%s)""" % (delete_inner, 
+                                   ' OR '.join(map(lambda x: "tagname = '%s'" % 
+                                                   sql.escape_string(x), 
+                                                   t[2])))),\
+                                   None
+    elif t[1] == 'set':
+        pass
+
 
 def p_selector(t):
     '''selector : tag_list
@@ -217,7 +246,7 @@ def p_statement_binary(t):
   si1.uuid = mi1.tagval AND
   si1.id IN (%s)""" % (t[1], t[4]), ti='1'))
     elif t[1] == 'uuid':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(s.uuid = '%s')" %
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(si.uuid = '%s')" %
                                          sql.escape_string(t[3])))
     elif t[2] == '=':
         t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval = '%s')" % 
@@ -227,10 +256,8 @@ def p_statement_binary(t):
         t[0] = qg.Clause (qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
                           (sql.escape_string(t[1]), 
                            sql.escape_string(t[3]))))
-
+        raise NotImplementedError()
         
-
-        print "IN"
 
 def p_error(t):
     print("Syntax error at '%s'" % t.value)
@@ -248,17 +275,17 @@ class QueryParser:
 
 def runquery(cur, q):
     extractor, v, datagetter = qp.parse(s)
-    print v, datagetter
 
     if '-v' in sys.argv:
         print v
 
-    return
+    if '-n' in sys.argv:
+        return
     
     cur.execute(v)
     if datagetter:
         return datagetter.execute(None, extractor(cur.fetchall()))
-    else:
+    elif extractor:
         return extractor(cur.fetchall())
 
 if __name__ == '__main__':

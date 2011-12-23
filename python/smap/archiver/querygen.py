@@ -3,11 +3,11 @@ import pgdb as sql
 import time
 import operator
 
-def build_authcheck(request, ti=''):
+def build_authcheck(request, ti='', forceprivate=False):
     """Build an SQL WHERE clause which enforces access restrictions.
     Will pull any credentials out of the request object passed in.
     """
-    if not 'private' in request.args:
+    if not 'private' in request.args and not forceprivate:
         query = "(sub%s.public " % ti
     else:
         query = "(false "
