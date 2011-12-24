@@ -115,7 +115,8 @@ def p_query(t):
         delete_inner = """
    (SELECT s.id FROM stream s, subscription sub WHERE s.id IN %s
           AND s.subscription_id = sub.id AND %s)
-    """ % (t[len(t) - 1], qg.build_authcheck(t.parser.request, forceprivate=True))
+    """ % (qg.normalize(t[len(t) - 1]).render(), 
+           qg.build_authcheck(t.parser.request, forceprivate=True))
         if t[2] == 'where':
             # STAR deletes the whole stream, gone.
             t[0] = None, \
@@ -146,7 +147,7 @@ def p_query(t):
                  s.id = m.stream_id AND s.subscription_id = sub.id
             """ % \
             (tag_stmt,
-             t[4],
+             qg.normalize(t[4]).render(),
              qg.build_authcheck(t.parser.request, forceprivate=True)), \
                None
 
@@ -344,7 +345,7 @@ if __name__ == '__main__':
     class Request(object):
         pass
     request = Request()
-    setattr(request, 'args', {})
+    setattr(request, 'args', {'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
     qp = QueryParser(request)
 
     if not os.isatty(sys.stdin.fileno()):
