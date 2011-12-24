@@ -371,11 +371,16 @@ class Api(resource.Resource):
         parser = qp.QueryParser(request)
         query = request.content.read()
         ext, query, datagetter = parser.parse(query)
-        d = self.db.runQuery(query)
-        d.addCallback(lambda x: (request, ext(x)))
-        if datagetter:
-            d.addCallback(lambda x: threads.deferToThread(lambda y: datagetter.execute(*y), x))
-        d.addCallback(self.send_reply)
+        if query.lower().startswith("delete"):
+            d = self.db.runOperation(query)
+            d.addCallback(lambda x: self.send_reply((request, [])))
+        else:
+            d = self.db.runQuery(query)
+            if ext:
+                d.addCallback(lambda x: (request, ext(x)))
+            if datagetter:
+                d.addCallback(lambda x: threads.deferToThread(lambda y: datagetter.execute(*y), x))
+            d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 
     def render_GET(self, request):

@@ -5,7 +5,7 @@ import sys
 import time 
 from optparse import OptionParser
 
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.python import log
 
 from smap import loader
@@ -41,20 +41,18 @@ if __name__ == '__main__':
     log.startLogging(sys.stdout)
     
     inst = loader.load(args[0])
-    if len(inst.drivers) != 1:
-        log.err("Error: can only load config files with one driver")
-        sys.exit(1)
         
 
-    driver = inst.drivers[inst.drivers.keys()[0]]
-    if not hasattr(driver, "load"):
-        log.err('Error: driver does not have "load" method')
-        sys.exit(1)
-    if hasattr(driver, 'reset') and \
-            callable(driver.reset) and \
-            opts.reset:
-        log.msg("Resetting driver")
-        driver.reset()
+    for driver in inst.drivers.itervalues():
+        if not hasattr(driver, "load"):
+            log.err('Error: driver does not have "load" method')
+            sys.exit(1)
+
+            if hasattr(driver, 'reset') and \
+                    callable(driver.reset) and \
+                    opts.reset:
+                log.msg("Resetting driver")
+                driver.reset()
 
     if opts.timefmt != '%s':
         st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
@@ -64,7 +62,10 @@ if __name__ == '__main__':
         et = dtutil.ts2dt(int(opts.end_time))
     print st, et
 
-    d = driver.load(st, et)
-    d.addCallback(lambda x: inst._flush())
+    dl = []
+    for driver in inst.drivers.itervalues():
+        d = driver.load(st, et)
+        d.addCallback(lambda x: inst._flush())
+    
     d.addCallbacks(lambda x: reactor.stop())
     reactor.run()

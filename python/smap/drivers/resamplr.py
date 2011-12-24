@@ -212,7 +212,7 @@ class SubsampleDriver(OperatorDriver):
         """
         OperatorDriver.setup(self, opts)
         self.restrict = opts.get("Restrict", 
-                                 "has Path and not has Metadata/Extra/SourceStream")
+                                 "has Path and (not has Metadata/Extra/SourceStream)")
         client = SmapClient(smapconf.BACKEND)
         source_ids = client.tags(self.restrict, 'distinct uuid')
         for new in source_ids:

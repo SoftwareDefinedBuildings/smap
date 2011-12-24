@@ -92,7 +92,7 @@ def p_query(t):
     '''query : SELECT selector WHERE statement
              | SELECT selector
              | DELETE tag_list WHERE statement
-             | DELETE STAR WHERE statement
+             | DELETE WHERE statement
              '''
     if t[1] == 'select':
         sqlsel, datasel = t[2]
@@ -114,8 +114,8 @@ def p_query(t):
         delete_inner = """
    (SELECT s.id FROM stream s, subscription sub WHERE s.id IN %s
           AND s.subscription_id = sub.id AND %s)
-    """ % (t[4], qg.build_authcheck(t.parser.request, forceprivate=True))
-        if t[2] == '*':
+    """ % (t[len(t) - 1], qg.build_authcheck(t.parser.request, forceprivate=True))
+        if t[2] == 'where':
             # STAR deletes the whole stream, gone.
             t[0] = None, \
                 """DELETE FROM stream s WHERE id IN %s""" % delete_inner, \
@@ -129,6 +129,7 @@ def p_query(t):
                                                    t[2])))),\
                                    None
     elif t[1] == 'set':
+        raise NotImplementedError()
         pass
 
 
@@ -256,7 +257,6 @@ def p_statement_binary(t):
         t[0] = qg.Clause (qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
                           (sql.escape_string(t[1]), 
                            sql.escape_string(t[3]))))
-        raise NotImplementedError()
         
 
 def p_error(t):
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     class Request(object):
         pass
     request = Request()
-    setattr(request, 'args', {})
+    setattr(request, 'args', {}) 
     qp = QueryParser(request)
 
     if not os.isatty(sys.stdin.fileno()):
