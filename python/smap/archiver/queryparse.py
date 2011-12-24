@@ -93,6 +93,7 @@ def p_query(t):
              | SELECT selector
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
+             | SET set_list WHERE statement
              '''
     if t[1] == 'select':
         sqlsel, datasel = t[2]
@@ -129,8 +130,25 @@ def p_query(t):
                                                    t[2])))),\
                                    None
     elif t[1] == 'set':
-        raise NotImplementedError()
-        pass
+        #  set tags by calling the add_tag stored procedure with each
+        #  new tag; this'll insert or update the database as
+        #  appropriate
+        tag_stmt = ','.join(map(lambda (t, v): \
+                                    "add_tag(m.stream_id, '%s', '%s')" % 
+                                (sql.escape_string(t), 
+                                 sql.escape_string(v)), 
+                                t[2]))
+        # filter by the selector; adding an authcheck which only lets
+        # you operate on *your* streams.
+        t[0] = None, \
+            """SELECT %s FROM stream s, metadata2 m, subscription sub
+               WHERE stream_id IN %s AND %s AND
+                 s.id = m.stream_id AND s.subscription_id = sub.id
+            """ % \
+            (tag_stmt,
+             t[4],
+             qg.build_authcheck(t.parser.request, forceprivate=True)), \
+               None
 
 
 def p_selector(t):
@@ -198,7 +216,15 @@ def p_tag_list(t):
     if len(t) == 2:
         t[0] = [t[1]]
     else:
-        t[0] = [t[1]]+ t[3]
+        t[0] = [t[1]] + t[3]
+
+def p_set_list(t):
+    '''set_list : LVALUE EQ QSTRING
+                | LVALUE EQ QSTRING COMMA set_list'''
+    if len(t) == 4:
+        t[0] = [(t[1], t[3])]
+    else:
+        t[0] = [(t[1], t[3])] + t[5]
 
 def merge_clauses(klass, lstmt, rstmt) :
     if type(lstmt) == klass and type(rstmt) == klass:
@@ -318,7 +344,7 @@ if __name__ == '__main__':
     class Request(object):
         pass
     request = Request()
-    setattr(request, 'args', {}) 
+    setattr(request, 'args', {})
     qp = QueryParser(request)
 
     if not os.isatty(sys.stdin.fileno()):
