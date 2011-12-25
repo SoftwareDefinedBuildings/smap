@@ -4,6 +4,7 @@ import operator
 
 import querygen as qg
 import querydata as dq
+import data
 from smap.util import build_recursive
 
 import ply
@@ -80,6 +81,11 @@ names = {}
 def ext_default(x):
     return map(operator.itemgetter(0), x)
 
+def ext_deletor(x):
+    streams = ext_default(x)
+    data.del_streams(streams)
+    return streams
+
 def ext_plural(x):
     rv = {}
     for uuid, tagname, tagval in x:
@@ -87,6 +93,7 @@ def ext_plural(x):
             rv[uuid] = {'uuid' : uuid}
         rv[uuid][tagname] = tagval
     return map(lambda x: build_recursive(x, suppress=[]), rv.itervalues())
+
 
 def p_query(t):
     '''query : SELECT selector WHERE statement
@@ -118,11 +125,15 @@ def p_query(t):
     """ % (qg.normalize(t[len(t) - 1]).render(), 
            qg.build_authcheck(t.parser.request, forceprivate=True))
         if t[2] == 'where':
-            # STAR deletes the whole stream, gone.
-            t[0] = None, \
-                """DELETE FROM stream s WHERE id IN %s""" % delete_inner, \
+            # delete the whole stream, gone.  this also deletes the
+            # data in the backend readingdb.
+            t[0] = ext_deletor, \
+                """DELETE FROM stream s WHERE id IN %s
+                   RETURNING s.id
+                """ % delete_inner, \
                 None
         else:
+            # this alters the tags but doesn't touch the data
             t[0] = None, \
                 ("""DELETE FROM metadata2 WHERE stream_id IN %s
                     AND (%s)""" % (delete_inner, 
@@ -155,7 +166,6 @@ def p_query(t):
 def p_selector(t):
     '''selector : tag_list
                 | STAR
-                | data_clause
                 | DISTINCT LVALUE
                 | DISTINCT TAGS'''
     if t[1] == 'distinct':
@@ -183,33 +193,33 @@ def p_selector(t):
             restrict = ('(' + " OR ".join(map(make_clause, t[1])) + ')')
         t[0] = ((select, restrict, ext_plural), None)
 
-def p_data_clause(t):
-    '''data_clause : apply_fn IN LPAREN NUMBER COMMA NUMBER RPAREN'''
-    t[1].set_range(t[4], t[6])
-    t[0] = t[1]
+# def p_data_clause(t):
+#     '''data_clause : apply_fn IN LPAREN NUMBER COMMA NUMBER RPAREN'''
+#     t[1].set_range(t[4], t[6])
+#     t[0] = t[1]
 
-def p_apply_fn(t):
-    '''apply_fn : LVALUE LPAREN apply_fn RPAREN
-                | LVALUE LPAREN apply_fn COMMA arg_list RPAREN
-                | LVALUE LPAREN DATA RPAREN
-                | LVALUE LPAREN DATA COMMA arg_list RPAREN
-                '''
-    if isinstance(t[3], dq.DataQuery):
-        qobj = t[3]
-    else:
-        qobj = dq.DataQuery()
-    if len(t) == 5:
-        qobj.add_filter(t[1], [])
-    else:
-        qobj.add_filter(t[1], t[5])
-    t[0] = qobj
+# def p_apply_fn(t):
+#     '''apply_fn : LVALUE LPAREN apply_fn RPAREN
+#                 | LVALUE LPAREN apply_fn COMMA arg_list RPAREN
+#                 | LVALUE LPAREN DATA RPAREN
+#                 | LVALUE LPAREN DATA COMMA arg_list RPAREN
+#                 '''
+#     if isinstance(t[3], dq.DataQuery):
+#         qobj = t[3]
+#     else:
+#         qobj = dq.DataQuery()
+#     if len(t) == 5:
+#         qobj.add_filter(t[1], [])
+#     else:
+#         qobj.add_filter(t[1], t[5])
+#     t[0] = qobj
 
-def p_arg_list(t):
-    '''arg_list : QSTRING
-                | NUMBER
-                | QSTRING COMMA arg_list
-                | NUMBER COMMA arg_list'''
-    p_tag_list(t)
+# def p_arg_list(t):
+#     '''arg_list : QSTRING
+#                 | NUMBER
+#                 | QSTRING COMMA arg_list
+#                 | NUMBER COMMA arg_list'''
+#     p_tag_list(t)
 
 def p_tag_list(t):
     '''tag_list : LVALUE

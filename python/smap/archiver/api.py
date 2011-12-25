@@ -280,9 +280,14 @@ class Api(resource.Resource):
         resource.Resource.__init__(self)
 
     def generic_extract_result(self, request, result):
+        """Extract postgres results which are just wrapped with an extra
+        list"""
         return request, map(operator.itemgetter(0), result)
 
     def tag_extract_result(self, request, result):
+        """For a tag query, we want to return a nested dict so we pipe the
+        result through this filter instead.
+        """
         rv = {}
         for uid, tn, tv in result:
             if not uid in rv: rv[uid] = {}
@@ -310,6 +315,8 @@ class Api(resource.Resource):
             return defer.succeed((request, []))
 
     def write_one_stream(self, request, stream, stags, mime_header=False):
+        """For a CSV downlod, add some hweaders and write the data to the stream
+        """
         writer = csv.writer(request)
         if 'tags' in request.args and not 'none' in request.args['tags']:
             request.write("# uuid: %s\n" % stream['uuid'])
@@ -319,7 +326,8 @@ class Api(resource.Resource):
             request.write('\n')
         map(writer.writerow, stream['Readings'])
 
-    def send_csv_reply(self, request, result, tags):        
+    def send_csv_reply(self, request, result, tags):
+        """CSV replies are easy"""
         request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % result[0]['uuid'])
         self.write_one_stream(request, 
                               result[0], 
@@ -328,6 +336,8 @@ class Api(resource.Resource):
         request.finish()
 
     def send_data_reply(self, (request, result)):
+        """After reading back some data, format it and send it to the client
+        """
         if not 'format' in request.args or 'json' in  request.args['format']:
             request.setHeader('Content-type', 'application/json')
             request.write(util.json_encode(result))
@@ -354,6 +364,8 @@ class Api(resource.Resource):
             request.finish()
 
     def send_reply(self, (request, result)):
+        """Send a generic json reply.
+        """
         request.setHeader('Content-type', 'application/json')
         request.write(util.json_encode(result))
         request.finish()
@@ -368,22 +380,35 @@ class Api(resource.Resource):
             return self
 
     def render_POST(self, request):
+        """The POST method is only used for sql-like queries.
+
+        The logic for parsing the query, building the true SQL
+        statement, and parsing out the results are in the queryparse
+        and querygen modules.
+        """
+        # make a parser and parse the request
         parser = qp.QueryParser(request)
         query = request.content.read()
         ext, query, datagetter = parser.parse(query)
-        if query.lower().startswith("delete"):
+
+        # pipe the results through whatever filter is necessary
+        if not ext and not datagetter:
             d = self.db.runOperation(query)
-            d.addCallback(lambda x: self.send_reply((request, [])))
         else:
             d = self.db.runQuery(query)
-            if ext:
-                d.addCallback(lambda x: (request, ext(x)))
-            if datagetter:
-                d.addCallback(lambda x: threads.deferToThread(lambda y: datagetter.execute(*y), x))
-            d.addCallback(self.send_reply)
+        if ext:
+            d.addCallback(lambda x: (request, ext(x)))
+        else:
+            d.addCallback(lambda x: (request, []))
+
+        d.addCallback(self.send_reply)
         return server.NOT_DONE_YET
 
     def render_GET(self, request):
+        """The GET method exposes a RESTful API to ARD functions.
+
+        This lets clients look at tags and get data.
+        """
         if len(request.prepath) == 1:
             return json.dumps({'Contents': ['streams', 'query', 'data', 
                                             'next', 'prev', 'tags']})
@@ -392,6 +417,7 @@ class Api(resource.Resource):
         path = map(urllib.unquote, path)
         method = request.prepath[1]
 
+        # dispatch based on the method name
         if method != 'query':
             if len(path) % 2 != 0:
                 request.setResponseCode(400)

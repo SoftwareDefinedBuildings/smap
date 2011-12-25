@@ -170,6 +170,15 @@ class SmapData:
         # all the errbacks should propagate up to the request handler so we can return a 500
         return d
 
+def del_streams(streams):
+    try:
+        r = rdb_pool.get()
+        for sid in streams:
+            rdb.db_del(r, sid, 0, 0xffffffff)
+    finally:
+        rdb_pool.put(r)
+        
+
 if __name__ == '__main__':
     import settings
     from twisted.enterprise import adbapi
@@ -185,7 +194,7 @@ if __name__ == '__main__':
     with open('obj.json', 'r') as fp:
         import json
         o = json.load(fp)
-#     o = {u'/demand/CA': {u'Metadata': {u'Location': {u'Country': u'USA', u'State': u'CA', u'Uri': u'http://www.caiso.com/outlook/systemstatus.csv', u'Area': u'CA ISO'}}, u'Description': u'Total demand from the CA ISO', u'Readings': [[1313179313000, 33358]], u'Properties': {u'Timezone': u'America/Los_Angeles', u'UnitofMeasure': u'mWh', u'ReadingType': u'long'}, u'uuid': u'b0e54721-4271-5fe2-97b3-94369cb7ace1'}, u'/demand': {u'Contents': [u'CA']}, u'/': {u'Contents': [u'demand', u'oakland']}}
+
     reporting.push_metadata(o)
 
     data = SmapData(cp)

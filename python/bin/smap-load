@@ -48,11 +48,11 @@ if __name__ == '__main__':
             log.err('Error: driver does not have "load" method')
             sys.exit(1)
 
-            if hasattr(driver, 'reset') and \
-                    callable(driver.reset) and \
-                    opts.reset:
-                log.msg("Resetting driver")
-                driver.reset()
+        if hasattr(driver, 'reset') and \
+                callable(driver.reset) and \
+                opts.reset:
+            log.msg("Resetting driver")
+            driver.reset()
 
     if opts.timefmt != '%s':
         st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
@@ -66,6 +66,6 @@ if __name__ == '__main__':
     for driver in inst.drivers.itervalues():
         d = driver.load(st, et)
         d.addCallback(lambda x: inst._flush())
-    
-    d.addCallbacks(lambda x: reactor.stop())
+    dl = defer.DeferredList(dl, consumeErrors=True)
+    dl.addCallbacks(lambda x: reactor.stop())
     reactor.run()
