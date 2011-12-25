@@ -82,9 +82,8 @@ def ext_default(x):
     return map(operator.itemgetter(0), x)
 
 def ext_deletor(x):
-    streams = ext_default(x)
-    data.del_streams(streams)
-    return streams
+    data.del_streams(map(operator.itemgetter(0), x))
+    return map(operator.itemgetter(1), x)
 
 def ext_plural(x):
     rv = {}
@@ -129,7 +128,7 @@ def p_query(t):
             # data in the backend readingdb.
             t[0] = ext_deletor, \
                 """DELETE FROM stream s WHERE id IN %s
-                   RETURNING s.id
+                   RETURNING s.id, s.uuid
                 """ % delete_inner, \
                 None
         else:

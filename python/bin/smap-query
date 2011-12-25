@@ -6,7 +6,8 @@ import sys
 import re
 import readline
 import atexit
-import urllib2
+import time
+import urllib, urllib2
 import json
 from optparse import OptionParser
 from smap.archiver import settings
@@ -15,18 +16,24 @@ HISTFILE = os.path.expanduser('~/.smap-query-history')
 
 def run_query(opts, q):
     try:
-        query = ""
+        query = {}
         if opts.key:
-            query = "?key=" + opts.key
+            query['key'] = opts.key.split(',')
             if opts.private:
-                query += "&private="
+                query['private'] = ['']
+
+        qurl = opts.url + '?' + urllib.urlencode(query, doseq=True)
         if opts.verbose > 0:
-            print opts.url + query
+            print qurl
             print q
-        fp = urllib2.urlopen(opts.url + query, data=q, timeout=opts.timeout)
+        tic = time.time()
+        fp = urllib2.urlopen(qurl, data=q, timeout=opts.timeout)
         obj = json.load(fp)
+        toc = time.time()
+
         json.dump(obj, sys.stdout, sort_keys=True, indent=2)
         print # add a newline
+        print "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
     except Exception, e:
         print "ERROR:", e
 
@@ -37,7 +44,7 @@ if __name__ == '__main__':
                       default="http://new.openbms.org/backend/api/query",
                       help='location of backend server')
     parser.add_option('-k', '--key', dest='key', default=None,
-                      help='api key to send to server')
+                      help='api keys: k1[,k2 ...]')
     parser.add_option('-p', '--private', dest='private', default=False,
                       help='display only results associated with the api key',
                       action='store_true')
