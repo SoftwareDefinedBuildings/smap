@@ -216,7 +216,8 @@ def run(inst, port=None):
 :param int port: port to run on
 :rtype: none; this function does not return
     """
-    if not port: port = int(smapconf.SERVER['Port'])
+    if not port: port = int(smapconf.SERVER['port'])
+    log.startLogging(sys.stdout)
     inst.start()
     reactor.listenTCP(port, getSite(inst))
     reactor.run()
