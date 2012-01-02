@@ -1,5 +1,6 @@
 
 import os
+import sys
 import json
 import uuid
 from avro import schema, io
@@ -27,7 +28,18 @@ SCHEMA_OBJECTS = []
 # load all the schemas when we check an object
 for sf in SCHEMAS:
     # print "Loading", sf
-    obj = json.loads(pkgutil.get_data(__name__, 'schema/' + sf.lower() + ".av"))
+	
+    dirs = [os.path.dirname(sys.modules[__name__].__file__), sys.prefix]
+    obj = None
+    for d in dirs:
+        try:
+            path = os.path.join(d, 'schema', sf.lower() + '.av')
+            obj = json.load(open(path, 'r'))
+        except:
+            pass
+    if obj == None:
+        raise Exception('Cannot load schema: ' + sf.lower())
+    
     s = schema.make_avsc_object(obj, SCHEMA_NAMES)
     SCHEMA_OBJECTS.append(obj)
         
