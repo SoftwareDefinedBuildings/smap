@@ -76,6 +76,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,  &timeout, sizeof(timeout)) < 0) {
       PyEval_RestoreThread(_save);
       DieWithError("setsockopt(): setting timeout failed");
+      close(sock);
       return error_reply;
     }
 
@@ -83,6 +84,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
       PyEval_RestoreThread(_save);
       DieWithError("connect() failed");
+      close(sock);
       return error_reply;
     }
 
@@ -90,6 +92,7 @@ modbus_reply execute_command(char *cmd, char* servIP, uint16_t servPort, uint8_t
     if (send(sock, txBuf, txBufLen, 0) != txBufLen) {
         PyEval_RestoreThread(_save);
         DieWithError("send() sent a different number of bytes than expected");
+	close(sock);
         return error_reply;
     }
 
