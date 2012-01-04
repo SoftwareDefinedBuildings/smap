@@ -16,7 +16,7 @@ tokens = (
     'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT', 'STAR',
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
-    'SET',
+    'SET', 'TILDE',
     )
 
 reserved = {
@@ -33,6 +33,7 @@ reserved = {
     'like' : 'LIKE',
     'Readings': 'DATA',
     'in' : 'IN',
+    '~' : 'TILDE',
     }
 
 t_LPAREN = r'\('
@@ -50,7 +51,7 @@ def t_QSTRING(t):
 t_EQ = r'='
 
 def t_LVALUE(t):
-    r'[a-zA-Z][a-zA-Z0-9\/\%_\-]*'
+    r'[a-zA-Z\~][a-zA-Z0-9\/\%_\-]*'
     t.type = reserved.get(t.value, 'LVALUE')
     return t
 
@@ -274,6 +275,7 @@ def p_statement_unary(t):
 def p_statement_binary(t):
     '''statement_binary : LVALUE EQ QSTRING
                         | LVALUE LIKE QSTRING
+                        | LVALUE TILDE QSTRING
                         | LVALUE IN LPAREN statement RPAREN
     '''
     if t[2] == 'in':
@@ -290,10 +292,13 @@ def p_statement_binary(t):
                                          (sql.escape_string(t[1]), 
                                           sql.escape_string(t[3]))))
     elif t[2] == 'like':
-        t[0] = qg.Clause (qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
-                          (sql.escape_string(t[1]), 
-                           sql.escape_string(t[3]))))
-        
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
+                         (sql.escape_string(t[1]), 
+                          sql.escape_string(t[3]))))
+    elif t[2] == '~':
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval ~ E'%s')" %
+                         (sql.escape_string(t[1]), 
+                          sql.escape_string(t[3]))))
 
 def p_error(t):
     print("Syntax error at '%s'" % t.value)
