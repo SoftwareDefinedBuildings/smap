@@ -1,4 +1,15 @@
 #!/usr/bin/env python
+"""Driver for the Power Standards Lab pQube meter.  
+
+The driver scrapes the html spit out by the meter, making it dependent
+on a particular interface.
+
+Config options:
+Address : url of the meter
+Rate [default 10] : polling period
+
+"""
+
 
 import sys
 import logging

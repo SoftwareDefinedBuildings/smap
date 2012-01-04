@@ -1,5 +1,12 @@
 """sMAP source for Vaisala WXT520 weather station running in automatic
-ASCII mode.
+ASCII mode.  It should be connected via ethernet using a bridge from
+the SDI-12 connection.  The driver connects to the address specified
+and reads lines from it, adding the data to the sMAP driver.
+
+Parameters:
+"Address" : ip address or host name of device
+"Port" [default 4660] : tcp port to connect on.
+
 
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """

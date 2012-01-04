@@ -1,3 +1,14 @@
+"""Driver for the Veris Industries E30 Panel meter, when connected via
+a modbus/ethernet bridge.
+
+Required config parameters:
+"Address" : ip or hostname of device
+"Port" : tcp port number to connect on
+"BusID" : modbus bus address of device
+
+Optional parameters:
+"Period" [default 30] : number of seconds between device poll.
+"""
 
 import sys
 import time

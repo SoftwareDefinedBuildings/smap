@@ -1,3 +1,15 @@
+"""Driver to poll data from a Weather Underground weather station,
+using their xml api.
+
+Optional Parameters: 
+
+"Address" : URI to fetch data from.  The driver will GET the URL,
+and add a query parameter with the station id.
+
+"ID" [default KCABERKE7] : wunderground station id
+
+"Rate" [default 60] : number of seconds between polls.
+"""
 
 import urllib2
 import rfc822
