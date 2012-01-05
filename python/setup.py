@@ -9,11 +9,12 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
-      version="2.0.79",
+      version="2.0.186",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
       url="http://cs.berkeley.edu/~stevedh/smap2/",
+      license="BSD",
       packages=[
         # core sMAP libs and drivers
         "smap", 
@@ -22,6 +23,9 @@ setup(name="Smap",
 
         # smap archiver components
         "smap.archiver",
+
+        # include default conf files
+        "conf",
 
         "twisted", "twisted.plugins",
 
@@ -38,8 +42,9 @@ setup(name="Smap",
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
         ],
       requires=["avro", "twisted", "ordereddict", "ply", "psycopg2"],
-      package_dir={"smap" : "smap"},
-      package_data={"smap" : ['schema/*.av', 'smap/archiver/sql/*.psql']},
+      # package_dir={"smap" : "smap", 'conf' : 'conf'},
+      package_data={"smap" : ['schema/*.av', 'archiver/sql/*.psql'], 
+                    'conf': ['*.ini']},
       ext_modules=[modbus_module],
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',

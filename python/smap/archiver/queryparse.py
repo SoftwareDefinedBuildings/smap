@@ -3,7 +3,7 @@ import pgdb as sql
 import operator
 
 import querygen as qg
-import querydata as dq
+# import querydata as dq
 import data
 from smap.util import build_recursive
 
