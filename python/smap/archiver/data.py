@@ -144,7 +144,7 @@ class SmapData:
             d = self.db.runQuery(query)
             d.addCallback(lambda rv: self._run_create(uuids[1000:],
                                                       result + newresult[0],
-                                                      rv))
+                                                      map(list, rv)))
             return d
         else:
             return result + newresult[0]

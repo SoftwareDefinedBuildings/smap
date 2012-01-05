@@ -17,6 +17,7 @@ from smap.server import RootResource
 import smap.util as util
 from smap.archiver import settings, data, api, republisher
 
+reactor.suggestThreadPoolSize(50)
 
 class DataResource(resource.Resource):
     def __init__(self, db, republisher):
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     opts, args = parser.parse_args()
 
     # connect to the mysql db
-    cp = adbapi.ConnectionPool('pgdb', # 'MySQLdb', 
+    cp = adbapi.ConnectionPool('psycopg2', # 'MySQLdb', 
                                host=settings.MYSQL_HOST,
                                database=settings.MYSQL_DB,
                                user=settings.MYSQL_USER,
