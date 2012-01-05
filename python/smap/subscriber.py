@@ -114,23 +114,29 @@ class SmapSubscriber:
         return d
            
 
-def getSite():
-    root = SmapConsumer()
-    return server.Site(root)
+def _subscribe(result):
+    """
+    Called with list of sMAP sources to subscribes to
+    Returns map of uuid => :py:class:`smap.subscriber.SmapSubcriber` instances 
+    """
+    subs = {}
+    for (url, id, key) in result:
+        dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION[0],
+                                         settings.MY_LOCATION[1],
+                                         key)
+        s =SmapSubscriber(url, dest, id=id, expire_time=None)
+        s.subscribe()
+        subs[id] = s
+    return subs
 
-if __name__ == '__main__':
-    log.startLogging(sys.stdout)
-                         #'http://jackalope.cs.berkeley.edu/~sdawson/receive.php?foo=baz',
-    sub = SmapSubscriber('http://localhost:8081', 
-                         'http://localhost:8082',
-                         uuid.UUID('f29bbb65-6246-51aa-b99b-a7503ee4084f'),
-                         expire_time=None)
-    d = sub.subscribe()
-#     def success(request):
-#         reactor.callLater(10, sub.unsubscribe)
-        
-    #d.addCallbacks(success)
+def subscribe(db):
+    """Look up all of the sMAP sources we should subscribe to
+    """
+    d = db.runQuery("""
+       SELECT url, uuid, key 
+       FROM subscription 
+       WHERE url IS NOT NULL AND url != ''""")
+    d.addCallback(_subscribe)
+    return d
 
-    reactor.listenTCP(8082, getSite())
-    
-    reactor.run()
+

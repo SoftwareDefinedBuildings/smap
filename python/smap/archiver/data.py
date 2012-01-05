@@ -7,8 +7,6 @@ from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
 import pgdb as sql
 
-import readingdb as rdb
-
 import smap.reporting as reporting
 import smap.util as util
 import settings
@@ -21,18 +19,18 @@ class ReadingdbPool:
 
     def shutdown(self):
         print "ReadingdbPool shutting down:", len(self.pool)
-        map(rdb.db_close, self.pool)
+        map(settings.rdb.db_close, self.pool)
 
     def get(self):
 #         if len(self.pool) > 0:
 #             return self.pool.pop()
 #         else:
-        return rdb.db_open(host=settings.READINGDB[0],
-                           port=settings.READINGDB[1])
+        return settings.rdb.db_open(host=settings.READINGDB_HOST,
+                           port=settings.READINGDB_PORT)
             
     def put(self, conn):
         # self.pool.append(conn)
-        rdb.db_close(conn)
+        settings.rdb.db_close(conn)
 
 try:
     rdb_pool
@@ -112,16 +110,17 @@ class SmapData:
                 data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings']]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
-                    rdb.db_add(r, ids[ts['uuid']], data[:128])
+                    settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]
                 if len(data) > 0:
-                    rdb.db_add(r, ids[ts['uuid']], data[:128])
+                    settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
         except:
-            return False
+            raise
         finally:
             if r != None:
                 rdb_pool.put(r)
             else:
+                traceback.print_exc()
                 raise Exception("Error creating RDB connection!")
         return True
 
@@ -174,7 +173,7 @@ def del_streams(streams):
     try:
         r = rdb_pool.get()
         for sid in streams:
-            rdb.db_del(r, sid, 0, 0xffffffff)
+            settings.rdb.db_del(r, sid, 0, 0xffffffff)
     finally:
         rdb_pool.put(r)
         

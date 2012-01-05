@@ -1,0 +1,12 @@
+-- this is used by the archiver when no readingdb is available.
+CREATE TABLE tsdata (  
+       stream_id INT,
+       time INT,
+       seqno INT DEFAULT 0,
+       val DOUBLE PRECISION,
+
+       FOREIGN KEY (stream_id) REFERENCES stream(id)
+         ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX tsdata_ind ON tsdata(stream_id, time);

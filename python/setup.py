@@ -37,7 +37,7 @@ setup(name="Smap",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
         ],
-      requires=["avro", "twisted", "ordereddict", "ply"],
+      requires=["avro", "twisted", "ordereddict", "ply", "psycopg2"],
       package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av']},
       ext_modules=[modbus_module],

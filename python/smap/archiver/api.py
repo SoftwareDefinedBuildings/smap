@@ -11,11 +11,10 @@ from twisted.web import resource, server
 from twisted.web.resource import NoResource
 import pgdb as sql
 
-import readingdb as rdb
-
 import smap.util as util
 import data
 import queryparse as qp
+import settings
 
 def makeErrback(request_):
     request = request_
@@ -100,7 +99,7 @@ class DataRequester:
                             qlimit = 1000000
 
                         while True:
-                            data = rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
+                            data = settings.rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
                             rv += data[:min(len(data), qlimit)]
                             qlimit -= min(len(data), qlimit)
                             if len(data) < 10000 or \
@@ -111,10 +110,10 @@ class DataRequester:
                         traceback.print_exc()
                 elif method == 'next':
                     if qlimit == -1: qlimit = 1
-                    return request, rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
+                    return request, settings.rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
                 elif method == 'prev':
                     if qlimit == -1: qlimit = 1
-                    return request, rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
+                    return request, settings.rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
                 return request, []
             return queryFunc
 
@@ -455,22 +454,3 @@ id IN """ + build_inner_query(request,
 
         return server.NOT_DONE_YET
 
-
-if __name__ == '__main__':
-    import settings
-    from twisted.enterprise import adbapi
-    from twisted.internet import reactor
-
-    # connect to the mysql db
-    cp = adbapi.ConnectionPool('MySQLdb', 
-                               host=settings.MYSQL_HOST,
-                               db=settings.MYSQL_DB,
-                               user=settings.MYSQL_USER,
-                               passwd=settings.MYSQL_PASS)
-    tr = QueryResource(cp)
-
-    d = tr.build_tree([('Metadata/Location/Campus', 'UCB'), 
-                       ('Metadata/Location/Building', 'Soda Hall'),
-                       ('Path', None)])
-    d.addCallback(lambda _:reactor.stop())
-    reactor.run()

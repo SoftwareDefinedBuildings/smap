@@ -1,11 +1,6 @@
 -- -*- sql -*-
 
-DROP TABLE IF EXISTS metadata2;
-DROP TABLE IF EXISTS stream;
-DROP TABLE IF EXISTS subscription;
-DROP SEQUENCE IF EXISTS subscription_id_seq;
-DROP SEQUENCE IF EXISTS stream_id_seq;
-DROP SEQUENCE IF EXISTS metadata2_id_seq;
+CREATE LANGUAGE plpgsql;
 
 -- table for list of sMAP sources we should be subscribed to
 CREATE TABLE subscription (
@@ -16,6 +11,7 @@ CREATE TABLE subscription (
        key VARCHAR(36),
        public BOOLEAN DEFAULT true,
        description VARCHAR(256),
+       owner_id integer DEFAULT 1
 );
 CREATE UNIQUE INDEX subscription_key_ind ON subscription(key);
 CREATE SEQUENCE subscription_id_seq;
@@ -56,3 +52,5 @@ CREATE SEQUENCE metadata2_id_seq;
 ALTER TABLE metadata2
   ALTER COLUMN id
     SET DEFAULT NEXTVAL('metadata2_id_seq');
+
+

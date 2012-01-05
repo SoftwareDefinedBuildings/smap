@@ -1,7 +1,11 @@
 
+import sys
+import ConfigParser
+
 # my local hostname and port to run the twisted server on.  the
 # hostname should be something smap sources can send their data to
-MY_LOCATION = ('smote.cs.berkeley.edu', 8079)
+MY_LOCATION = 'smote.cs.berkeley.edu'
+MY_PORT = 8079
 
 # how often sMAP report instances should time out
 EXPIRE_TIME = None
@@ -9,12 +13,32 @@ EXPIRE_TIME = None
 # sMAP sources.
 CHECK_TIME = None
 
+# postgres setup for metadata and other tables
+DB_MOD = 'psycopg2'
+DB_HOST = 'jackalope.cs.berkeley.edu'
+DB_DB = 'powerdb2test'
+DB_USER = 'powerdb2test'
+DB_PASS = 'password'
+
 # the location of the readingdb server which holds the timeseries
-READINGDB = ('gecko.cs.berkeley.edu', 4243)
+READINGDB_MOD = 'readingdb'
+READINGDB_HOST = DB_HOST
+READINGDB_PORT = 4242
 
-# mysql setup for metadata and other tables
-MYSQL_HOST = 'jackalope.cs.berkeley.edu'
-MYSQL_DB = 'archiver'
-MYSQL_USER = 'ar'
-MYSQL_PASS = 'K55VnsPT'
+def import_rdb():
+    global rdb
+    __import__(READINGDB_MOD)
+    rdb = sys.modules[READINGDB_MOD]
 
+def munge_key(k):
+    return k.upper().replace(" ", "_")
+
+def load(conffile):
+    conf = ConfigParser.ConfigParser('')
+    conf.read(conffile)
+    if conf.has_section("archiver"):
+        for k, v in conf.items("archiver"):
+            globals()[munge_key(k)] = v
+
+    # import the readingdb module
+    import_rdb()
