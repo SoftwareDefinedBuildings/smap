@@ -22,11 +22,8 @@ class ReadingdbPool:
         map(settings.rdb.db_close, self.pool)
 
     def get(self):
-#         if len(self.pool) > 0:
-#             return self.pool.pop()
-#         else:
         return settings.rdb.db_open(host=settings.READINGDB_HOST,
-                           port=settings.READINGDB_PORT)
+                           port=int(settings.READINGDB_PORT))
             
     def put(self, conn):
         # self.pool.append(conn)
