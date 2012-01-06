@@ -1,0 +1,5 @@
+-- -*- sql -*-
+
+CREATE LANGUAGE plpgsql;
+CREATE UNIQUE INDEX uuid_ind ON stream(uuid);
+CREATE UNIQUE INDEX uuid_anchor_ind ON metadata2(stream_id, tagname);
