@@ -5,7 +5,6 @@ import pprint
 
 from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
-import pgdb as sql
 
 import smap.reporting as reporting
 import smap.util as util
