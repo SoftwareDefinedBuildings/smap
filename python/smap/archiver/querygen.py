@@ -1,7 +1,8 @@
 
-import pgdb as sql
 import time
 import operator
+
+from data import escape_string
 
 def build_authcheck(request, ti='', forceprivate=False):
     """Build an SQL WHERE clause which enforces access restrictions.
@@ -12,7 +13,7 @@ def build_authcheck(request, ti='', forceprivate=False):
     else:
         query = "(false "
     if 'key' in request.args:
-        query += 'OR ' + ' OR '.join(["sub.key = '%s%s'" % (sql.escape_string(x), ti)
+        query += 'OR ' + ' OR '.join(["sub.key = %s" % escape_string(x + ti)
                                       for x in request.args['key']])
     query += ")"
     return query

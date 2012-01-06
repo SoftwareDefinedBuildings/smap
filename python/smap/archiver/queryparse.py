@@ -1,9 +1,8 @@
 
-import pgdb as sql
 import operator
 
 import querygen as qg
-# import querydata as dq
+from data import escape_string
 import data
 from smap.util import build_recursive
 
@@ -137,8 +136,8 @@ def p_query(t):
             t[0] = None, \
                 ("""DELETE FROM metadata2 WHERE stream_id IN %s
                     AND (%s)""" % (delete_inner, 
-                                   ' OR '.join(map(lambda x: "tagname = '%s'" % 
-                                                   sql.escape_string(x), 
+                                   ' OR '.join(map(lambda x: "tagname = %s" % 
+                                                   escape_string(x), 
                                                    t[2])))),\
                                    None
     elif t[1] == 'set':
@@ -146,9 +145,9 @@ def p_query(t):
         #  new tag; this'll insert or update the database as
         #  appropriate
         tag_stmt = ','.join(map(lambda (t, v): \
-                                    "add_tag(m.stream_id, '%s', '%s')" % 
-                                (sql.escape_string(t), 
-                                 sql.escape_string(v)), 
+                                    "add_tag(m.stream_id, %s, %s)" % 
+                                (escape_string(t), 
+                                 escape_string(v)), 
                                 t[2]))
         # filter by the selector; adding an authcheck which only lets
         # you operate on *your* streams.
@@ -175,8 +174,8 @@ def p_selector(t):
         elif t[2] == 'uuid':
             t[0] = (("DISTINCT s.uuid", "true", ext_default), None)
         else:
-            t[0] = (("DISTINCT m.tagval", "tagname = '%s'" % 
-                     sql.escape_string(t[2]), ext_default), None)
+            t[0] = (("DISTINCT m.tagval", "tagname = %s" % 
+                     escape_string(t[2]), ext_default), None)
 #     elif len(t) == 2 and t[1] != '*':
 #         # get data
 #         t[0] = (("DISTINCT s.uuid", "true", ext_default), t[1])
@@ -189,7 +188,7 @@ def p_selector(t):
                 if x == 'uuid':
                     return "tagname = 'Path'"
                 else:
-                    return "tagname = '%s'" % sql.escape_string(x)
+                    return "tagname = %s" % escape_string(x)
             restrict = ('(' + " OR ".join(map(make_clause, t[1])) + ')')
         t[0] = ((select, restrict, ext_plural), None)
 
@@ -270,7 +269,7 @@ def p_statement_unary(t):
     '''statement_unary : HAS LVALUE'''
     if t[1] == 'has':
         t[0] = qg.Clause(qg.build_clause(t.parser.request, 
-                                         "tagname = '%s'" % sql.escape_string(t[2])))
+                                         "tagname = %s" % escape_string(t[2])))
 
 def p_statement_binary(t):
     '''statement_binary : LVALUE EQ QSTRING
@@ -281,24 +280,24 @@ def p_statement_binary(t):
     if t[2] == 'in':
         t[0] = qg.Clause(qg.build_clause(t.parser.request,
                                          """
-  mi1.tagname = '%s' AND
+  mi1.tagname = %s AND
   si1.uuid = mi1.tagval AND
   si1.id IN (%s)""" % (t[1], t[4]), ti='1'))
     elif t[1] == 'uuid':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(si.uuid = '%s')" %
-                                         sql.escape_string(t[3])))
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(si.uuid = %s)" %
+                                         escape_string(t[3])))
     elif t[2] == '=':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval = '%s')" % 
-                                         (sql.escape_string(t[1]), 
-                                          sql.escape_string(t[3]))))
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval = %s)" % 
+                                         (escape_string(t[1]), 
+                                          escape_string(t[3]))))
     elif t[2] == 'like':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval LIKE '%s')" % 
-                         (sql.escape_string(t[1]), 
-                          sql.escape_string(t[3]))))
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval LIKE %s)" % 
+                         (escape_string(t[1]), 
+                          escape_string(t[3]))))
     elif t[2] == '~':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = '%s' AND tagval ~ E'%s')" %
-                         (sql.escape_string(t[1]), 
-                          sql.escape_string(t[3]))))
+        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval ~ E%s)" %
+                         (escape_string(t[1]), 
+                          escape_string(t[3]))))
 
 def p_error(t):
     print("Syntax error at '%s'" % t.value)
@@ -333,7 +332,7 @@ if __name__ == '__main__':
     import os
     import readline
     import traceback
-    import pgdb
+    import psycopg2
     import sys
     import pprint
     import settings as s
@@ -348,11 +347,11 @@ if __name__ == '__main__':
         except IOError:
             pass
     atexit.register(readline.write_history_file, HISTFILE)
-        
-    connection = pgdb.connect(host=s.MYSQL_HOST,
-                              user=s.MYSQL_USER,
-                              password=s.MYSQL_PASS,
-                              database=s.MYSQL_DB)
+
+    connection = psycopg2.connect(host=s.DB_HOST,
+                                  user=s.DB_USER,
+                                  password=s.DB_PASS,
+                                  database=s.DB_DB)
     cur = connection.cursor()
 
 

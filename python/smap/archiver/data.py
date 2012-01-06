@@ -5,11 +5,14 @@ import pprint
 
 from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
-import pgdb as sql
+import psycopg2
 
 import smap.reporting as reporting
 import smap.util as util
 import settings
+
+def escape_string(s):
+    return psycopg2.extensions.QuotedString(s).getquoted()
 
 class ReadingdbPool:
     def __init__(self):
@@ -52,9 +55,9 @@ class SmapMetadata:
         vals = []
         def addTag(uid, tn, tv):
             try:
-                vals.append("add_tag(%i,'%s','%s')" % (ids[uid],
-                                                       sql.escape_string(tn),
-                                                       sql.escape_string(tv)))
+                vals.append("add_tag(%i,%s,%s)" % (ids[uid],
+                                                       escape_string(tn),
+                                                       escape_string(tv)))
             except Exception, e:
                 print ids[uid]
                 print tn, tv
@@ -152,8 +155,8 @@ class SmapData:
         uuids = []
         query = "SELECT "
         for ts in obj.itervalues():
-            uuids.append("add_stream(%i, '%s')" % (subid,
-                                                   sql.escape_string(ts['uuid'])))
+            uuids.append("add_stream(%i, %s)" % (subid,
+                                                   escape_string(ts['uuid'])))
     
         query += ','.join(uuids)
         return self._run_create(uuids, [], [[]])

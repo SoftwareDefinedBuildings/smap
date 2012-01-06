@@ -4,14 +4,14 @@ all installs.
 """
 
 import traceback
-import pgdb
+import psycopg2
 import smap.archiver.settings as settings
 
 def db_open(host=None, port=None):
-    db = pgdb.connect(host=host,
-                      database=settings.DB_DB,
-                      user=settings.DB_USER,
-                      password=settings.DB_PASS)
+    db = psycopg2.connect(host=host,
+                          database=settings.DB_DB,
+                          user=settings.DB_USER,
+                          password=settings.DB_PASS)
     return db
 
 def db_query(dbp, streamid, starttime, endtime):

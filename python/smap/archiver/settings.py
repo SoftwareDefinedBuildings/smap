@@ -15,7 +15,7 @@ CHECK_TIME = None
 
 # postgres setup for metadata and other tables
 DB_MOD = 'psycopg2'
-DB_HOST = 'jackalope.cs.berkeley.edu'
+DB_HOST = 'localhost'
 DB_DB = 'powerdb2test'
 DB_USER = 'powerdb2test'
 DB_PASS = 'password'

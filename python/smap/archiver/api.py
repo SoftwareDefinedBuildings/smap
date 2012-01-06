@@ -9,9 +9,9 @@ import csv
 from twisted.internet import threads, defer
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
-import pgdb as sql
 
 import smap.util as util
+from data import escape_string
 import data
 import queryparse as qp
 import settings
@@ -34,7 +34,7 @@ def build_authcheck(request):
     else:
         query = "(false "
     if 'key' in request.args:
-        query += 'OR ' + ' OR '.join(["sub.key = '%s'" % sql.escape_string(x) 
+        query += 'OR ' + ' OR '.join(["sub.key = %s" % escape_string(x) 
                                       for x in request.args['key']])
     query += ")"
     return query
@@ -182,11 +182,11 @@ def build_inner_query(request, tags):
     for (k, v) in tags:
         if k == 'uuid': 
             if v != None:
-                uuid_clause = "s.uuid = '%s'" % sql.escape_string(v)
+                uuid_clause = "s.uuid = %s" % escape_string(v)
             continue
         if v != None:
-            clauses.append("(tagname = '%s' AND tagval = '%s')" % (sql.escape_string(k),
-                                                                   sql.escape_string(v)))
+            clauses.append("(tagname = %s AND tagval = %s)" % (escape_string(k),
+                                                                 escape_string(v)))
         else: break
 
     # the inner query builds a list of streams matching all the
