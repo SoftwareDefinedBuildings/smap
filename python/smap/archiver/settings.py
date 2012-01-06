@@ -4,7 +4,7 @@ import ConfigParser
 
 # my local hostname and port to run the twisted server on.  the
 # hostname should be something smap sources can send their data to
-MY_LOCATION = 'smote.cs.berkeley.edu'
+MY_LOCATION = 'localhost'
 MY_PORT = 8079
 
 # how often sMAP report instances should time out
@@ -16,8 +16,8 @@ CHECK_TIME = None
 # postgres setup for metadata and other tables
 DB_MOD = 'psycopg2'
 DB_HOST = 'localhost'
-DB_DB = 'powerdb2test'
-DB_USER = 'powerdb2test'
+DB_DB = 'archiver'
+DB_USER = 'archiver'
 DB_PASS = 'password'
 
 # the location of the readingdb server which holds the timeseries
