@@ -224,7 +224,10 @@ class DataRequester:
         """
         # if these raise an exception we'll cancel all the loads
         now = int(time.time()) * 1000
-        start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
+        if method == 'data':
+            start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
+        else:
+            start = int(request.args.get('starttime', [now])[0])
         end = int(request.args.get('endtime', [now])[0])
         limit = int(request.args.get('limit', [-1])[0])
         # print now, start, end, method, streamid
