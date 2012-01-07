@@ -1,8 +1,10 @@
 
 import operator
+import time
 
 import querygen as qg
 from data import escape_string
+from querydata import extract_data
 import data
 from smap.util import build_recursive
 
@@ -15,7 +17,7 @@ tokens = (
     'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT', 'STAR',
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
-    'SET', 'TILDE',
+    'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
     )
 
 reserved = {
@@ -30,8 +32,13 @@ reserved = {
     'or' : 'OR',
     'not' : 'NOT',
     'like' : 'LIKE',
-    'Readings': 'DATA',
+    'data': 'DATA',
     'in' : 'IN',
+    'before' : 'BEFORE',
+    'after' : 'AFTER',
+    'now' : 'NOW',
+    'limit' : 'LIMIT',
+    'streamlimit' : 'STREAMLIMIT',
     '~' : 'TILDE',
     }
 
@@ -93,28 +100,34 @@ def ext_plural(x):
         rv[uuid][tagname] = tagval
     return map(lambda x: build_recursive(x, suppress=[]), rv.itervalues())
 
+def make_select_rv(t, sqlsel, wherestmt=None):
+    if wherestmt != None:
+        return sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
+              WHERE stream_id IN (%s) AND %s AND
+                   s.id = m.stream_id""" % \
+                               (sqlsel[0], qg.normalize(wherestmt).render(), 
+                                sqlsel[1]))
+    else:
+        return sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
+              WHERE s.id = m.stream_id AND s.subscription_id = sub.id
+                 AND %s AND %s""" % 
+                           (sqlsel[0], sqlsel[1], 
+                            qg.build_authcheck(t.parser.request)))
 
 def p_query(t):
     '''query : SELECT selector WHERE statement
              | SELECT selector
+             | SELECT data_clause WHERE statement
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
              | SET set_list WHERE statement
              '''
     if t[1] == 'select':
-        sqlsel, datasel = t[2]
         if len(t) == 5:
-            t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
-              WHERE stream_id IN (%s) AND %s AND
-                   s.id = m.stream_id""" % \
-                                   (sqlsel[0], qg.normalize(t[4]).render(), sqlsel[1])), \
-                                   datasel
-        else:
-            t[0] = sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
-              WHERE s.id = m.stream_id AND s.subscription_id = sub.id
-                 AND %s AND %s""" % 
-                               (sqlsel[0], sqlsel[1], 
-                                qg.build_authcheck(t.parser.request))), datasel
+            t[0] = make_select_rv(t, t[2], t[4])
+        elif len(t) == 3:
+            t[0] = make_select_rv(t, t[2])
+        
     elif t[1] == 'delete':
         # a new delete inner statement enforces that we only delete
         # things which we have the key for.
@@ -129,8 +142,7 @@ def p_query(t):
             t[0] = ext_deletor, \
                 """DELETE FROM stream s WHERE id IN %s
                    RETURNING s.id, s.uuid
-                """ % delete_inner, \
-                None
+                """ % delete_inner
         else:
             # this alters the tags but doesn't touch the data
             t[0] = None, \
@@ -138,8 +150,7 @@ def p_query(t):
                     AND (%s)""" % (delete_inner, 
                                    ' OR '.join(map(lambda x: "tagname = %s" % 
                                                    escape_string(x), 
-                                                   t[2])))),\
-                                   None
+                                                   t[2]))))
     elif t[1] == 'set':
         #  set tags by calling the add_tag stored procedure with each
         #  new tag; this'll insert or update the database as
@@ -158,9 +169,7 @@ def p_query(t):
             """ % \
             (tag_stmt,
              qg.normalize(t[4]).render(),
-             qg.build_authcheck(t.parser.request, forceprivate=True)), \
-               None
-
+             qg.build_authcheck(t.parser.request, forceprivate=True))
 
 def p_selector(t):
     '''selector : tag_list
@@ -170,15 +179,12 @@ def p_selector(t):
     if t[1] == 'distinct':
         if t[2] == 'tags':
             restrict = 'true'
-            t[0] = (("DISTINCT m.tagname", 'true', ext_default), None)
+            t[0] =("DISTINCT m.tagname", 'true', ext_default)
         elif t[2] == 'uuid':
-            t[0] = (("DISTINCT s.uuid", "true", ext_default), None)
+            t[0] = ("DISTINCT s.uuid", "true", ext_default)
         else:
-            t[0] = (("DISTINCT m.tagval", "tagname = %s" % 
-                     escape_string(t[2]), ext_default), None)
-#     elif len(t) == 2 and t[1] != '*':
-#         # get data
-#         t[0] = (("DISTINCT s.uuid", "true", ext_default), t[1])
+            t[0] = ("DISTINCT m.tagval", "tagname = %s" % 
+                     escape_string(t[2]), ext_default)
     else:
         select = "s.uuid, m.tagname, m.tagval"
         if t[1] == '*':
@@ -190,39 +196,60 @@ def p_selector(t):
                 else:
                     return "tagname = %s" % escape_string(x)
             restrict = ('(' + " OR ".join(map(make_clause, t[1])) + ')')
-        t[0] = ((select, restrict, ext_plural), None)
+        t[0] = (select, restrict, ext_plural)
 
-# def p_data_clause(t):
-#     '''data_clause : apply_fn IN LPAREN NUMBER COMMA NUMBER RPAREN'''
-#     t[1].set_range(t[4], t[6])
-#     t[0] = t[1]
+def p_data_clause(t):
+    '''data_clause : DATA IN LPAREN NUMBER COMMA NUMBER RPAREN limit
+                   | DATA BEFORE timeref limit
+                   | DATA AFTER timeref limit'''
+    if t[2] == 'in':
+        method = 'data'
+        start, end = t[4], t[6]
+        limit = t[8]
+        if limit[0] == None: limit[0] = 10000
+    elif t[2] == 'before':
+        method = 'prev'
+        start, end = t[3], 0
+        limit = t[4]
+        if limit[0] == None: limit[0] = 1
+    elif t[2] == 'after':
+        method = 'next'
+        start, end = t[3], 0
+        limit = t[4]
+        if limit[0] == None: limit[0] = 1
 
-# def p_apply_fn(t):
-#     '''apply_fn : LVALUE LPAREN apply_fn RPAREN
-#                 | LVALUE LPAREN apply_fn COMMA arg_list RPAREN
-#                 | LVALUE LPAREN DATA RPAREN
-#                 | LVALUE LPAREN DATA COMMA arg_list RPAREN
-#                 '''
-#     if isinstance(t[3], dq.DataQuery):
-#         qobj = t[3]
-#     else:
-#         qobj = dq.DataQuery()
-#     if len(t) == 5:
-#         qobj.add_filter(t[1], [])
-#     else:
-#         qobj.add_filter(t[1], t[5])
-#     t[0] = qobj
+    t[0] = ("distinct(s.uuid), s.id", "true", 
+            lambda streams: extract_data(streams, method, start, end, 
+                                         limit[0], limit[1]))
 
-# def p_arg_list(t):
-#     '''arg_list : QSTRING
-#                 | NUMBER
-#                 | QSTRING COMMA arg_list
-#                 | NUMBER COMMA arg_list'''
-#     p_tag_list(t)
+def p_timeref(t):
+    '''timeref : NUMBER 
+               | NOW'''
+    if t[1] == 'now':
+        t[0] = str(int(time.time()) * 1000)
+    else:
+        t[0] = t[1]
+
+def p_limit(t):
+    '''limit : 
+             | LIMIT NUMBER
+             | STREAMLIMIT NUMBER
+             | LIMIT NUMBER STREAMLIMIT NUMBER'''
+    limit, slimit = [None, 10]
+    if len(t) == 1:
+        pass
+    elif t[1] == 'limit':
+        limit = t[2]
+        if len(t) == 5:
+            slimit = t[4]
+    elif t[1] == 'streamlimit':
+        slimit = t[2]
+    t[0] = [limit, slimit]
 
 def p_tag_list(t):
     '''tag_list : LVALUE
                 | LVALUE COMMA tag_list'''
+                
     if len(t) == 2:
         t[0] = [t[1]]
     else:
@@ -314,7 +341,7 @@ class QueryParser:
     
 
 def runquery(cur, q):
-    extractor, v, datagetter = qp.parse(s)
+    extractor, v = qp.parse(s)
 
     if '-v' in sys.argv:
         print v
@@ -323,9 +350,7 @@ def runquery(cur, q):
         return
     
     cur.execute(v)
-    if datagetter:
-        return datagetter.execute(None, extractor(cur.fetchall()))
-    elif extractor:
+    if extractor:
         return extractor(cur.fetchall())
 
 if __name__ == '__main__':
@@ -337,6 +362,12 @@ if __name__ == '__main__':
     import pprint
     import settings as s
     import atexit
+
+    if len(sys.argv) != 2:
+        print "\n\t%s <archiver conf>\n" % sys.argv[0]
+        sys.exit(1)
+    s.load(sys.argv[1])
+
     HISTFILE = os.path.expanduser('~/.smap-query-history')
 
     readline.parse_and_bind('tab: complete')

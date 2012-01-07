@@ -11,19 +11,9 @@ from twisted.web import resource, server
 from twisted.web.resource import NoResource
 
 import smap.util as util
-from data import escape_string
-import data
+from data import escape_string, data_load_result, makeErrback
 import queryparse as qp
 import settings
-
-def makeErrback(request_):
-    request = request_
-    def errBack(outp):
-        try:
-            request.setResponseCode(500)
-            request.finish()
-        except:
-            traceback.print_exc()
 
 def build_authcheck(request):
     """Build an SQL WHERE clause which enforces access restrictions.
@@ -43,85 +33,6 @@ class ApiResource(resource.Resource):
     def __init__(self, db):
         self.db = db
         resource.Resource.__init__(self)
-
-class DataRequester:
-    """Manage loading data from a single stream from a readingdb
-    backend.  Will chain deferred together to return a partial
-    timeseries which contains just the uuid and the requested data.
-    """
-    def __init__(self, uid):
-        self.uid = uid
-
-    def _load_data(self, qfunc):
-        """Run in thread pool - connect and execute query func
-        """
-        try:
-            conn = data.rdb_pool.get()
-            rv = qfunc(conn)
-            return rv
-        except:
-            return None
-        finally:
-            data.rdb_pool.put(conn)
-
-    def _munge_data(self, (request, data)):
-        """Tweak the resulting object to be a Timeseries
-        """
-        if data != None:
-            return request, {
-                'uuid': self.uid,
-                'Readings' : map(lambda x: (x[0] * 1000, x[2]), data)
-                }
-        return request, None
-
-    def load_data(self, request, method, streamid):
-        """Called to kick off a load -- returns a deferred which will
-        yield a (request, Timeseries) tuple when it finishes.        
-        """
-        # if these raise an exception we'll cancel all the loads
-        now = int(time.time()) * 1000
-        start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
-        end = int(request.args.get('endtime', [now])[0])
-        limit = int(request.args.get('limit', [-1])[0])
-        # print now, start, end, method, streamid
-
-        def mkQueryFunc():
-            request_, method_, start_, end_, limit_, streamid_ =  \
-                request, method, start, end, limit, streamid
-            def queryFunc(db):
-                qstart = start_
-                qlimit = limit_
-                if method_ == 'data':
-                    try:
-                        rv = []
-                        # no limit if zero
-                        if qlimit == -1:
-                            qlimit = 1000000
-
-                        while True:
-                            data = settings.rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
-                            rv += data[:min(len(data), qlimit)]
-                            qlimit -= min(len(data), qlimit)
-                            if len(data) < 10000 or \
-                               qlimit <= 0: break
-                            qstart = (rv[-1][0] + 1) * 1000
-                        return request, rv
-                    except:
-                        traceback.print_exc()
-                elif method == 'next':
-                    if qlimit == -1: qlimit = 1
-                    return request, settings.rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
-                elif method == 'prev':
-                    if qlimit == -1: qlimit = 1
-                    return request, settings.rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
-                return request, []
-            return queryFunc
-
-        d = threads.deferToThread(self._load_data, mkQueryFunc())
-        d.addCallback(self._munge_data)
-        d.addErrback(makeErrback(request))
-        return d
-
 
 class SubscriptionResource(ApiResource):
     """Show the client a list of sMAP sources, or a small description
@@ -294,25 +205,6 @@ class Api(resource.Resource):
             rv[uid]['uuid'] = uid
         return request, map(lambda x: util.build_recursive(x, suppress=[]), rv.values())
 
-    def data_load_extract(self, result):
-        return result[0][1][0], map(lambda x: x[1][1], result)
-    
-    def data_load_result(self, request, method, result):
-        count = int(request.args.get('streamlimit', ['10'])[0])
-        if count == 0:
-            count = len(result)
-
-        if len(result) > 0:
-            callbacks = []
-            for uid, stream_id in result[:count]:
-                loader = DataRequester(uid)
-                callbacks.append(loader.load_data(request, method, stream_id))
-            d = defer.DeferredList(callbacks)
-            d.addCallback(self.data_load_extract)
-            return d
-        else:
-            return defer.succeed((request, []))
-
     def write_one_stream(self, request, stream, stags, mime_header=False):
         """For a CSV downlod, add some hweaders and write the data to the stream
         """
@@ -388,15 +280,16 @@ class Api(resource.Resource):
         # make a parser and parse the request
         parser = qp.QueryParser(request)
         query = request.content.read()
-        ext, query, datagetter = parser.parse(query)
+        ext, query = parser.parse(query)
 
         # pipe the results through whatever filter is necessary
-        if not ext and not datagetter:
+        if not ext:
             d = self.db.runOperation(query)
         else:
             d = self.db.runQuery(query)
         if ext:
-            d.addCallback(lambda x: (request, ext(x)))
+            d.addCallback(ext)
+            d.addCallback(lambda x: (request, x))
         else:
             d.addCallback(lambda x: (request, []))
 
@@ -445,7 +338,7 @@ class Api(resource.Resource):
 id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
-            d.addCallback(lambda r: self.data_load_result(request, method, r))
+            d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(self.send_data_reply)
         else:
             request.setResponseCode(404)

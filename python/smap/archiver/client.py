@@ -193,7 +193,7 @@ class RepublishClient:
         """Make our own LineReceiver to read back the streaming data
         from the server.  Use the right delimiter and make sure we can
         handle big objects."""
-        MAX_LENGTH = 1e6
+        MAX_LENGTH = 1e7
         delimiter = '\n\n'
 
         def __init__(self, client):

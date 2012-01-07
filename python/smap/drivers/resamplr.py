@@ -75,7 +75,7 @@ class SubsampleOperator(Operator):
         rv = []
         for rec in recs:
             newts = rec[0] - (rec[0] % (self.period))
-            if newts > self.last:
+            if newts != self.last:
                 rv.append((newts, float(rec[1])))
                 self.last = newts
         # print "in: %i out: %i (%0.3f)" % (len(recs), len(rv), (time.time() - tic))
@@ -125,6 +125,7 @@ class OperatorDriver(driver.SmapDriver):
     def _data(self, data):
         """Process incoming data by pushing it through the operators
         """
+        print "_data", len(data)
         for v in data.itervalues():
             if not 'uuid' in v: 
                 continue

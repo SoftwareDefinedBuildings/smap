@@ -2,6 +2,7 @@
 import traceback
 import operator
 import pprint
+import time
 
 from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
@@ -10,6 +11,15 @@ import psycopg2
 import smap.reporting as reporting
 import smap.util as util
 import settings
+
+def makeErrback(request_):
+    request = request_
+    def errBack(outp):
+        try:
+            request.setResponseCode(500)
+            request.finish()
+        except:
+            traceback.print_exc()
 
 def escape_string(s):
     return psycopg2.extensions.QuotedString(s).getquoted()
@@ -177,6 +187,103 @@ def del_streams(streams):
     finally:
         rdb_pool.put(r)
         
+
+class DataRequester:
+    """Manage loading data from a single stream from a readingdb
+    backend.  Will chain deferred together to return a partial
+    timeseries which contains just the uuid and the requested data.
+    """
+    def __init__(self, uid):
+        self.uid = uid
+
+    def _load_data(self, qfunc):
+        """Run in thread pool - connect and execute query func
+        """
+        try:
+            conn = rdb_pool.get()
+            rv = qfunc(conn)
+            return rv
+        except:
+            raise
+        finally:
+            rdb_pool.put(conn)
+
+    def _munge_data(self, (request, data)):
+        """Tweak the resulting object to be a Timeseries
+        """
+        if data != None:
+            return request, {
+                'uuid': self.uid,
+                'Readings' : map(lambda x: (x[0] * 1000, x[2]), data)
+                }
+        return request, None
+
+    def load_data(self, request, method, streamid):
+        """Called to kick off a load -- returns a deferred which will
+        yield a (request, Timeseries) tuple when it finishes.        
+        """
+        # if these raise an exception we'll cancel all the loads
+        now = int(time.time()) * 1000
+        start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
+        end = int(request.args.get('endtime', [now])[0])
+        limit = int(request.args.get('limit', [-1])[0])
+        # print now, start, end, method, streamid
+
+        def mkQueryFunc():
+            request_, method_, start_, end_, limit_, streamid_ =  \
+                request, method, start, end, limit, streamid
+            def queryFunc(db):
+                qstart = start_
+                qlimit = limit_
+                if method_ == 'data':
+                    try:
+                        rv = []
+                        # no limit if zero
+                        if qlimit == -1:
+                            qlimit = 1000000
+
+                        while True:
+                            data = settings.rdb.db_query(db, streamid_, qstart / 1000, end_ / 1000)
+                            rv += data[:min(len(data), qlimit)]
+                            qlimit -= min(len(data), qlimit)
+                            if len(data) < 10000 or \
+                               qlimit <= 0: break
+                            qstart = (rv[-1][0] + 1) * 1000
+                        return request, rv
+                    except:
+                        traceback.print_exc()
+                elif method == 'next':
+                    if qlimit == -1: qlimit = 1
+                    return request, settings.rdb.db_next(db, streamid_, start_ / 1000, n = qlimit)
+                elif method == 'prev':
+                    if qlimit == -1: qlimit = 1
+                    return request, settings.rdb.db_prev(db, streamid_, start_ / 1000, n = qlimit)
+                return request, []
+            return queryFunc
+
+        d = threads.deferToThread(self._load_data, mkQueryFunc())
+        d.addCallback(self._munge_data)
+        d.addErrback(makeErrback(request))
+        return d
+
+def data_load_extract(result):
+    return result[0][1][0], map(lambda x: x[1][1], result)
+
+def data_load_result(request, method, result):
+    count = int(request.args.get('streamlimit', ['10'])[0])
+    if count == 0:
+        count = len(result)
+
+    if len(result) > 0:
+        callbacks = []
+        for uid, stream_id in result[:count]:
+            loader = DataRequester(uid)
+            callbacks.append(loader.load_data(request, method, stream_id))
+        d = defer.DeferredList(callbacks)
+        d.addCallback(data_load_extract)
+        return d
+    else:
+        return defer.succeed((request, []))
 
 if __name__ == '__main__':
     import settings
