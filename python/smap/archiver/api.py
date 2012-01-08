@@ -11,6 +11,8 @@ from twisted.web import resource, server
 from twisted.web.resource import NoResource
 
 import smap.util as util
+from smap.server import setResponseCode
+from smap.core import SmapException
 from data import escape_string, data_load_result, makeErrback
 import queryparse as qp
 import settings
@@ -261,6 +263,10 @@ class Api(resource.Resource):
         request.write(util.json_encode(result))
         request.finish()
 
+    def send_error(self, request, error):
+        setResponseCode(request, error, 400)
+        return str(error)
+
     def getChild(self, name, request):
         # except for streams, all api resources specify a set of
         # streams using a query path.  therefore they all operate on
@@ -279,22 +285,18 @@ class Api(resource.Resource):
         """
         # make a parser and parse the request
         parser = qp.QueryParser(request)
-        query = request.content.read()
-        ext, query = parser.parse(query)
-
-        # pipe the results through whatever filter is necessary
-        if not ext:
-            d = self.db.runOperation(query)
+        query = request.content.read() 
+        try: 
+            # run the query
+            d = parser.runquery(self.db, query)
+        except SmapException, e:
+            return self.send_error(request, e)
         else:
-            d = self.db.runQuery(query)
-        if ext:
-            d.addCallback(ext)
+            # and send the reply
             d.addCallback(lambda x: (request, x))
-        else:
-            d.addCallback(lambda x: (request, []))
-
-        d.addCallback(self.send_reply)
-        return server.NOT_DONE_YET
+            d.addCallback(self.send_reply)
+            d.addErrback(lambda x: self.send_error(request, x))
+            return server.NOT_DONE_YET
 
     def render_GET(self, request):
         """The GET method exposes a RESTful API to ARD functions.

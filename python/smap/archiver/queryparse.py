@@ -327,41 +327,43 @@ def p_statement_binary(t):
                           escape_string(t[3]))))
 
 def p_error(t):
-    print("Syntax error at '%s'" % t.value)
+    raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
 smapql_parser = yacc.yacc()
 
 class QueryParser:
-    def __init__(self, request):
+    """Class to manage parsing and extracting results from the
+    database and readingdb"""
+    def __init__(self, request): 
         self.parser = copy.copy(smapql_parser)
         self.parser.request = request
 
     def parse(self, s):
         return self.parser.parse(s, lexer=smapql_lex)
-    
 
-def runquery(cur, q):
-    extractor, v = qp.parse(s)
+    def runquery(self, db, s):
+        ext, q = self.parse(s)
+        
+        if not ext:
+            d = db.runOperation(q)
+            d.addCallback(lambda: [])
+        else:
+            d = db.runQuery(q)
+        if ext:
+            d.addCallback(ext)
+        return d
 
-    if '-v' in sys.argv:
-        print v
-
-    if '-n' in sys.argv:
-        return
-    
-    cur.execute(v)
-    if extractor:
-        return extractor(cur.fetchall())
 
 if __name__ == '__main__':
     import os
     import readline
     import traceback
-    import psycopg2
     import sys
     import pprint
     import settings as s
     import atexit
+    from twisted.internet import reactor
+    from twisted.enterprise import adbapi
 
     if len(sys.argv) != 2:
         print "\n\t%s <archiver conf>\n" % sys.argv[0]
@@ -379,34 +381,38 @@ if __name__ == '__main__':
             pass
     atexit.register(readline.write_history_file, HISTFILE)
 
-    connection = psycopg2.connect(host=s.DB_HOST,
-                                  user=s.DB_USER,
-                                  password=s.DB_PASS,
-                                  database=s.DB_DB)
-    cur = connection.cursor()
-
+    cp = adbapi.ConnectionPool(s.DB_MOD, # 'MySQLdb', 
+                               host=s.DB_HOST,
+                               database=s.DB_DB,
+                               user=s.DB_USER,
+                               password=s.DB_PASS,
+                               cp_min=5, cp_max=15)
 
     class Request(object):
         pass
+
     request = Request()
     setattr(request, 'args', {'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
     qp = QueryParser(request)
 
-    if not os.isatty(sys.stdin.fileno()):
-        extractor, v = qp.parse(sys.stdin.read())
-        cur.execute(v)
-        pprint.pprint(extractor(cur.fetchall()))
-    else:
-        while True:
-            try:
-                s = raw_input('query > ')   # Use raw_input on Python 2
-                if s == '': continue
-                v = runquery(cur, s)
-                pprint.pprint(v)
-            except EOFError:
-                break
-            except:
-                traceback.print_exc()
+    def readquery():
+        try:
+            s = raw_input('query > ')   # Use raw_input on Python 2
+            if s == '': 
+                return readquery()
+        except EOFError:
+            return None
+        except:
+            traceback.print_exc()
 
-    cur.close()
-    connection.close()
+        print s
+        d = qp.runquery(cp, s)
+        d.addCallback(lambda v: pprint.pprint(v))
+        d.addCallback(lambda x: readquery())
+        return d
+
+    d = readquery()
+    d.addCallbacks(lambda x: reactor.stop())
+    reactor.run()
+
+    cp.close()

@@ -3,6 +3,7 @@ import time
 import operator
 
 from data import escape_string
+from smap import core
 
 def build_authcheck(request, ti='', forceprivate=False):
     """Build an SQL WHERE clause which enforces access restrictions.
@@ -38,7 +39,7 @@ WHERE (%(clause)s) AND """ + build_authcheck(request, ti) + """ AND
 """) % {'clause' : clause, 'ti' : ti}
     return inner_query
 
-class QueryException(Exception):
+class QueryException(core.SmapException):
     pass
 
 class Operator(object):

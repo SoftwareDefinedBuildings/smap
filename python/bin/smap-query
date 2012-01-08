@@ -34,8 +34,11 @@ def run_query(opts, q):
         json.dump(obj, sys.stdout, sort_keys=True, indent=2)
         print # add a newline
         print "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
-    except Exception, e:
+    except urllib2.HTTPError, e:
+        print "ERROR:", e.read()
+    except urllib2.URLError, e:
         print "ERROR:", e
+        raise StopIteration()
 
 if __name__ == '__main__':
     usage = 'usage: %prog [options] querys ...'
@@ -76,6 +79,6 @@ if __name__ == '__main__':
             try:
                 s = raw_input('query > ')   # Use raw_input on Python 2
                 if blank.match(s): continue
-            except EOFError:
+                run_query(opts, s)
+            except (EOFError, StopIteration):
                 break
-            run_query(opts, s)
