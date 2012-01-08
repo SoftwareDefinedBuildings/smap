@@ -66,6 +66,7 @@ if __name__ == '__main__':
     for driver in inst.drivers.itervalues():
         d = driver.load(st, et)
         d.addCallback(lambda x: inst._flush())
+        dl.append(d)
     dl = defer.DeferredList(dl, consumeErrors=True)
     dl.addCallbacks(lambda x: reactor.stop())
     reactor.run()

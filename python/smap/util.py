@@ -62,7 +62,10 @@ def buildkv(fullname, obj):
     if isinstance(obj, dict):
         rv = []
         for newk, newv in obj.iteritems():
-            rv += buildkv(fullname + '/' + newk, newv)
+            if len(fullname):
+                rv += buildkv(fullname + '/' + newk, newv)
+            else:
+                rv += buildkv(newk, newv)
         return rv
     else:
         return [(fullname, obj)]

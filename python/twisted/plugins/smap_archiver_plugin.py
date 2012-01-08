@@ -12,7 +12,6 @@ from twisted.internet import reactor, ssl
 from twisted.application.service import MultiService
 from twisted.enterprise import adbapi
 
-from smap.archiver.server import getSite
 from smap.archiver import settings
 from smap.subscriber import subscribe
 
@@ -50,4 +49,13 @@ class ArchiverServiceMaker(object):
         service = internet.TCPServer(port, site)
         return service
 
-serviceMaker = ArchiverServiceMaker()
+# try this; since we may be missing psycopg2 or readingdb, we may not
+# be able to do this and so won't be able to provide an archiver.
+# However, since this plugin gets installed for all smap installs,
+# just fail silently rather than print out a bunch of warnings.
+try:
+    from smap.archiver.server import getSite
+except ImportError:
+    pass
+else:
+    serviceMaker = ArchiverServiceMaker()
