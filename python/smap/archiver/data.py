@@ -76,11 +76,9 @@ class SmapMetadata:
         ids = dict(ids)
         for path, ts in obj.iteritems():
             addTag(ts['uuid'], 'Path', path)
-#             if ids[ts['uuid']] == 1404:
-#                 pprint.pprint(ts)
             for name, val in util.buildkv('', ts):
-                if name == '/Readings' or name == '/uuid': continue
-                addTag(ts['uuid'], name[1:], val)
+                if name == 'Readings' or name == 'uuid': continue
+                addTag(ts['uuid'], name, val)
         return vals
 
     def _do_metadata(self, inserts):
