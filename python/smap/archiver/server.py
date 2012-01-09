@@ -73,7 +73,7 @@ class DataResource(resource.Resource):
 def getSite(db):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': ['add', 'api', 'republish']})
-    repub = republisher.ReResource()
+    repub = republisher.ReResource(db)
     root.putChild('add', DataResource(db, repub))
     root.putChild('api', api.Api(db))
     root.putChild('republish', repub)
