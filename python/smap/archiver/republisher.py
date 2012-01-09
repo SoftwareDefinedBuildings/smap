@@ -1,6 +1,8 @@
 
 from twisted.web import resource, server
+from twisted.python import log
 
+from smap.core import SmapException
 from smap.server import setResponseCode
 import smap.util as util
 import queryparse as qp
@@ -17,6 +19,9 @@ def receive_object(request, key, public):
         return False
 
 class ReResource(resource.Resource):
+    """Provide a "republish resource" -- where you can long-poll to
+    listen for new data.
+    """
     def __init__(self, db):
         resource.Resource.__init__(self)
         self.listeners = {}
@@ -24,6 +29,7 @@ class ReResource(resource.Resource):
 
     def connectionLost(self, request, reason):
         if request in self.listeners:
+            log.msg("removing republish client")
             del self.listeners[request]
 
     def render_GET(self, request):
@@ -34,18 +40,13 @@ class ReResource(resource.Resource):
         parser = qp.QueryParser(request)
         query = "select distinct uuid where (%s)" % request.content.read() 
         try:
-            print query
             d = parser.runquery(self.db, query)
         except SmapException, e:
-            setResponseCode(request, error, 400)
-            return str(e)
+            setResponseCode(request, e, 400)
+            return "query: %s\nerror: %s\n" % (query, str(e))
         else:
             d.addCallback(self.add_client, request)
-
-            def eb(e):
-                print e
-                request.finish()
-            d.addErrback(eb)
+            d.addErrback(lambda _: request.finish())
             return server.NOT_DONE_YET
 
     def add_client(self, uuids, request):
@@ -53,10 +54,10 @@ class ReResource(resource.Resource):
         request.notifyFinish().addErrback(lambda x: self.connectionLost(request, x))
         if uuids != None:
             self.listeners[request] = set(uuids)
-            print "adding republish client, %i topics" % len(uuids)
+            log.msg("adding republish client, %i topics" % len(uuids))
         else:
             self.listeners[request] = None
-            print "adding republish client, all topics" 
+            log.msg("adding republish client, all topics" )
         return server.NOT_DONE_YET
 
     def republish(self, key, public, obj):
@@ -66,6 +67,7 @@ class ReResource(resource.Resource):
                 if streams == None:
                     # if they've subscribed to all streams, we can
                     # just forward them the object
+                    client.write("\n\n")
                     client.write(data)
                 else:
                     # only include topical data
@@ -75,6 +77,7 @@ class ReResource(resource.Resource):
                     # don't bother filtering metadata at the moment
                     # since it's expensive to construct and mostly
                     # won't happen.
-                    client.write(util.json_encode(custom))
-                client.write("\n\n")
+                    if sum((1 for v in custom.itervalues() if 'uuid' in v)):
+                        client.write(util.json_encode(custom))
+                        client.write("\n\n")
                     

@@ -213,7 +213,7 @@ class RepublishClient:
             self.client._reconnect()
 
     def failed(self):
-        if self.failcount < 10:
+        if self.failcount < 5:
             self.failcount += 1
 
     def __request(self, response):
@@ -223,7 +223,7 @@ class RepublishClient:
 
     def _reconnect(self):
         """Exponential backup on the reconnect policy"""
-        if self.reconnect and self.failcount < 5:
+        if self.reconnect:
             print "connection failed, reconnecting in", (self.failcount ** 2)
             reactor.callLater(self.failcount ** 2, self.connect)
 
