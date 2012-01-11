@@ -5,6 +5,7 @@ import urllib
 import json
 import operator
 import pprint
+from StringIO import StringIO
 
 import numpy as np
 import smap.util as util
@@ -17,6 +18,12 @@ from twisted.protocols.basic import LineReceiver
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
+
+try:
+    from twisted.web.client import FileBodyProducer
+except ImportError:
+    from smap.contrib.client import FileBodyProducer
+
 
 try:
     from smap.iface.http.httpcurl import get
@@ -177,7 +184,7 @@ the result.
 class RepublishClient:
     """Listener for streaming data from a sMAP source or archiver's /republish feed
     """
-    def __init__(self, url, datacb, reconnect=True):
+    def __init__(self, url, datacb, reconnect=True, restrict=None):
         """
 :param str url: url of the source
 :param datacb: callable to be called with each new sMAP object
@@ -188,6 +195,7 @@ class RepublishClient:
         self.agent = Agent(reactor)
         self.reconnect = reconnect
         self.failcount = 0
+        self.restrict = restrict
 
     class DataReceiver(LineReceiver):
         """Make our own LineReceiver to read back the streaming data
@@ -232,10 +240,16 @@ class RepublishClient:
         self._reconnect()
 
     def connect(self):
-        d = self.agent.request('GET',
-                               self.url + '/republish',
-                               Headers(),
-                               None)
+        if not self.restrict:
+            d = self.agent.request('GET',
+                                   self.url + '/republish',
+                                   Headers(),
+                                   None)
+        else:
+            d = self.agent.request('POST',
+                                   self.url + '/republish',
+                                   Headers(),
+                                   FileBodyProducer(StringIO(self.restrict)))
         d.addCallback(self.__request)
         d.addErrback(self._connect_failed)
 
@@ -244,7 +258,8 @@ class RepublishClient:
 #         print line
 #         pass
 
-#     c = RepublishClient('http://smote.cs.berkeley.edu:8079', cb)
+#     c = RepublishClient('http://smote.cs.berkeley.edu:8079', cb,
+#                         restrict="Metadata/SourceName ~ '^410'")
 #     c.connect()
 #     reactor.run()
 
