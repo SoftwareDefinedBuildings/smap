@@ -9,6 +9,8 @@ import atexit
 import time
 import urllib, urllib2
 import json
+import operator
+import subprocess
 from optparse import OptionParser
 from smap.archiver import settings
 
@@ -26,19 +28,79 @@ def run_query(opts, q):
         if opts.verbose > 0:
             print qurl
             print q
+
+        if q.strip().startswith("plot"):
+            q = q.strip()[5:]
+            doplot = True
+        elif q.strip().startswith("gp"):
+            add_gnuplot(q.strip()[3:])
+        else:
+            doplot = False
+
         tic = time.time()
         fp = urllib2.urlopen(qurl, data=q, timeout=opts.timeout)
         obj = json.load(fp)
         toc = time.time()
 
-        json.dump(obj, sys.stdout, sort_keys=True, indent=2)
-        print # add a newline
+        if doplot:
+            plot(obj)
+        else:
+            json.dump(obj, sys.stdout, sort_keys=True, indent=2)
+            print # add a newline
         print "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
+
     except urllib2.HTTPError, e:
         print "ERROR:", e.read()
     except urllib2.URLError, e:
         print "ERROR:", e
         raise StopIteration()
+
+gnuplot_args = [["set", "xdata", "time"],
+                ["set", "timefmt", '"%s"'],
+                ["set", "term", "dumb"],
+                ["unset", "key"]]
+def get_gnuplot():
+    return '\n'.join(map(' '.join, gnuplot_args))
+
+def set_gnuplot(cmd):
+    cmd = cmd.trim().split(" ")
+
+def plot(dat):
+    pfile = '/tmp/smap-query.%i.pfile' % os.getpid()
+    pscript = '/tmp/smap-query.%i.pscript' % os.getpid()
+    # write the data file
+    dvecs = map(operator.itemgetter("Readings"), dat) 
+    def getpoint(d):
+        if len(d) > 0: return d[0]
+        else: 0xffffffff * 1000
+
+    with open(pfile, "w") as fp:
+        while sum((len(x) for x in dvecs)):
+            ts = min(map(operator.itemgetter(0),
+                         map(getpoint, dvecs)))
+            line = []
+            for i in xrange(0, len(dvecs)):
+                if dvecs[i][0][0] == ts:
+                    line.append(dvecs[i][0][1])
+                    del dvecs[i][0]
+                else:
+                    line.append(float("NaN"))
+            print >>fp, ts, ' '.join(map(str, line))
+    with open(pscript, "w") as fp:
+        print >>fp, get_gnuplot()
+        print >>fp, """
+plot %s
+    """ % ','.join(['"%s" using ($1/1000):%i' % (pfile, x+2) for x in xrange(0, len(dat))])
+
+    with open('/dev/null', 'w') as null:
+        p = subprocess.Popen("gnuplot %s" % pscript, 
+                             shell=True, stderr=null)
+    rc = p.wait()
+    if rc == 127:
+        print "ERROR: could not find gnuplot in $PATH; is it installed?"
+    
+    os.remove(pfile)
+    os.remove(pscript)
 
 if __name__ == '__main__':
     usage = 'usage: %prog [options] querys ...'

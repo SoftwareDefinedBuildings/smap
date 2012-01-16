@@ -176,8 +176,11 @@ Can be called with 1, 2, or 3 arguments.  The forms are
             raise KeyError(attr + " can not be set on a Timeseries!")
 
     def set_metadata(self, metadata):
+        metadata = util.build_recursive(metadata)
+        if 'Metadata' in metadata:
+            metadata = metadata['Metadata']
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
-                                           util.build_recursive(metadata))
+                                           metadata)
 
     
     def render(self, request):
@@ -237,8 +240,11 @@ class Collection(dict):
         dict.update(self, val)
 
     def set_metadata(self, metadata):
+        metadata = util.build_recursive(metadata)
+        if 'Metadata' in metadata:
+            metadata = metadata['Metadata']
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
-                                           util.build_recursive(metadata))
+                                           )
         self.dirty_children()
 
     def render(self, request):

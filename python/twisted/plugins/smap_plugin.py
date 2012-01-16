@@ -23,6 +23,9 @@ class Options(usage.Options):
 
     def parseArgs(self, conf):
         self['conf'] = conf
+        if not os.access(self['conf'], os.R_OK):
+            print >>sys.stderr, "ERROR: no such configuration file: " + self['conf']
+            sys.exit(1)
 
 def getSslContext():
     if smapconf.SERVER["key"] == None or smapconf.SERVER["cert"] == None:

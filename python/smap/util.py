@@ -41,6 +41,10 @@ def join_path(path):
 
 norm_path = lambda x: join_path(split_path(x))
 
+def str_path(s):
+    """Make a string appropriate to be a path compnent"""
+    return s.lower().replace(' ', '_').replace('/', '_')
+
 class UuidEncoder(json.JSONEncoder):
     """The default UUID repr() isn't valid json; we just want the
         string representation for now anyways.

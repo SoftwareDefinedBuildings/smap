@@ -5,11 +5,13 @@ import urllib
 import json
 import operator
 import pprint
+import time
 from StringIO import StringIO
 
 import numpy as np
 import smap.util as util
 import tscache
+from smap.core import SmapException
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
@@ -23,7 +25,6 @@ try:
     from twisted.web.client import FileBodyProducer
 except ImportError:
     from smap.contrib.client import FileBodyProducer
-
 
 try:
     from smap.iface.http.httpcurl import get
@@ -58,11 +59,15 @@ the result.
 :param str q: the query
 :return: the parsed JSON object returned by the server
 """
-        fp = urllib2.urlopen(self.base + '/api/query?' + 
-                             urllib.urlencode(self._build_qdict()),
-                             data=q, 
-                             timeout=self.timeout)
-        rv = json.load(fp)
+        try:
+            fp = urllib2.urlopen(self.base + '/api/query?' + 
+                                 urllib.urlencode(self._build_qdict()),
+                                 data=q, 
+                                 timeout=self.timeout)
+            rv = json.load(fp)
+        except urllib2.HTTPError:
+            log.err("Bad request running query: ""%s"" " % q)
+            raise SmapException()
         fp.close()
         return rv
 
@@ -109,6 +114,7 @@ the result.
         qdict['limit'] = -1
         data, urls = {}, []
         start, end = start * 1000, end * 1000
+        now = int((time.time() - 300) * 1000)
 
         # construct a list of all holes in the cache
         for u in uuids:
@@ -139,9 +145,10 @@ the result.
                     loaddata.append(np.array(newdata[url][0]['Readings']))
                     print "downloaded", len(loaddata[-1])
 
-                    if cache:
+                    if cache and range[0] < now:
                         c = tscache.TimeseriesCache(u)
-                        c.insert(0, range[0], range[1], loaddata[-1])
+                        c.insert(0, range[0], range[1] if range[1] < now else now, 
+                                 loaddata[-1][np.nonzero(loaddata[-1][:,0] < now)])
                         c.close()
                 else:
                     v = np.array([])
