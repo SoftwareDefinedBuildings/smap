@@ -2,6 +2,8 @@
 import operator
 import time
 
+from twisted.internet import defer
+
 import querygen as qg
 from data import escape_string
 from querydata import extract_data
@@ -18,6 +20,15 @@ tokens = (
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
+    )
+
+precedence = (
+    ('left', 'LIKE', 'TILDE', 'IN'),
+    ('left', 'AND'),
+    ('left', 'OR'),
+    ('right', 'EQ'),
+    ('right', 'NOT'),
+    ('left', 'COMMA')
     )
 
 reserved = {
@@ -341,15 +352,17 @@ class QueryParser:
     def parse(self, s):
         return self.parser.parse(s, lexer=smapql_lex)
 
-    def runquery(self, db, s):
+    def runquery(self, db, s, run=True, verbose=False):
         ext, q = self.parse(s)
+
+        if verbose: print q
+        if not run: return defer.succeed([])
         
         if not ext:
             d = db.runOperation(q)
             d.addCallback(lambda: [])
         else:
             d = db.runQuery(q)
-        if ext:
             d.addCallback(ext)
         return d
 
@@ -364,14 +377,33 @@ if __name__ == '__main__':
     import atexit
     from twisted.internet import reactor
     from twisted.enterprise import adbapi
+    from optparse import OptionParser
 
-    if len(sys.argv) != 2:
-        print "\n\t%s <archiver conf>\n" % sys.argv[0]
+    # pull out options
+    usage = "usage: %prog [options] archiver-config.ini"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-n", "--no-action", dest="run", 
+                      action="store_false", default=True,
+                      help="don't perform queries")
+    parser.add_option("-v", "--verbose", dest="verbose", 
+                      action="store_true", default=False,
+                      help="print generated SQL")
+    parser.add_option("-k", "--keys", dest="keys",
+                      default="",
+                      help="comma-separated list of keys to use in query")
+    parser.add_option("-p", "--private", dest="private",
+                      default=False, action="store_true",
+                      help="request only private results")
+    opts, args = parser.parse_args()
+    
+    if len(args) != 1:
+        parser.print_help()
         sys.exit(1)
-    s.load(sys.argv[1])
 
+    s.load(args[0])
+
+    # set up readline
     HISTFILE = os.path.expanduser('~/.smap-query-history')
-
     readline.parse_and_bind('tab: complete')
     readline.parse_and_bind('set editing-mode emacs')
     if hasattr(readline, "read_history_file"):
@@ -381,18 +413,25 @@ if __name__ == '__main__':
             pass
     atexit.register(readline.write_history_file, HISTFILE)
 
-    cp = adbapi.ConnectionPool(s.DB_MOD, # 'MySQLdb', 
+    cp = adbapi.ConnectionPool(s.DB_MOD,
                                host=s.DB_HOST,
                                database=s.DB_DB,
                                user=s.DB_USER,
                                password=s.DB_PASS,
                                cp_min=5, cp_max=15)
 
+    # make a fake request to give the parser with whatever
+    # command-line options we need.
     class Request(object):
         pass
 
     request = Request()
-    setattr(request, 'args', {'key' : ['jNiUiSNvb2A4ZCWrbqJMcMCblvcwosStiV71']})
+    args = {}
+    if opts.keys: args['key'] = opts.keys.split(',')
+    if opts.private: args['private'] = []
+    setattr(request, 'args', args)
+
+    # make a parser and start reading from the console
     qp = QueryParser(request)
 
     def readquery():
@@ -401,18 +440,16 @@ if __name__ == '__main__':
             if s == '': 
                 return readquery()
         except EOFError:
-            return None
+            return reactor.callFromThread(reactor.stop)
         except:
             traceback.print_exc()
 
-        print s
-        d = qp.runquery(cp, s)
+        d = qp.runquery(cp, s, verbose=opts.verbose, run=opts.run)
         d.addCallback(lambda v: pprint.pprint(v))
         d.addCallback(lambda x: readquery())
         return d
 
     d = readquery()
-    d.addCallbacks(lambda x: reactor.stop())
     reactor.run()
 
     cp.close()
