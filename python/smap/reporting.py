@@ -116,7 +116,7 @@ class DataBuffer:
         if hasattr(val, '__iter__'):
             if 'Readings' in val:
                 val_metric = len(val['Readings'])
-            else: val_metric = len(val)
+            else: val_metric = sum(map(len, val))
         else:
             val_metric = 1
         return val_metric

@@ -1,10 +1,8 @@
 
 import pycurl
 import cStringIO as StringIO
-try:
-    import simplejson as json
-except ImportError:
-    import json
+
+from smap.util import json_decode
 
 def mkrequest(c, spec):
     c.url = spec
@@ -14,7 +12,7 @@ def mkrequest(c, spec):
     c.setopt(pycurl.WRITEFUNCTION, c.body.write)
     return c
 
-def get(getspec, nconns=5, parser=json.load, select_timeout=1.0):
+def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
     """get a list of urls, using a connection pool of up to nconn connections.
     apply "parser" to each of the results.
 
@@ -72,6 +70,10 @@ def get(getspec, nconns=5, parser=json.load, select_timeout=1.0):
         c.close()
     m.close()
 
+    print "get done, parsing"
+
     map(lambda (_, x): x.seek(0), rv)
-    return map(lambda (u, x): (u, parser(x)), rv)
+    rv = map(lambda (u, x): (u, parser(x.read())), rv)
+    print "done parsing"
+    return rv
     

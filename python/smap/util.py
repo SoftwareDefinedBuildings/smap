@@ -101,6 +101,16 @@ def dict_merge(o1, o2):
             o2[k] = v
     return o2
 
+def dict_all(dlist):
+    keys = set.intersection(*map(lambda x: set(x.iterkeys()), dlist))
+    keys = dict(((k, None) for k in keys))
+    for t in dlist[1:]:
+        for k in keys.keys():
+            if t[k] != dlist[0][k]:
+                del keys[k]
+    return dict(((k, dlist[0][k]) for k in keys.iterkeys()))
+    
+
 class FixedSizeList(list):
     """
     A class for keeping a circular buffer with a maximum size.

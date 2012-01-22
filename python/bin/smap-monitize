@@ -1,0 +1,129 @@
+#!/usr/bin/python
+# -*- python -*-
+"""
+Make a smap config file ready to be run from monit
+"""
+
+import sys
+import os
+from commands import getoutput
+from pwd import getpwnam
+from optparse import OptionParser
+import ConfigParser
+
+try:
+    import ordereddict
+except ImportError:
+    import collections as ordereddict
+
+
+parser = OptionParser()
+parser.add_option('-v', '--var', dest='var',
+                  default='/var/smap',
+                  help="var directory")
+parser.add_option('-m', '--monit-d', dest='monit_d',
+                  default='/etc/monit/conf.d/',
+                  help='monit service directory')
+parser.add_option('-s', '--smap-d', dest='smap_d',
+                  default='/etc/smap/',
+                  help='directory for smap configurations')
+parser.add_option('-u', '--uid', dest='user',
+                  default='smap',
+                  help='user to run as')
+parser.add_option('-t', '--twistd', dest='twistd',
+                  default=None,
+                  help='path of twistd version to use')
+parser.add_option('-f', '--force', dest='force',
+                  default=False, action='store_true',
+                  help='force overwrite of existing files')
+opts, args = parser.parse_args()
+
+ports = set()
+
+try:
+    uid, gid = getpwnam(opts.user)[2:4]
+except (OSError, KeyError), e:
+    print >>sys.stderr, "Error finding uid for %s: %s" % (opts.user, str(e))
+    sys.exit(1)
+
+if not opts.twistd:
+    opts.twistd = getoutput("which twistd")
+    if opts.twistd == '':
+        print >>sys.stderr, "Could not find twistd!"
+        sys.exit(1)
+
+if not os.path.exists(opts.var):
+    try:
+        os.makedirs(opts.var)
+    except OSError, e:
+        print >>sys.stderr, "Error creating %s: %s" % (opts.var, str(e))
+        sys.exit(1)
+
+if not os.access(opts.var, os.W_OK | os.X_OK):
+    print >>sys.stderr, "Cannot write to %s or is not a dir -- check permissions" % opts.var
+    sys.exit(1)
+
+if not os.access(opts.monit_d, os.W_OK | os.X_OK):
+    print >>sys.stderr, "Cannot access monit config directory: %s" % opts.monit_d
+    sys.exit(1)
+
+if not os.access(opts.smap_d, os.W_OK | os.X_OK):
+    print >>sys.stderr, "Cannot access smap config directory: %s" % opts.smap_d
+    sys.exit(1)
+
+for conffile in args:
+    root = os.path.basename(conffile[:conffile.rfind('.')])
+    print "processing", root
+    datadir = os.path.join(opts.var, root)
+    if not os.path.exists(datadir):
+        os.mkdir(datadir)
+        os.chown(datadir, uid, gid)
+    
+    conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
+    conf.optionxform = str
+    conf.read(conffile)
+    if not conf.has_section('server'):
+        conf.add_section('server')
+
+    # set the data directory
+    conf.set("server", "DataDir", os.path.abspath(datadir))
+    if not conf.has_option("server", "Port"):
+        print "Skipping", root, ": no port in conf"
+        continue
+    else:
+        p = conf.get("server", "Port")
+        if p in ports:
+            print "Detected port conflict on port", p
+            print " .. skipping", root
+            continue
+        else:
+            ports.add(p)
+
+    # write the conf and make it owned by the right user to make sure
+    # it can be read.
+    newconf = os.path.join(opts.smap_d, root + '.ini')
+    with open(newconf, 'w') as fp:
+        conf.write(fp)
+    os.chown(newconf, uid, gid)
+
+    # write out a monit service definition 
+    mpath = os.path.join(opts.monit_d, root)
+    if os.path.exists(mpath) and not opts.force:
+        print >>sys.stderr, "Monit service exists, not overwriting (use -f):", mpath
+        continue
+
+    pidfile = os.path.abspath(os.path.join(datadir, "twistd.pid"))
+    logfile = os.path.abspath(os.path.join(datadir, "twistd.log"))
+
+    with open(mpath, "w") as fp:
+        print >>fp, "check process %s pidfile %s" % (root, pidfile)
+        print >>fp, "\tstart program = \"%(twistd)s --logfile=%(logfile)s " \
+            "--pidfile=%(pidfile)s smap %(conf)s\"\n\t\tas uid %(uid)i and gid %(gid)i " % {
+            'twistd' : opts.twistd,
+            'logfile' : logfile,
+            'pidfile' : pidfile,
+            'uid' : uid,
+            'gid' : gid,
+            'conf': os.path.join(os.path.abspath(opts.smap_d), root + '.ini')
+            }
+        print >>fp, "\tstop program = \"/bin/sh -c '/bin/kill $(cat %s)'\"" % pidfile

@@ -244,7 +244,7 @@ class Collection(dict):
         if 'Metadata' in metadata:
             metadata = metadata['Metadata']
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
-                                           )
+                                           metadata)
         self.dirty_children()
 
     def render(self, request):

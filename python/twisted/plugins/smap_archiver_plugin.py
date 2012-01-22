@@ -17,7 +17,7 @@ from smap.subscriber import subscribe
 
 class Options(usage.Options):
     optParameters = [["port", "p", None, "service port number"],
-                     ["subscribe", "s", None, "subscribe to sources"],
+                     ["subscribe", "s", "subscribe to sources"],
                      ["conf", "c", None, "archiver config file"]]
 
 
@@ -44,6 +44,9 @@ class ArchiverServiceMaker(object):
                                    user=settings.DB_USER,
                                    password=settings.DB_PASS,
                                    cp_min=5, cp_max=15)
+
+        if options['subscribe']:
+            subscribe(cp, settings)
 
         site = getSite(cp)
         service = internet.TCPServer(port, site)

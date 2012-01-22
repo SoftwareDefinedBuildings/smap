@@ -43,7 +43,8 @@ class ReadingdbPool:
         settings.rdb.db_close(conn)
 
 try:
-    rdb_pool
+    if hasattr(settings, "rdb"):
+        rdb_pool
 except NameError:
     rdb_pool = ReadingdbPool()
 

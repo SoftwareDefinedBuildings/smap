@@ -114,29 +114,29 @@ class SmapSubscriber:
         return d
            
 
-def _subscribe(result):
+def _subscribe(result, settings):
     """
     Called with list of sMAP sources to subscribes to
     Returns map of uuid => :py:class:`smap.subscriber.SmapSubcriber` instances 
     """
     subs = {}
     for (url, id, key) in result:
-        dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION[0],
-                                         settings.MY_LOCATION[1],
+        dest = 'http://%s:%s/add/%s' % (settings.MY_LOCATION,
+                                         settings.MY_PORT,
                                          key)
         s =SmapSubscriber(url, dest, id=id, expire_time=None)
         s.subscribe()
         subs[id] = s
     return subs
 
-def subscribe(db):
+def subscribe(db, settings):
     """Look up all of the sMAP sources we should subscribe to
     """
     d = db.runQuery("""
        SELECT url, uuid, key 
        FROM subscription 
        WHERE url IS NOT NULL AND url != ''""")
-    d.addCallback(_subscribe)
+    d.addCallback(_subscribe, settings)
     return d
 
 

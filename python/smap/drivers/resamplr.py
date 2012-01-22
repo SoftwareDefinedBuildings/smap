@@ -31,7 +31,7 @@ def _subsample(vec, last=-1, bucketsz=5):
     # we want the first point in each bucket
     takes = np.nonzero(times[1:] - times[:-1])
     rv = vec[takes[0] + sp]
-    # rv[:,0] = times[1:]
+    rv[:,0] = times[takes[0] + 1]
     return rv, {'last': np.max(rv[:,0]), 
                 'bucketsz' : bucketsz}
 
@@ -46,6 +46,17 @@ class SubsampleOperator(ParallelSimpleOperator):
         ParallelSimpleOperator.__init__(self, inputs, 
                                         bucketsz=windowsz)
 
+def _snaptimes(vec, bucketsz=300):
+    vec[:,0] -= np.mod(vec[:,0], bucketsz)
+    return vec
+
+class SnapTimes(ParallelSimpleOperator):
+    base_operator = staticmethod(_snaptimes)
+    def __init__(self, inputs, windowsz):
+        self.name = 'snaptimes-%i' % windowsz
+        ParallelSimpleOperator.__init__(self, inputs,
+                                        bucketsz=windowsz)
+
 
 class SubsampleDriver(OperatorDriver):
     def setup(self, opts):
@@ -57,11 +68,13 @@ class SubsampleDriver(OperatorDriver):
                                  "has Path and (not has Metadata/Extra/SourceStream)")
         OperatorDriver.setup(self, opts, self.restrict, shelveoperators=False)
         client = SmapClient(smapconf.BACKEND)
-        source_ids = client.tags(self.restrict, 'distinct uuid')
+        source_ids = client.tags(self.restrict, 'uuid, Properties/UnitofMeasure')
         for new in source_ids:
-            id = str(new[''])
+            id = str(new['uuid'])
+            if not 'Properties/UnitofMeasure' in new:
+                new['Properties/UnitofMeasure'] = ''
             if not id in self.operators:
-                o1 = SubsampleOperator([id], 300)
-                self.add_operator('/%s/%s' % (id, o1.name), o1, '')
-                o2 = SubsampleOperator([id], 3600)
-                self.add_operator('/%s/%s' % (id, o2.name), o2, '')
+                o1 = SubsampleOperator([new], 300)
+                self.add_operator('/%s/%s' % (id, o1.name), o1)
+                o2 = SubsampleOperator([new], 3600)
+                self.add_operator('/%s/%s' % (id, o2.name), o2)

@@ -29,6 +29,9 @@ def get_parser():
     parser.add_option('-r', '--reset', dest='reset',
                       default=False, action='store_true',
                       help='reset drivers before running')
+    parser.add_option('-n', '--no-cache', dest='cache',
+                      default=True, action='store_false',
+                      help='don\'t cache downloaded data')
     return parser
 
 
@@ -64,7 +67,10 @@ if __name__ == '__main__':
 
     dl = []
     for driver in inst.drivers.itervalues():
-        d = driver.load(st, et)
+        try:            
+            d = driver.load(st, et, cache=opts.cache)
+        except TypeError:
+            d = driver.load(st, et)
         d.addCallback(lambda x: inst._flush())
         dl.append(d)
     dl = defer.DeferredList(dl, consumeErrors=True)

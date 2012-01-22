@@ -24,9 +24,6 @@ setup(name="Smap",
         # smap archiver components
         "smap.archiver",
 
-        # include default conf files
-        "conf",
-
         "twisted", "twisted.plugins",
 
         # interfaces for talking to different backends
@@ -42,10 +39,10 @@ setup(name="Smap",
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
         ],
       requires=["avro", "twisted", "ordereddict", "ply", "psycopg2"],
-      # package_dir={"smap" : "smap", 'conf' : 'conf'},
+      # package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av', 'archiver/sql/*.psql'], 
                     'conf': ['*.ini']},
       ext_modules=[modbus_module],
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
-               'bin/smap-reporting'])
+               'bin/smap-reporting', 'bin/smap-monitize'])

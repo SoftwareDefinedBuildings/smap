@@ -3,11 +3,13 @@ import uuid
 import shelve
 import operator
 import datetime
+import copy
 
 import numpy as np
 
 from twisted.internet import reactor, threads
 from smap import driver, util, smapconf
+from smap.core import SmapException
 from smap.archiver.client import SmapClient, RepublishClient
 from smap.contrib import dtutil
 
@@ -22,24 +24,39 @@ class Operator:
     # data type of operator output
     data_type = ('double', float)
 
-    def __init__(self, inputs, outputs=OP_N_TO_1):
+    def __init__(self, inputs, outputs=OP_N_TO_1, tags=None):
         """
         :param inputs: list of uuids the operator examines
         """
         self.inputs = inputs
+        self.tags = tags
         self._has_pending = False
-        self._pending = [np.array([])] * len(inputs)
+        self._pending = [null] * len(inputs)
+
+        #print "i1", inputs
+        uuids = map(operator.itemgetter('uuid'), inputs)
 
         # auto-construct output ids if requested
         if outputs == OP_N_TO_1:
-            self.outputs = [reduce(lambda x, y: str(uuid.uuid5(y, x)), 
-                                   map(uuid.UUID, self.inputs), 
-                                   self.name)]
+            self.outputs = [util.dict_all(inputs)]
+            self.outputs[0]['uuid'] = reduce(lambda x, y: str(uuid.uuid5(y, x)), 
+                                             map(uuid.UUID, sorted(uuids)), 
+                                             self.name)
         elif outputs == OP_N_TO_N:
-            self.outputs = map(lambda x: str(uuid.uuid5(x, self.name)),
-                               map(uuid.UUID, self.inputs))
+            self.outputs = copy.deepcopy(inputs)
+            for i, uid in enumerate(map(lambda x: str(uuid.uuid5(x, self.name)),
+                                        map(uuid.UUID, uuids))):
+                self.outputs[i]['uuid'] = uid
         else:
-            self.outputs = outputs
+            #print "custom outputs"
+            self.outputs = copy.deepcopy(outputs)
+        #print "outputs", self.outputs
+
+    def index(self, streamid):
+        for i in xrange(0, len(self.inputs)):
+            if self.inputs[i]['uuid'] == streamid:
+                return i
+        return None
 
     def _name(self):
         """Return a stringified name for the operator"""
@@ -63,7 +80,7 @@ class Operator:
 
     def _push(self, stream, data):
         """Insert data for a single stream"""
-        self._pending[self.inputs.index(stream)] = data
+        self._pending[self.index(stream)] = data
         self._has_pending = True
 
     def _process(self):
@@ -97,12 +114,15 @@ class OperatorDriver(driver.SmapDriver):
     """
     load_chunk_size = datetime.timedelta(days=1)
 
-    def add_operator(self, path, op, unit):
+    def add_operator(self, path, op):
         """Add an operator to the driver
         """
         if len(op.outputs) != 1:
             raise SmapException("Can only add operators with a single output!")
-        opid = op.outputs[0]
+        # print op.outputs
+        opid = op.outputs[0]['uuid']
+        unit = op.outputs[0]['Properties/UnitofMeasure']
+        # print "Added", opid
         if not isinstance(opid, uuid.UUID):
             opid = uuid.UUID(opid)
 
@@ -110,11 +130,14 @@ class OperatorDriver(driver.SmapDriver):
                             data_type=op.data_type[0],
                             milliseconds=False)
         self.set_metadata(path, {
-                'Extra/SourceStream' : str(op.inputs[0]),
+                'Extra/SourceStream' : \
+                    ','.join(map(operator.itemgetter('uuid'), op.inputs)),
                 'Extra/Operator' : str(op.name)
                 })
+        self.set_metadata(path, op.outputs[0])
 
         for source in op.inputs:
+            source = source['uuid']
             if not source in self.operators:
                 self.operators[source] = {}
             if not opid in self.operators[source]:
@@ -141,6 +164,8 @@ class OperatorDriver(driver.SmapDriver):
             data = v['Readings']
             if not isinstance(data, np.ndarray):
                 data = np.array(data)
+            if len(data) == 0:
+                data = np.reshape(data, (0, 2))
             data[:,0] /= 1000
 
             # push all data through the appropriate operators
@@ -154,9 +179,9 @@ class OperatorDriver(driver.SmapDriver):
                 # print "adding", addpath, newv
                 self._add(addpath, ts, v)
 
-    def setup(self, opts, restrict=None, shelveoperators=True, cache=True):
+    def setup(self, opts, restrict=None, shelveoperators=False, cache=True):
         self.source_url = opts.get('SourceUrl', 'http://smote.cs.berkeley.edu:8079')
-        self.restrict = restrict
+        self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
         if shelveoperators:
             self.operators = shelve.open(opts.get('OperatorCache', '.operators'),
                                          protocol=2, writeback=True)
@@ -173,7 +198,7 @@ class OperatorDriver(driver.SmapDriver):
         # create timeseries from cached operator state
         for sid, oplist in self.operators.iteritems():
             for path, op in oplist.itervalues():
-                self.add_operator(path, op, '')
+                self.add_operator(path, op)
 
     def start(self):
         """Start receiving real-time data when used in daemon mode"""
@@ -185,12 +210,13 @@ class OperatorDriver(driver.SmapDriver):
         # can have multiple sources
         # RepublishClient('http://local.cs.berkeley.edu:8079', self.data).connect()
 
-    def load(self, start_dt, end_dt):
+    def load(self, start_dt, end_dt, cache=True):
         """Load a range of time by pulling it from the database and
         pushing it through the operators"""
         print "starting load..."
         self.load_uids = self.operators.keys()
         self.start_dt, self.end_dt = start_dt, end_dt
+        self.cache = cache
         return self.load_time_chunk(self)
 
     def load_time_chunk(self, *args):
@@ -207,18 +233,24 @@ class OperatorDriver(driver.SmapDriver):
 
         print "loading", self.start_dt, '-', self.end_dt
         self.start_dt = self.start_dt + self.load_chunk_size
-
+        #print start, end
+        #print self.load_uids
         d = threads.deferToThread(self.arclient.data_uuid, 
                                   self.load_uids,
-                                  start, end, self.cache)
+                                  start, end, 
+                                  self.cache)
         d.addCallback(self.load_data)
+        d.addCallback(lambda _: self._flush())
         d.addCallback(self.load_time_chunk)
+        def err(e):
+            print e
+        d.addErrback(err)
         return d
 
     def load_data(self, data):
-        dobj = {'/%s' % str(uid): {
-                'uuid' : str(uid), 
-                'Readings' : dv} for uid, dv in zip(self.load_uids, data)}
+        dobj = dict((('/%s' % str(uid), {
+                    'uuid' : str(uid), 
+                    'Readings' : dv}) for uid, dv in zip(self.load_uids, data)))
         self._data(dobj)
 
 
@@ -240,7 +272,10 @@ class GroupedOperatorDriver(OperatorDriver):
 
         # look up the streams, units, and group tags.
         client = SmapClient()
-        streams = client.tags(self.restrict, 'uuid, Properties/UnitofMeasure, %s' % self.group)
+        streams = client.tags(self.restrict, 
+                              'uuid, Properties/UnitofMeasure, Metadata/SourceName, %s' % 
+                              self.group)
+        #print streams
         groupitems = {}
 
         # find the groups
@@ -252,18 +287,44 @@ class GroupedOperatorDriver(OperatorDriver):
         # instantiate one operator per group with the appropriate inputs
         for group, tags in groupitems.iteritems():
             inputs = map(operator.itemgetter('uuid'), tags)
-            units = set(map(operator.itemgetter('Properties/UnitofMeasure'), tags))
-            if len(units) != 1:
-                raise SmapException("Group units differ in group %s: %s" % (
-                        group, str(units)))
+            # units = set(map(operator.itemgetter('Properties/UnitofMeasure'), tags))
+            # print group, inputs
+            # if len(units) != 1:
+            #     raise SmapException("Group units differ in group %s: %s" % (
+            #             group, str(units)))
 
-            op = self.operator_class(inputs)
+            #print tags
+            #print inputs
+            op = self.operator_class(tags)
+            #print op.inputs
             path = '/' + util.str_path(group)
-            self.add_operator(path, op, tags[0]['Properties/UnitofMeasure'])
-            self.set_metadata(path, {
-                    self.group: group
-                    })
+            #print tags[0]
+            self.add_operator(path, op)
 
+##############################################################################
+##
+## Operators for the framework
+##
+##############################################################################
+
+def _extend(a1, a2):
+    """Extend data vector a1 with vector a2"""
+    assert(len(a1) == len(a2))
+    rv = [None] * len(a1)
+    for i in xrange(0, len(a2)):
+        if len(a2[i]):
+            rv[i] = np.vstack((a1[i], a2[i]))
+        else:
+            rv[i] = a1[i]
+    return rv
+
+def join(inputs, last=None):
+    """Join together streams based on timestamps, throwing out places
+    where they do not overlap"""
+    times = reduce(lambda x, y: np.intersect1d(x, y[:,0]), inputs)
+    vals = map(lambda x: x[np.nonzero(np.in1d(x[:,0], times)), :][0]
+               if len(x) else null, inputs)
+    return vals 
 
 class ParallelSimpleOperator(Operator):
     """Parent class for operators which can be applied separately to
@@ -293,7 +354,11 @@ def parallelize(operator, n, **initargs):
     def _parallelized(inputs, *kwags):
         rv = [None] * n
         for i in xrange(0, n):
-            rv[i], state[i] = operator(inputs[i], **state[i])
+            opdata = operator(inputs[i], **state[i])
+            if isinstance(opdata, np.ndarray):
+                rv[i] = opdata
+            else:
+                rv[i], state[i] = opdata
         return rv
     return _parallelized
 
@@ -313,6 +378,151 @@ class CompositionOperator(Operator):
         Operator.__init__(self, inputs, _inputs)
 
     def process(self, data):
-        rv =  reduce(lambda x, y: y(x), self.ops, data)
+        return reduce(lambda x, y: y(x), self.ops, data)
+
+class StandardizeUnitsOperator(Operator):
+    units = {
+        'Watts' : ('kW', 0.001),
+        }
+
+    name = 'standardize units'
+    def __init__(self, inputs):
+        self.factors = [1.0] * len(inputs)
+        outputs = copy.deepcopy(inputs)
+        for i in xrange(0, len(inputs)):
+            if 'Properties/UnitofMeasure' in inputs[i] and \
+                    inputs[i]['Properties/UnitofMeasure'] in self.units:
+                self.factors[i] = self.units[inputs[i]['Properties/UnitofMeasure']][1]
+                outputs[i]['Properties/UnitofMeasure'] = \
+                    self.units[inputs[i]['Properties/UnitofMeasure']][0]
+        Operator.__init__(self, inputs, outputs)
+
+    def process(self, data):
+        return map(lambda (i, x): np.dstack((x[:, 0], x[:,1] * self.factors[i]))[0],
+                   enumerate(data))
+
+class GroupbyTimeOperator(Operator):
+    """Time grouping operator.  Divide time into windows, and call
+    group_operator on all the data in each window; return the result.
+    The group_operator must return a single reading on each output
+    stream.
+
+    chunk_length: the size of the windows time is chunked into
+    chunk_delay: when we call the group operator.
+    """
+    name = "latest buffer operator"
+    def __init__(self, inputs, 
+                 group_operator,
+                 chunk_length=10, 
+                 chunk_delay=1):
+        self.bucket_op = group_operator(inputs)
+        Operator.__init__(self, inputs, outputs=self.bucket_op.outputs)
+        self.pending = [null] * len(self.outputs)
+        self.chunk_length = chunk_length
+        self.chunk_delay = chunk_delay
+
+    def process(self, input):
+        # store the new data
+        self.pending = _extend(self.pending, input)
+
+        # apply the grouping operator to each window
+        startts = min(map(lambda x: np.min(x[:, 0]) if len(x) else np.nan,
+                          self.pending))
+        endts = max(map(lambda x: np.max(x[:, 0]) if len(x) else np.nan, 
+                        self.pending))
+        rv = [null] * len(self.outputs)
+
+        if np.isnan(startts) or np.isnan(endts):
+            return rv
+
+        startts = int(startts - (startts % self.chunk_length))
+        endts = int(endts - (endts % self.chunk_length)) - \
+            (self.chunk_length * self.chunk_delay)
+
+        # iterate over the groups
+        for time in xrange(startts, endts, self.chunk_length):
+            # print "group starting", time
+            data = map(lambda x: x[np.where((x[:,0] >= time) & 
+                                            (x[:,0] < time + self.chunk_length))] 
+                       if len(x) else np.array([[time, np.nan]]),
+                       self.pending)
+            data = [x if len(x) else np.array([[time, np.nan]]) for x in data]
+            # apply
+            opresult = self.bucket_op(data)
+            if max(map(len, opresult)) > 1:
+                raise SmapException("Error! Grouping operators can not produce "
+                                    "more than one result per group!")
+            rv = _extend(rv, opresult)
+
+        # filter out the data we operated on
+        self.pending = map(lambda x: x[np.nonzero(x[:, 0] >= endts)]
+                           if len(x) else null, 
+                           self.pending)
         return rv
+
+class BufferedJoinOperator(Operator):
+    """This operator takes an arbitrary number of streams as input,
+    and combines them by joining on timestamp.  It keeps a
+    variable-size join buffer in case readings come at different
+    rates.
+    """
+    name = "buffered join"
+    maxbufsz = 100
+    joinmethod = staticmethod(join)
+
+    def __init__(self, inputs):
+        Operator.__init__(self, inputs, outputs=OP_N_TO_N)
+        self.pending = [null] * len(inputs)
+        self.last = -1
+
+    def process(self, input):
+        # add new data to the pending map
+        self.pending = map(lambda (x, y): np.vstack((x,y)),
+                           zip(self.pending, input))
+        # find what data we can deliver
+        output = self.joinmethod(self.pending, last=self.last)
+        # and filter out data we no longer need
+        if len(output[0]):
+            self.last = np.max(output[0][:, 0])
+            self.pending = map(lambda x: x[np.nonzero(x[:, 0] > self.last)],
+                               self.pending)
+        # truncate buffer
+        self.pending = map(lambda x: x[-self.maxbufsz:], self.pending)
+        return output
+
+
+class _MissingDataOperator(Operator):
+    """For row-wise aligned input data, only yield rows where more
+    than ndatathresh percent of the streams have data (that is, are
+    not nan).
+
+    inputs: equal-length vectors with missing data represented by nan
+    outputs: the same data, but only where sufficient streams have data
+    """
+    name = 'missing filter'
+    def __init__(self, inputs, ndatathresh=0.6):
+        Operator.__init__(self, inputs, OP_N_TO_N)
+        self.ndatathresh = ndatathresh
+
+    def process(self, inputs):
+        # the sum of anything and a nan is nan
+        times = np.vstack(map(lambda x: x[:, 1], inputs))
+        nancnt = np.sum(np.isnan(times), axis=0)
+        takerows = np.where(len(inputs) - nancnt > len(inputs) * self.ndatathresh)
+        if len(takerows[0]):
+            return map(lambda x: x[takerows], inputs)
+        else:
+            return [null] * len(inputs)
+
+class PrintOperator(Operator):
+    """N-N operator which prints all the input data
+    """
+    name = "print"
+    def __init__(self, inputs):
+        # don't change uuids
+        Operator.__init__(self, inputs, inputs)
+
+    def process(self, inputs):
+        print inputs
+        return inputs
 
