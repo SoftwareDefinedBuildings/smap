@@ -45,6 +45,8 @@ class ReadingdbPool:
 try:
     if hasattr(settings, "rdb"):
         rdb_pool
+    else:
+        print "failed to find readingdb module"
 except NameError:
     rdb_pool = ReadingdbPool()
 
@@ -269,7 +271,9 @@ class DataRequester:
         return d
 
 def data_load_extract(result):
-    return result[0][1][0], map(lambda x: x[1][1], result)
+    if result[0][0]:
+        return result[0][1][0], map(lambda x: x[1][1], result)
+    else: return []
 
 def data_load_result(request, method, result):
     count = int(request.args.get('streamlimit', ['10'])[0])

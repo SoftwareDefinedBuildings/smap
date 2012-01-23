@@ -4,11 +4,13 @@ import time
 
 from twisted.internet import defer
 
+from smap.util import build_recursive
+
 import querygen as qg
 from data import escape_string
 from querydata import extract_data
 import data
-from smap.util import build_recursive
+import stream
 
 import ply
 import ply.lex as lex
@@ -20,6 +22,7 @@ tokens = (
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
+    'APPLY', 'TO',
     )
 
 precedence = (
@@ -51,6 +54,8 @@ reserved = {
     'limit' : 'LIMIT',
     'streamlimit' : 'STREAMLIMIT',
     '~' : 'TILDE',
+    'apply' : 'APPLY',
+    'to' : 'TO',
     }
 
 t_LPAREN = r'\('
@@ -132,6 +137,7 @@ def p_query(t):
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
              | SET set_list WHERE statement
+             | APPLY apply_clause TO data_clause WHERE statement
              '''
     if t[1] == 'select':
         if len(t) == 5:
@@ -181,6 +187,10 @@ def p_query(t):
             (tag_stmt,
              qg.normalize(t[4]).render(),
              qg.build_authcheck(t.parser.request, forceprivate=True))
+    elif t[1] == 'apply':
+        t[0] = stream.make_applicator(t[2],
+                                      make_select_rv(t, t[4], t[6]))
+
 
 def p_selector(t):
     '''selector : tag_list
@@ -256,6 +266,33 @@ def p_limit(t):
     elif t[1] == 'streamlimit':
         slimit = t[2]
     t[0] = [limit, slimit]
+
+def p_apply_clause(t):
+    '''apply_clause   : LVALUE LPAREN RPAREN
+                      | LVALUE LPAREN call_list RPAREN
+                      | LVALUE LPAREN apply_clause RPAREN
+                      | LVALUE LPAREN apply_clause COMMA call_list RPAREN
+                     '''
+    if len(t) == 4:
+        t[0] = [stream.get_operator(t[1], [])]
+    elif len(t) == 5:
+        if len(t[3]) > 0 and t[3][0] == 'args':
+            t[0] = [stream.get_operator(t[1], t[3][1])]
+        else:
+            t[0] = t[3] + [stream.get_operator(t[1], [])]
+    elif len(t) == 7:
+        t[0] = t[3] + [stream.get_operator(t[1], t[5][1])]
+
+def p_call_list(t):
+    '''call_list     : QSTRING
+                     | NUMBER
+                     | QSTRING COMMA call_list
+                     | NUMBER COMMA call_list
+                     '''
+    if len(t) == 2:
+        t[0] = ('args', [t[1]])
+    else:
+        t[0] = ('args', [t[1]] + t[3][1])
 
 def p_tag_list(t):
     '''tag_list : LVALUE
@@ -364,6 +401,11 @@ class QueryParser:
         else:
             d = db.runQuery(q)
             d.addCallback(ext)
+
+        def eb(error):
+            print error
+        d.addErrback(eb)
+
         return d
 
 
@@ -374,6 +416,7 @@ if __name__ == '__main__':
     import sys
     import pprint
     import settings as s
+    import data
     import atexit
     from twisted.internet import reactor
     from twisted.enterprise import adbapi
@@ -401,6 +444,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     s.load(args[0])
+    s.import_rdb()
 
     # set up readline
     HISTFILE = os.path.expanduser('~/.smap-query-history')

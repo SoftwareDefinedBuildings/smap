@@ -42,3 +42,5 @@ def load(conffile):
 
     # import the readingdb module
     import_rdb()
+
+import_rdb()

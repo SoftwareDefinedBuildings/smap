@@ -331,6 +331,12 @@ def syncMaybeDeferred(fn, *args):
     else:
         return defer.succeed(rv)
 
+def import_module(modname):
+    """Import a module named by a classic dotted-name"""
+    cmps = modname.split('.')
+    mod = __import__('.'.join(cmps[:-1]), globals(), locals(), [cmps[-1]]) 
+    return getattr(mod, cmps[-1])
+
 
 if __name__ == '__main__':
     import sys

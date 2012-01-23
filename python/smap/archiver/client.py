@@ -37,7 +37,8 @@ except ImportError:
 class SmapClient:
     """Blocking client class for the archiver API.
     """
-    def __init__(self, base='http://new.openbms.org/backend', key=None, private=False, timeout=5.0):
+    def __init__(self, base='http://new.openbms.org/backend', 
+                 key=None, private=False, timeout=5.0):
         self.base = base
         self.timeout = timeout
         self.key = key
@@ -101,7 +102,7 @@ the result.
     def data_uuid(self, uuids, start, end, cache=True):
         """Load a time range of data for a list of uuids
         
-        Attempts to use cached data and load missing data in parallel.
+Attempts to use cached data and load missing data in parallel.
 
 :param list uuids: a list of stringified UUIDs
 :param int start: the timestamp of the first record in seconds, inclusive
@@ -166,26 +167,44 @@ the result.
 
         return rv
 
+    def _data(self, selector, where, limit, streamlimit):
+        qbody = "select data %s limit %i streamlimit %i where %s" % \
+            (selector, limit, streamlimit, where)
+        return self.query(qbody)
+        
+
     def data(self, qbody, start, end):
-        """Load data for streams matching a particular query"""
+        """Load data for streams matching a particular query
+
+        Uses the local time-series cache in the .cache directory.
+        """
         uids = self.query('select distinct uuid where %s' % qbody)
         data = self.data_uuid(uids, start, end)
         return uids, data
 
-    def prev(self, qbody, ref, limit=1):
-        return self._data(qbody, 'prev', 
-                          starttime=str(start*1000),
-                          limit=str(limit))
+    def prev(self, qbody, ref, limit=1, streamlimit=10):
+        """Load data before a reference time.
 
-    def next(self, qbody, ref, limit=1):
-        return self._data(qbody, 'next', 
-                          starttime=str(start*1000),
-                          limit=str(limit))
+        :param str qbody: a selector identifying the streams to query
+        :param int ref: reference timestamp
+        :param int limit: the maximum number of points to retrieve per stream
+        :param int streamlimit: the maximum number of streams to query
+        """
+        return self._data("before %i" % (ref * 1000), where, limit, streamlimit)
 
-    def latest(self, qbody, limit=1):
-        return self._data(qbody, 'prev', 
-                          starttime=str(0xffffffff*1000),
-                          limit=str(limit))
+    def next(self, where, ref, limit=1, streamlimit=10):
+        """Load data after a reference time.
+
+        See `prev` for args.
+        """
+        return self._data("after %i" % (ref * 1000), where, limit, streamlimit)
+
+    def latest(self, qbody, limit=1, streamlimit=10):
+        """Load the last data in a time-series.
+
+        See `prev` for args.
+        """
+        return self._data("before 4294967295000", where, limit, streamlimit)
 
 
 class RepublishClient:
@@ -196,6 +215,8 @@ class RepublishClient:
 :param str url: url of the source
 :param datacb: callable to be called with each new sMAP object
 :param bool reconnect: weather to reconnect if the socket connection is dropped.
+:param str restrict: "where" clause restricting data to be delivered.
+    This is only evaluated once, when connecting.
         """
         self.url = url
         self.datacb = datacb
@@ -224,10 +245,10 @@ class RepublishClient:
                 print line
 
         def connectionLost(self, reason):
-            self.client.failed()
+            self.client._failed()
             self.client._reconnect()
 
-    def failed(self):
+    def _failed(self):
         if self.failcount < 5:
             self.failcount += 1
 
@@ -243,10 +264,12 @@ class RepublishClient:
             reactor.callLater(self.failcount ** 2, self.connect)
 
     def _connect_failed(self, reason):
-        self.failed()
+        self._failed()
         self._reconnect()
 
     def connect(self):
+        """Subscribe and start receiving data
+        """
         if not self.restrict:
             d = self.agent.request('GET',
                                    self.url + '/republish',
@@ -256,7 +279,7 @@ class RepublishClient:
             d = self.agent.request('POST',
                                    self.url + '/republish',
                                    Headers(),
-                                   FileBodyProducer(StringIO(self.restrict)))
+                                   FileBodyProducer(StringIO(str(self.restrict))))
         d.addCallback(self.__request)
         d.addErrback(self._connect_failed)
 

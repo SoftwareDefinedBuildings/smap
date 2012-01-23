@@ -98,7 +98,10 @@ class MissingSumOperator(CompositionOperator):
 
 class SubsampleMeanOperator(CompositionOperator):
     name = 'subsample-mean'
-    def __init__(self, inputs, windowsz):
+    operator_name = 'subsample'
+    operator_constructors = [(int,)]
+
+    def __init__(self, inputs, windowsz=300000):
         self.oplist = [
             # take the mean of each bucket
             lambda inputs: GroupbyTimeOperator(inputs,
@@ -114,6 +117,8 @@ class MeanOperator(CompositionOperator):
     """Maintain a mean of N streams 
     """
     name = 'Mean'
+    operator_name = 'mean'
+    operator_constructors = [(int, )]
     def __init__(self, inputs, windowsz=300):
         self.oplist = [
             lambda inputs: GroupbyTimeOperator(inputs,
@@ -129,6 +134,10 @@ class MeanOperator(CompositionOperator):
         CompositionOperator.__init__(self, inputs)
 
 class SumOperator(CompositionOperator):
+    operator_name = 'sum'
+    operator_constructors = [(),
+                             (int,)]
+
     def __init__(self, inputs, windowsz=300):
         self.name = 'sum-%i' % windowsz
         self.oplist = [
