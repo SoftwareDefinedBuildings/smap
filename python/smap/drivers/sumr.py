@@ -128,6 +128,25 @@ class MeanOperator(CompositionOperator):
             ]
         CompositionOperator.__init__(self, inputs)
 
+class SumOperator(CompositionOperator):
+    def __init__(self, inputs, windowsz=300):
+        self.name = 'sum-%i' % windowsz
+        self.oplist = [
+            lambda inputs: GroupbyTimeOperator(inputs,
+                                               _MeanVectorOperator,
+                                               chunk_length=windowsz),
+
+            lambda inputs: o._MissingDataOperator(inputs, 0.9),
+
+            # then take the mean across all feeds
+            _SumOperator,
+
+            # snap times to window starts
+            lambda inputs: SnapTimes(inputs, windowsz),
+            ]
+        CompositionOperator.__init__(self, inputs)
+        
+
 class DifferenceMeanOperator(CompositionOperator):
     """Compute the mean of differences of streams
     """
@@ -143,31 +162,27 @@ class DifferenceMeanOperator(CompositionOperator):
             ]
         CompositionOperator.__init__(self, inputs)
 
-
-class DefaultSummationDriver(GroupedOperatorDriver):
+class WindowedDriver(GroupedOperatorDriver):
     def setup(self, opts):
         windowsz = int(opts.get("Window", 300))
-        self.operator_class = (lambda x: SubsampledSumOperator(x, windowsz))
+        self.operator_class = (lambda x: self.inner_operator(x, windowsz))
         GroupedOperatorDriver.setup(self, opts)
+    
 
-class MissingSummationDriver(GroupedOperatorDriver):
-    def setup(self, opts):
-        windowsz = int(opts.get("Window", 3600))
-        self.operator_class = (lambda x: MissingSumOperator(x, windowsz))
-        GroupedOperatorDriver.setup(self, opts)
+class DefaultSummationDriver(WindowedDriver):
+    inner_operator = SubsampledSumOperator
 
-class SubsampleMeanDriver(GroupedOperatorDriver):
-    def setup(self, opts):
-        windowsz = int(opts.get("Window", 3600))
-        self.operator_class = (lambda x: SubsampleMeanOperator(x, windowsz))
-        GroupedOperatorDriver.setup(self, opts)
+class MissingSummationDriver(WindowedDriver):
+    inner_operator = MissingSumOperator
+
+class SubsampleMeanDriver(WindowedDriver):
+    inner_operator = SubsampleMeanOperator
         
-class MeanDriver(GroupedOperatorDriver):
-    def setup(self, opts):
-        windowsz = int(opts.get("Window", 300))
-        self.operator_class = (lambda x: MeanOperator(x, windowsz))
-        GroupedOperatorDriver.setup(self, opts)
-        
+class MeanDriver(WindowedDriver):
+    inner_operator = MeanOperator
+
+class SumDriver(WindowedDriver):
+    inner_operator = SumOperator
 
 if __name__ == '__main__':
     ip = [{
