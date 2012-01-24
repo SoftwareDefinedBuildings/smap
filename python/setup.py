@@ -37,6 +37,8 @@ setup(name="Smap",
         "smap.drivers.obvius",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
+
+        "smap.drivers.labjack", "smap.drivers.labjack.labjackpython",
         ],
       requires=["avro", "twisted", "ordereddict", "ply", "psycopg2"],
       # package_dir={"smap" : "smap"},

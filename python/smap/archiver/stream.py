@@ -2,6 +2,7 @@
 import inspect
 import numpy as np
 
+import smap.util as util
 import smap.operators as operators
 import querygen as qg
 
@@ -17,7 +18,6 @@ operator_modules = [
 
 installed_ops = {}
 
-
 def discover():
     for m in operator_modules:
         for name, obj in inspect.getmembers(m):
@@ -28,6 +28,11 @@ def discover():
     print "found ops:", ', '.join(installed_ops.iterkeys())
 
 def get_operator(name, args):
+    """Look up an operator by name.  If given args, try to parse them
+    using whatever initializer lists are available.
+
+    :raises: ParseException if it can't match the operator
+    """
     if not name in installed_ops:
         raise qg.QueryException("No such operator: " + name)
     if len(args) == 0:
@@ -47,13 +52,24 @@ def make_applicator(ops, (extractor, sql)):
     class _TmpOp(operators.CompositionOperator):
         oplist = ops
 
+    def build_result((d, s)):
+        obj = dict(s)
+        d[:,0] = np.int_(d[:, 0])
+        obj['Readings'] = d.tolist()
+        return util.build_recursive(obj, suppress=[])
+
     def apply_op(data):
         opmeta = [{'uuid': x['uuid'],
                    'Properties/UnitofMeasure': ''} for x in data]
         opdata = [np.array(x['Readings']) if len(x['Readings']) else operators.nulla
                   for x in data]
+
+        # build and apply the operator
         op = _TmpOp(opmeta)
-        return op.process(opdata)
+        redata = op.process(opdata)
+
+        # construct a return value with metadata and data merged
+        return map(build_result, zip(redata, op.outputs))
 
     def applicator(*args):
         d = extractor(*args)

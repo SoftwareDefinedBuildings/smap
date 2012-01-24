@@ -16,10 +16,11 @@ from smap.archiver import settings
 from smap.subscriber import subscribe
 
 class Options(usage.Options):
-    optParameters = [["port", "p", None, "service port number"],
-                     ["subscribe", "s", "subscribe to sources"],
-                     ["conf", "c", None, "archiver config file"]]
+    optParameters = [["port", "p", None, "service port number"]]
+    optFlags = [["subscribe", "s", "subscribe to sources"]]
 
+    def parseArgs(self, conf):
+        self['conf'] = conf
 
 class ArchiverServiceMaker(object):
     implements(IServiceMaker, IPlugin)
