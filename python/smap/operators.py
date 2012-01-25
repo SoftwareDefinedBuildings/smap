@@ -179,9 +179,13 @@ class OperatorDriver(driver.SmapDriver):
                 # print "adding", addpath, newv
                 self._add(addpath, ts, v)
 
-    def setup(self, opts, restrict=None, shelveoperators=False, cache=True):
+    def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
         self.source_url = opts.get('SourceUrl', 'http://smote.cs.berkeley.edu:8079')
-        self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
+        if not raw:
+            self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
+        else:
+            self.restrict = restrict
+
         if shelveoperators:
             self.operators = shelve.open(opts.get('OperatorCache', '.operators'),
                                          protocol=2, writeback=True)
