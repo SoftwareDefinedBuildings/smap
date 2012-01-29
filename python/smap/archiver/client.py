@@ -199,7 +199,7 @@ Attempts to use cached data and load missing data in parallel.
         """
         return self._data("after %i" % (ref * 1000), where, limit, streamlimit)
 
-    def latest(self, qbody, limit=1, streamlimit=10):
+    def latest(self, where, limit=1, streamlimit=10):
         """Load the last data in a time-series.
 
         See `prev` for args.
