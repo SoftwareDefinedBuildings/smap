@@ -27,8 +27,11 @@ READINGDB_PORT = 4242
 
 def import_rdb():
     global rdb
-    __import__(READINGDB_MOD)
-    rdb = sys.modules[READINGDB_MOD]
+    try:
+        __import__(READINGDB_MOD)
+        rdb = sys.modules[READINGDB_MOD]
+    except ImportError:
+        pass
 
 def munge_key(k):
     return k.upper().replace(" ", "_")
