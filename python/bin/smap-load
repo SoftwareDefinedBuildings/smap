@@ -8,11 +8,11 @@ from optparse import OptionParser
 from twisted.internet import reactor, defer
 from twisted.python import log
 
-from smap import loader
+from smap import loader, util
 from smap.contrib import dtutil
 
 def get_parser():
-    usage = 'usage: %prog [options] conf-file'
+    usage = 'usage: %prog [options] conf-file <paths ...>'
     parser = OptionParser(usage=usage)
     parser.add_option('-t', '--timefmt', dest='timefmt', default='%s',
                       type='str', 
@@ -38,15 +38,17 @@ def get_parser():
 if __name__ == '__main__':
     p = get_parser()
     opts, args = p.parse_args()
-    if len(args) != 1:
+    if len(args) < 1:
         p.error("conf file is a required argument")
 
     log.startLogging(sys.stdout)
-    
-    inst = loader.load(args[0])
-        
+    sections = map(util.norm_path, args[1:])
+    inst = loader.load(args[0], sections=sections)
 
-    for driver in inst.drivers.itervalues():
+    for dpath, driver in inst.drivers.iteritems():
+        if len(sections) > 1 and not dpath in sections:
+            continue
+
         if not hasattr(driver, "load"):
             log.err('Error: driver does not have "load" method')
             sys.exit(1)
@@ -66,7 +68,9 @@ if __name__ == '__main__':
     print st, et
 
     dl = []
-    for driver in inst.drivers.itervalues():
+    for dpath, driver in inst.drivers.iteritems():
+        if len(sections) > 1 and not dpath in sections:
+            continue
         try:            
             d = driver.load(st, et, cache=opts.cache)
         except TypeError:

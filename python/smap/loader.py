@@ -68,7 +68,7 @@ def dump(inst, file):
     with open(file, 'w') as fp:
         conf.write(fp)
 
-def load(file, **instargs):
+def load(file, sections=[], **instargs):
     """Create a sMAP instance based on the representation stored in a file.
 
 The configuration file contains sections which refer to either
@@ -101,6 +101,10 @@ contain a ``uuid`` key to set the root identifier for the source.
     reports = []
 
     for s in conf.sections():
+        # skip all but the listed sections if we were asked to
+        if len(sections) and not util.norm_path(s) in sections: 
+            continue
+
         print "Loading section", s
         if s.startswith('report'):
             if conf.has_option(s, 'ReportResource'):

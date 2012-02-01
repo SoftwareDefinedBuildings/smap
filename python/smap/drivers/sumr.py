@@ -138,20 +138,22 @@ class SumOperator(CompositionOperator):
     operator_constructors = [(),
                              (int,)]
 
-    def __init__(self, inputs, windowsz=300):
+    def __init__(self, inputs, windowsz=300, delay=1.0, data_fraction=0.9):
         self.name = 'sum-%i' % windowsz
         self.oplist = [
             lambda inputs: GroupbyTimeOperator(inputs,
                                                _MeanVectorOperator,
-                                               chunk_length=windowsz),
+                                               chunk_length=windowsz,
+                                               chunk_delay=delay),
 
-            lambda inputs: o._MissingDataOperator(inputs, 0.9),
+            lambda inputs: o._MissingDataOperator(inputs, data_fraction),
 
             # then take the mean across all feeds
             _SumOperator,
 
             # snap times to window starts
             lambda inputs: SnapTimes(inputs, windowsz),
+            # PrintOperator,
             ]
         CompositionOperator.__init__(self, inputs)
         
@@ -174,9 +176,15 @@ class DifferenceMeanOperator(CompositionOperator):
 class WindowedDriver(GroupedOperatorDriver):
     def setup(self, opts):
         windowsz = int(opts.get("Window", 300))
-        self.operator_class = (lambda x: self.inner_operator(x, windowsz))
+        delay = opts.get("Delay", None)
+        datafrac = opts.get("DataFraction", None)
+        kwargs = {'windowsz': windowsz}
+        if delay: kwargs['delay'] = float(delay)
+        if datafrac: kwargs['data_fraction'] = float(datafrac)
+
+        self.operator_class = (lambda x: self.inner_operator(x, **kwargs))
         GroupedOperatorDriver.setup(self, opts)
-    
+
 
 class DefaultSummationDriver(WindowedDriver):
     inner_operator = SubsampledSumOperator

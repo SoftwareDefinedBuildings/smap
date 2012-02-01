@@ -276,9 +276,9 @@ class GroupedOperatorDriver(OperatorDriver):
 
         # look up the streams, units, and group tags.
         client = SmapClient()
-        streams = client.tags(self.restrict, 
-                              'uuid, Properties/UnitofMeasure, Metadata/SourceName, %s' % 
-                              self.group)
+        streams = client.tags(self.restrict, '*')
+                              # 'uuid, Properties/UnitofMeasure, Metadata/SourceName, %s' % 
+                              # self.group)
         #print streams
         groupitems = {}
 
@@ -440,8 +440,8 @@ class GroupbyTimeOperator(Operator):
             return rv
 
         startts = int(startts - (startts % self.chunk_length))
-        endts = int(endts - (endts % self.chunk_length)) - \
-            (self.chunk_length * self.chunk_delay)
+        endts = int((endts - (endts % self.chunk_length)) - \
+                        (self.chunk_length * self.chunk_delay))
 
         # iterate over the groups
         for time in xrange(startts, endts, self.chunk_length):
@@ -512,7 +512,7 @@ class _MissingDataOperator(Operator):
         # the sum of anything and a nan is nan
         times = np.vstack(map(lambda x: x[:, 1], inputs))
         nancnt = np.sum(np.isnan(times), axis=0)
-        takerows = np.where(len(inputs) - nancnt > len(inputs) * self.ndatathresh)
+        takerows = np.where(len(inputs) - nancnt >= len(inputs) * self.ndatathresh)
         if len(takerows[0]):
             return map(lambda x: x[takerows], inputs)
         else:

@@ -144,5 +144,5 @@ for conffile in args:
 
     with open(mpath, "w") as fp:
         print >>fp, "check process %s pidfile %s" % (root, pidfile)
-        print >>fp, "\tstart program = %s as uid %i and gid %i" % (newsh, uid, gid)
+        print >>fp, "\tstart program = \"%s\" as uid %i and gid %i" % (newsh, uid, gid)
         print >>fp, "\tstop program = \"/bin/sh -c '/bin/kill $(cat %s)'\"" % pidfile
