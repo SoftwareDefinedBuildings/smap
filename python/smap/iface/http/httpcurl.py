@@ -70,10 +70,7 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
         c.close()
     m.close()
 
-    print "get done, parsing"
-
     map(lambda (_, x): x.seek(0), rv)
     rv = map(lambda (u, x): (u, parser(x.read())), rv)
-    print "done parsing"
     return rv
     

@@ -6,7 +6,6 @@ from scipy.stats import nanmean
 from smap.core import SmapException
 from smap.archiver.client import SmapClient
 from smap.operators import *
-from smap.drivers.resamplr import SubsampleOperator, SnapTimes
 import smap.operators as o
 
 def _mean(vec):
@@ -83,15 +82,15 @@ class SubsampledSumOperator(CompositionOperator):
 
 class MissingSumOperator(CompositionOperator):
     name = "sum with missing data"
-    def __init__(self, inputs, windowsz):
+    def __init__(self, inputs, windowsz, missingthresh=0.6):
         self.oplist = [
             StandardizeUnitsOperator,
             lambda inputs: GroupbyTimeOperator(inputs, 
                                                lambda x: SubsampleOperator(x, windowsz),
                                                chunk_length=windowsz),
-            o._MissingDataOperator,
-            _SumOperator,
+            lambda inputs: o._MissingDataOperator(inputs, missingthresh),
             # PrintOperator,
+            _SumOperator,
             ]
         CompositionOperator.__init__(self, inputs)
 
@@ -141,6 +140,8 @@ class SumOperator(CompositionOperator):
     def __init__(self, inputs, windowsz=300, delay=1.0, data_fraction=0.9):
         self.name = 'sum-%i' % windowsz
         self.oplist = [
+            StandardizeUnitsOperator,
+
             lambda inputs: GroupbyTimeOperator(inputs,
                                                _MeanVectorOperator,
                                                chunk_length=windowsz,

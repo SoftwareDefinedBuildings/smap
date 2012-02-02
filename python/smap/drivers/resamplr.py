@@ -5,57 +5,91 @@ import time
 import urllib
 import pprint
 import traceback
+import datetime
 
 import numpy as np
 
 from smap.archiver.client import SmapClient
 from smap.operators import *
+from smap.contrib import dtutil
+import smap.drivers.sumr as sumr
+import smap.operators as opr
 
-def _subsample(vec, last=-1, bucketsz=5):
-    if len(vec) == 0:
-        return null, {'last' : last,
-                      'bucketsz' : bucketsz}
+def _day_bin_equal(dt1, dt2):
+    """Return true if two datetimes are in the same day"""
+    return dt1.year == dt2.year and \
+        dt1.month == dt2.month and \
+        dt1.day == dt2.day
+
+def _meter_sample(data, 
+                  slop = datetime.timedelta(minutes=30),
+                  bin_equal=_day_bin_equal,
+                  # state parameters
+                  prev=None,    # start of meter region
+                  trianglestart=None, # last reset
+                  accum=0,            # accumulated energy in window
+                  prev_data=None):    # last point we saw
+    rv = []
+    if len(data) and (not prev or not trianglestart):
+        prev = data[0]
+        prev_data = data[0]
+        trianglestart = data[0]
+        accum = 0
+        start = 1
+    else:
+        start = 0
     
-    # ignore data before "last"
-    vec[:, 0] -= np.mod(vec[:,0], bucketsz)
-    times = vec[:,0]
-    sp = np.where(times > last)
-    if len(sp[0]) == 0: 
-        return null, {'last': last,
-                      'bucketsz': bucketsz}
-    else: sp = sp[0][0]
+    for i, v in enumerate(data[start:]):
+        if v[1] < trianglestart[1]:
+            # if we roll over, add in the accumulated sum through now
+            accum += (prev_data[1] - trianglestart[1])
+            trianglestart = v
 
-    # add a dummy "last" ts
-    times = np.hstack(([last], times[sp:]))
-    # and bucket the times
-    # we want the first point in each bucket
-    takes = np.nonzero(times[1:] - times[:-1])
-    rv = vec[takes[0] + sp]
-    rv[:,0] = times[takes[0] + 1]
-    return rv, {'last': np.max(rv[:,0]), 
-                'bucketsz' : bucketsz}
+        if bin_equal(prev[0], v[0]):
+            # continue if we're still in the same bin
+            prev_data = v
+            continue
+        elif bin_equal(prev[0], v[0] - slop) and \
+                not bin_equal(prev[0] - slop, prev[0]):
+            # otherwise produce a record if the endpoints are close to 
 
-class SubsampleOperator(ParallelSimpleOperator):
-    """Subsample N streams in parallel by taking the first reading
-    that comes in within each bucket.
-    """
-    # the operator we'll parallelize across all input streams
-    base_operator = staticmethod(_subsample)
-    def __init__(self, inputs, windowsz):
-        self.name = 'subsample-%i' % windowsz
-        ParallelSimpleOperator.__init__(self, inputs, 
-                                        bucketsz=windowsz)
+            accum += prev_data[1] - trianglestart[1]
+            print "add", prev[0], accum, trianglestart[0]
+            rv.append((dtutil.dt2ts(prev[0]), accum))
+            prev_data = v
 
-def _snaptimes(vec, bucketsz=300):
-    vec[:,0] -= np.mod(vec[:,0], bucketsz)
-    return vec
+        prev = v
+        trianglestart = v
+        accum = 0
 
-class SnapTimes(ParallelSimpleOperator):
-    base_operator = staticmethod(_snaptimes)
-    def __init__(self, inputs, windowsz):
-        self.name = 'snaptimes-%i' % windowsz
-        ParallelSimpleOperator.__init__(self, inputs,
-                                        bucketsz=windowsz)
+    return np.array(rv), {
+        'prev' : prev,
+        'prev_data' : prev_data,
+        'trianglestart' : trianglestart,
+        'accum' : accum
+        }
+
+
+class _MeterSampler(ParallelSimpleOperator):
+    name = "meter-sampler"
+    base_operator = staticmethod(_meter_sample)
+
+class MeterSampler(CompositionOperator):
+    name = "daily meter usage"
+    chunksz = 60 * 15 
+    oplist = [
+        lambda x: sumr.MissingSumOperator(x, MeterSampler.chunksz, 1.0),
+        DatetimeOperator,
+        _MeterSampler,
+        PrintOperator,
+        ]
+#     def __init__(self, inputs, a2):
+#         # self.name = 'snaptimes-%i' % windowsz
+#         ParallelSimpleOperator.__init__(self, inputs)
+
+
+class MeterDriver(GroupedOperatorDriver):
+    operator_class = MeterSampler
 
 
 class SubsampleDriver(OperatorDriver):

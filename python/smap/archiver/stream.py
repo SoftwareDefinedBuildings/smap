@@ -46,7 +46,8 @@ def get_operator(name, args):
             except ValueError:
                 continue
             return lambda inputs: installed_ops[name](inputs, *alist)
-        raise qg.ParseException("No valid constructor for operator %s: %s" % (name, str(args)))
+        raise qg.QueryException("No valid constructor for operator %s: %s" % 
+                                (name, str(args)))
 
 def make_applicator(ops, (extractor, sql)):
     class _TmpOp(operators.CompositionOperator):

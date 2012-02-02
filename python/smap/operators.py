@@ -13,6 +13,8 @@ from smap.core import SmapException
 from smap.archiver.client import SmapClient, RepublishClient
 from smap.contrib import dtutil
 
+from dateutil.tz import gettz
+
 # null vector with the right shape so we can index into it
 null = np.array([])
 null = np.reshape(null, (0, 2))
@@ -23,8 +25,12 @@ OP_N_TO_N = 2
 class Operator:
     # data type of operator output
     data_type = ('double', float)
+    required_tags = set(['uuid'])
+    optional_tags = set([])
 
-    def __init__(self, inputs, outputs=OP_N_TO_1, tags=None):
+    def __init__(self, inputs, 
+                 outputs=OP_N_TO_1, 
+                 tags=None):
         """
         :param inputs: list of uuids the operator examines
         """
@@ -359,7 +365,8 @@ def parallelize(operator, n, **initargs):
         rv = [None] * n
         for i in xrange(0, n):
             opdata = operator(inputs[i], **state[i])
-            if isinstance(opdata, np.ndarray):
+            if isinstance(opdata, np.ndarray) or \
+                    isinstance(opdata, list):
                 rv[i] = opdata
             else:
                 rv[i], state[i] = opdata
@@ -379,6 +386,9 @@ class CompositionOperator(Operator):
             op = opclass(_inputs)
             self.ops.append(op)
             _inputs = op.outputs
+        self.required_tags = set.union(*map(lambda x: x.required_tags, self.ops))
+        self.optional_tags = set.union(*map(lambda x: x.optional_tags, self.ops))
+
         Operator.__init__(self, inputs, _inputs)
 
     def process(self, data):
@@ -388,8 +398,9 @@ class StandardizeUnitsOperator(Operator):
     units = {
         'Watts' : ('kW', 0.001),
         }
-
     name = 'standardize units'
+    required_tags = set(['uuid', 'Properties/UnitofMeasure'])
+
     def __init__(self, inputs):
         self.factors = [1.0] * len(inputs)
         outputs = copy.deepcopy(inputs)
@@ -518,6 +529,54 @@ class _MissingDataOperator(Operator):
         else:
             return [null] * len(inputs)
 
+
+def _subsample(vec, last=-1, bucketsz=5):
+    if len(vec) == 0:
+        return null, {'last' : last,
+                      'bucketsz' : bucketsz}
+    
+    # ignore data before "last"
+    vec[:, 0] -= np.mod(vec[:,0], bucketsz)
+    times = vec[:,0]
+    sp = np.where(times > last)
+    if len(sp[0]) == 0: 
+        return null, {'last': last,
+                      'bucketsz': bucketsz}
+    else: sp = sp[0][0]
+
+    # add a dummy "last" ts
+    times = np.hstack(([last], times[sp:]))
+    # and bucket the times
+    # we want the first point in each bucket
+    takes = np.nonzero(times[1:] - times[:-1])
+    rv = vec[takes[0] + sp]
+    rv[:,0] = times[takes[0] + 1]
+    return rv, {'last': np.max(rv[:,0]), 
+                'bucketsz' : bucketsz}
+
+class SubsampleOperator(ParallelSimpleOperator):
+    """Subsample N streams in parallel by taking the first reading
+    that comes in within each bucket.
+    """
+    # the operator we'll parallelize across all input streams
+    base_operator = staticmethod(_subsample)
+    def __init__(self, inputs, windowsz):
+        self.name = 'subsample-%i' % windowsz
+        ParallelSimpleOperator.__init__(self, inputs, 
+                                        bucketsz=windowsz)
+
+def _snaptimes(vec, bucketsz=300):
+    vec[:,0] -= np.mod(vec[:,0], bucketsz)
+    return vec
+
+class SnapTimes(ParallelSimpleOperator):
+    base_operator = staticmethod(_snaptimes)
+    def __init__(self, inputs, windowsz):
+        self.name = 'snaptimes-%i' % windowsz
+        ParallelSimpleOperator.__init__(self, inputs,
+                                        bucketsz=windowsz)
+
+
 class PrintOperator(Operator):
     """N-N operator which prints all the input data
     """
@@ -530,3 +589,19 @@ class PrintOperator(Operator):
         print inputs
         return inputs
 
+class DatetimeOperator(ParallelSimpleOperator):
+    required_tags = set(['uuid', 'Properties/Timezone'])
+    name = 'datetime'
+
+    def __init__(self, inputs):
+        tz = set(map(operator.itemgetter('Properties/Timezone'), inputs))
+        if len(tz) != 1:
+            raise SmapException("Datetime operator only supports a single tz")
+        self.tz = gettz(list(tz)[0])
+        self.base_operator = lambda vec: self._base_operator(vec)
+        ParallelSimpleOperator.__init__(self, inputs)
+
+    def _base_operator(self, vec):
+        # print vec
+        return zip(map(lambda x: dtutil.ts2dt(x).astimezone(self.tz), 
+                       map(int, vec[:,0].astype(np.int))), vec[:, 1])

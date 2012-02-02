@@ -22,7 +22,7 @@ tokens = (
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
-    'APPLY', 'TO',
+    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'JOIN', 'ON',
     )
 
 precedence = (
@@ -56,6 +56,11 @@ reserved = {
     '~' : 'TILDE',
     'apply' : 'APPLY',
     'to' : 'TO',
+    'as' : 'AS',
+    'group' : 'GROUP',
+    'join' : 'JOIN',
+    'on' : 'ON',
+    'by' : 'BY',
     }
 
 t_LPAREN = r'\('
@@ -137,7 +142,7 @@ def p_query(t):
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
              | SET set_list WHERE statement
-             | APPLY apply_clause TO data_clause WHERE statement
+             | APPLY apply_statement
              '''
     if t[1] == 'select':
         if len(t) == 5:
@@ -188,9 +193,40 @@ def p_query(t):
              qg.normalize(t[4]).render(),
              qg.build_authcheck(t.parser.request, forceprivate=True))
     elif t[1] == 'apply':
-        t[0] = stream.make_applicator(t[2],
-                                      make_select_rv(t, t[4], t[6]))
+        t[0] = None, None
 
+
+#                         | apply_clause TO data_clause WHERE statement_as_list JOIN ON tag_list
+#                         | apply_clause TO data_clause WHERE statement_as_list JOIN ON tag_list GROUP BY tag_list 
+def p_apply_statement(t):
+    """apply_statement  : apply_clause TO data_clause WHERE statement_as_list
+                        | apply_clause TO data_clause WHERE statement_as_list GROUP BY tag_list
+    """
+    tags = set.union(*map(lambda x: x.required_tags, t[1]))
+    tags = set.union(tags, *map(lambda x: x.optional_tags, t[1]))
+    if len(t) > 6:
+        tags = set.union(tags, t[8])
+    if len(t) > 9:
+        tags = set.union(tags, t[11])
+
+    print t[5]
+    selects = map(lambda x: make_select_rv(t, make_tag_select(list(tags)), x[1]), 
+                  t[5])
+    print selects
+    print t[1]
+
+def make_tag_select(taglist):
+    select = "s.uuid, m.tagname, m.tagval"
+    if taglist  == '*':
+        restrict = 'true'
+    else:
+        def make_clause(x):
+            if x == 'uuid':
+                return "tagname = 'Path'"
+            else:
+                return "tagname = %s" % escape_string(x)
+        restrict = ('(' + " OR ".join(map(make_clause, taglist)) + ')')
+    return (select, restrict, ext_plural)
 
 def p_selector(t):
     '''selector : tag_list
@@ -207,17 +243,7 @@ def p_selector(t):
             t[0] = ("DISTINCT m.tagval", "tagname = %s" % 
                      escape_string(t[2]), ext_default)
     else:
-        select = "s.uuid, m.tagname, m.tagval"
-        if t[1] == '*':
-            restrict = 'true'
-        else:
-            def make_clause(x):
-                if x == 'uuid':
-                    return "tagname = 'Path'"
-                else:
-                    return "tagname = %s" % escape_string(x)
-            restrict = ('(' + " OR ".join(map(make_clause, t[1])) + ')')
-        t[0] = (select, restrict, ext_plural)
+        t[0] = make_tag_select(t[1])
 
 def p_data_clause(t):
     '''data_clause : DATA IN LPAREN NUMBER COMMA NUMBER RPAREN limit
@@ -240,7 +266,7 @@ def p_data_clause(t):
         if limit[0] == None: limit[0] = 1
 
     t[0] = ("distinct(s.uuid), s.id", "true", 
-            lambda streams: extract_data(streams, method, start, end, 
+            lambda streams: extract_data(streams, method, start, end,
                                          limit[0], limit[1]))
 
 def p_timeref(t):
@@ -286,8 +312,10 @@ def p_apply_clause(t):
 def p_call_list(t):
     '''call_list     : QSTRING
                      | NUMBER
+                     | LVALUE
                      | QSTRING COMMA call_list
                      | NUMBER COMMA call_list
+                     | LVALUE COMMA call_list
                      '''
     if len(t) == 2:
         t[0] = ('args', [t[1]])
@@ -310,6 +338,21 @@ def p_set_list(t):
         t[0] = [(t[1], t[3])]
     else:
         t[0] = [(t[1], t[3])] + t[5]
+
+def p_statement_as_list(t):
+    """statement_as_list   : statement
+                           | statement AS LVALUE
+                           | statement_as_list COMMA statement
+                           | statement_as_list COMMA statement AS LVALUE 
+                           """
+    if len(t) == 2:
+        t[0] = [('$1', t[1])]
+    elif len(t) == 4 and t[2] == 'as':
+        t[0] = [(t[3], t[1])]
+    elif len(t) == 4 and t[2] == ',':
+        t[0] = t[1] + [("$%i" % (len(t[1]) + 1), t[3])]
+    else:
+        t[0] = t[1] + [(t[5], t[3])]
 
 def merge_clauses(klass, lstmt, rstmt) :
     if type(lstmt) == klass and type(rstmt) == klass:
@@ -373,6 +416,7 @@ def p_statement_binary(t):
         t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval ~ E%s)" %
                          (escape_string(t[1]), 
                           escape_string(t[3]))))
+
 
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
