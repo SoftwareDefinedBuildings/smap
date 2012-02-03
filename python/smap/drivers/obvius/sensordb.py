@@ -124,6 +124,19 @@ DB = [
         'sensors' : []
         },
     {
+        'obviusname' : 'Obvius, A8812, Internal I/O',
+        'locations' : ['Soda Hall New (as of 1/12/12)'],
+        'meters' : [
+            ('Steam (Lbs)', r'^(\d)+', 'steam', 'total', 'Lbs'),
+            ('Steam Instantaneous', r'^(\d)+', 'steam', 'rate', 'Lbs/hr'),
+            ('Electric Main#1 (#...213) (kWh)', r'^(\d)+', 'electric_1', 'true_energy_received', 'kWh'),
+            ('Electric Main#1 (#...213) Demand (kW)', r'^(\d)+', 'electric_1', 'real_power', 'kW'),
+            ('Electric Main#2 (#...378) (kWh)', r'^(\d)+', 'electric_2', 'true_energy_received', 'kWh'),
+            ('Electric Main#2 (#...378) Demand (kW)', r'^(\d)+', 'electric_2', 'real_power', 'kW'),
+            ],
+        'sensors' : []
+        },
+    {
         'obviusname' : 'Power Measurement ION 7330',
         "sensors" : [
             ('I a (Amps)', MAYBEFLOATPAT, 'A', 'current', 'A'),

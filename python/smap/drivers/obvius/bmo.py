@@ -26,8 +26,8 @@ active_reads = DeferredSemaphore(3)
 
 def make_field_idxs(type, header):
     paths = [None]
+    map_ = sensordb.get_map(type)
     for t in header[1:]:
-        map_ = sensordb.get_map(type)
         paths.append(None)
         for channel in map_['sensors'] + map_['meters']:
             if t.strip().startswith(channel[0]):
@@ -108,7 +108,6 @@ class BMOLoader(smap.driver.SmapDriver):
 
         start, end = urllib.quote(dtutil.strftime_tz(self.startdt, TIMEFMT)), \
             urllib.quote(dtutil.strftime_tz(self.enddt, TIMEFMT))
-        print start, end
 
         url = self.url % (start, end)
         url += "&mnuStartMonth=%i&mnuStartDay=%i&mnuStartYear=%i" % \

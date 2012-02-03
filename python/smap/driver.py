@@ -1,7 +1,8 @@
 
 import uuid
+import datetime
 import time
-from twisted.internet import reactor, task, threads
+from twisted.internet import reactor, threads, defer
 from zope.interface import implements
 
 from interface import *
@@ -9,11 +10,14 @@ import core
 import util
 import loader
 import server
+from smap.contrib import dtutil
 
 class SmapDriver:
     # this is actually a shim layer which presents a ISmapInstance to
     # drivers
     implements(ISmapInstance)
+    load_chunk_size = datetime.timedelta(days=1)
+
 
     @classmethod
     def get_driver(cls, inst, name, attach_point, namespace):
@@ -82,6 +86,36 @@ class SmapDriver:
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
         return self.__inst._add(self.__join_id(id), *args)
+
+    def load(self, startdt, enddt):
+        """Default load method tries to call update with one-day chunks"""
+        self.start_dt = startdt
+        self.end_dt = enddt
+        return self._load_time_chunk(self)
+
+    def _load_time_chunk(self, *args):
+        if self.start_dt >= self.end_dt:
+            return None
+
+        # pick a new window
+        start = self.start_dt
+        end = self.start_dt + self.load_chunk_size
+        if end > self.end_dt: end = self.end_dt
+
+        print "loading", self.start_dt, '-', self.end_dt
+        self.start_dt = self.start_dt + self.load_chunk_size
+        print start, end
+        d = defer.maybeDeferred(self.update, start, end)
+        d.addCallback(self.update)
+        d.addCallback(lambda _: self._flush())
+        d.addCallback(self._load_time_chunk)
+
+        def err(e):
+            print e
+        d.addErrback(err)
+
+        return d
+
 
 class BaseDriver(SmapDriver):
     def setup(self, opts={}):

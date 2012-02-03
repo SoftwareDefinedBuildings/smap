@@ -3,7 +3,7 @@ import sys
 import re
 import pprint
 from BeautifulSoup import BeautifulSoup as bs
-from httputils import load_html
+from smap.iface.http.httputils import load_html
 from optparse import OptionParser
 import ConfigParser
 import urllib
@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # find all the AcquiSuite boxes
     devices = {}
-    soup = load_html(BMOROOT + STATUSPAGE, AUTH=AUTH, cache=opts.cache)
+    soup = load_html(BMOROOT + STATUSPAGE, auth=AUTH, cache=opts.cache)
     for tr in soup.findAll('tr'):
         tds = tr('td')
         if len(tds) != 6: continue
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     for location in devices.iterkeys():
         if opts.progress:
             print "Processing", location
-        soup = load_html(BMOROOT + devices[location]['href'], AUTH=AUTH, cache=opts.cache)
+        soup = load_html(BMOROOT + devices[location]['href'], auth=AUTH, cache=opts.cache)
         subdevices = []
         for tr in soup.findAll('tr'):
             tds = tr('td')

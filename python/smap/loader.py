@@ -101,10 +101,6 @@ contain a ``uuid`` key to set the root identifier for the source.
     reports = []
 
     for s in conf.sections():
-        # skip all but the listed sections if we were asked to
-        if len(sections) and not util.norm_path(s) in sections: 
-            continue
-
         print "Loading section", s
         if s.startswith('report'):
             if conf.has_option(s, 'ReportResource'):
@@ -132,6 +128,10 @@ contain a ``uuid`` key to set the root identifier for the source.
             # other parts of the program
             print "Warning: skipping section", s, "since it does not begin with a '/'"
             continue
+        elif len(sections) and not util.norm_path(s) in sections: 
+            # skip all but the listed sections if we were asked to
+            continue
+
         s = util.norm_path(s)
 
         # build the UUID for the item
