@@ -77,7 +77,7 @@ class SmapDriver:
             args = args[1:]
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
     def add_actuator(self, path, unit, klass, **kwargs):
-        return self.add_timeseries(path, unit, klass=klass, **kwawrgs)
+        return self.add_timeseries(path, unit, klass=klass, **kwargs)
     def add_collection(self, path, *args):
         self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):
@@ -86,6 +86,8 @@ class SmapDriver:
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
         return self.__inst._add(self.__join_id(id), *args)
+    def uuid(self, key):
+        return self.__inst.uuid(key, namespace=self.namespace)
 
     def load(self, startdt, enddt):
         """Default load method tries to call update with one-day chunks"""

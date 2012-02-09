@@ -46,7 +46,6 @@ class RateLimiter:
         allowed = False
         rv = None
         now = time.time()
-        print now, self.last_call
         if (callable(self.ratelimit) and self.ratelimit()) or \
                 (util.is_integer(self.ratelimit) and \
                      now - self.last_call > self.ratelimit):
@@ -199,6 +198,22 @@ are possible, this profile does not express any of them.
             }
         SmapActuator.__init__(self, **kwargs)
 
+class IntegerActuator(SmapActuator):
+    ACTUATE_MODEL = 'integer'
+    def valid_state(self, state):
+        try:
+            int(state)
+            return True
+        except:
+            return False
+    
+    def parse_state(self, state):
+        return int(state)
+
+    def __init__(self, *args, **kwargs):
+        self.control_type = 'integer'
+        self.control_description = {}
+        SmapActuator.__init__(self, *args, **kwargs)
 
 class ContinuousActuator(SmapActuator):
     """A ContinuousActuator allows a set point to be adjusted within a

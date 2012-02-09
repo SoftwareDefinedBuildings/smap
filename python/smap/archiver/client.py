@@ -210,7 +210,7 @@ Attempts to use cached data and load missing data in parallel.
 class RepublishClient:
     """Listener for streaming data from a sMAP source or archiver's /republish feed
     """
-    def __init__(self, url, datacb, reconnect=True, restrict=None):
+    def __init__(self, url, datacb, reconnect=True, restrict=None, connect_error=None):
         """
 :param str url: url of the source
 :param datacb: callable to be called with each new sMAP object
@@ -224,6 +224,7 @@ class RepublishClient:
         self.reconnect = reconnect
         self.failcount = 0
         self.restrict = restrict
+        self.connect_error = connect_error
 
     class DataReceiver(LineReceiver):
         """Make our own LineReceiver to read back the streaming data
@@ -253,9 +254,13 @@ class RepublishClient:
             self.failcount += 1
 
     def __request(self, response):
-        receiver = RepublishClient.DataReceiver(self)
-        receiver.setLineMode()
-        response.deliverBody(receiver)
+        if response.code == 200:
+            receiver = RepublishClient.DataReceiver(self)
+            receiver.setLineMode()
+            response.deliverBody(receiver)
+            self.receiver = receiver
+        elif callable(self.connect_error):
+            self.connect_error(response)
 
     def _reconnect(self):
         """Exponential backup on the reconnect policy"""
@@ -282,6 +287,9 @@ class RepublishClient:
                                    FileBodyProducer(StringIO(str(self.restrict))))
         d.addCallback(self.__request)
         d.addErrback(self._connect_failed)
+    
+    def close(self):
+        self.receiver.transport.stopProducing()
 
 # if __name__ == '__main__':
 #     def cb(line):

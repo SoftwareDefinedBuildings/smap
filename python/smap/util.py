@@ -62,14 +62,14 @@ def find(f, lst):
         if f(o): return o
     return None
 
-def buildkv(fullname, obj):
+def buildkv(fullname, obj, separator='/'):
     if isinstance(obj, dict):
         rv = []
         for newk, newv in obj.iteritems():
             if len(fullname):
-                rv += buildkv(fullname + '/' + newk, newv)
+                rv += buildkv(fullname + separator + newk, newv, separator)
             else:
-                rv += buildkv(newk, newv)
+                rv += buildkv(newk, newv, separator)
         return rv
     else:
         return [(fullname, obj)]

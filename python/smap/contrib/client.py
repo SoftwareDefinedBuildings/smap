@@ -4,6 +4,9 @@ import os
 from zope.interface import implements
 from twisted.internet import defer, protocol, task, reactor
 from twisted.web.iweb import UNKNOWN_LENGTH, IBodyProducer
+from twisted.web.client import ResponseDone
+
+import cStringIO as StringIO
 
 # Backport of
 # svn://svn.twistedmatrix.com/svn/Twisted/trunk@32157 bbbe8e31-12d6-0310-92fd-ac37d47ddeeb
@@ -107,3 +110,18 @@ class FileBodyProducer(object):
         the write activity.
         """
         self._task.resume()
+
+
+class StringConsumer(protocol.Protocol):
+    def __init__(self, finished):
+        self.finished = finished
+        self.data = StringIO.StringIO()
+
+    def dataReceived(self, bytes):
+        self.data.write(bytes)
+
+    def connectionLost(self, reason):
+        if reason.type == ResponseDone:
+            self.finished.callback(self.data)
+        else:
+            self.finished.errback(reason)
