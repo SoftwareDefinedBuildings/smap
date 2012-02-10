@@ -264,7 +264,7 @@ class RepublishClient:
 
     def _reconnect(self):
         """Exponential backup on the reconnect policy"""
-        if self.reconnect:
+        if self.reconnect and not self.closing:
             print "connection failed, reconnecting in", (self.failcount ** 2)
             reactor.callLater(self.failcount ** 2, self.connect)
 
@@ -275,6 +275,7 @@ class RepublishClient:
     def connect(self):
         """Subscribe and start receiving data
         """
+        self.closing = False
         if not self.restrict:
             d = self.agent.request('GET',
                                    self.url + '/republish',
@@ -289,6 +290,7 @@ class RepublishClient:
         d.addErrback(self._connect_failed)
     
     def close(self):
+        self.closing = True
         self.receiver.transport.stopProducing()
 
 # if __name__ == '__main__':

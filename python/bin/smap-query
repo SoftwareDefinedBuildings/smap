@@ -1,4 +1,4 @@
-#!/usr/bin/python
+]#!/usr/bin/python
 # -*- python -*-
 
 import os
@@ -32,8 +32,8 @@ def run_query(opts, q):
 
         qurl = opts.url + '?' + urllib.urlencode(query, doseq=True)
         if opts.verbose > 0:
-            print qurl
-            print q
+            print >>sys.stderr, qurl
+            print >>sys.stderr, q
 
         if q.strip().startswith("plot"):
             q = q.strip()[5:]
@@ -56,12 +56,12 @@ def run_query(opts, q):
 
             json.dump(obj, sys.stdout, sort_keys=True, indent=2)
             print # add a newline
-        print "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
+        print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
 
     except urllib2.HTTPError, e:
-        print "ERROR:", e.read()
+        print >>sys.stderr, "ERROR:", e.read()
     except urllib2.URLError, e:
-        print "ERROR:", e
+        print >>sys.stderr, "ERROR:", e
         raise StopIteration()
 
 gnuplot_args = [["set", "xdata", "time"],
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         q = sys.stdin.read()
         run_query(opts, q)
     else:
-        print "Querying", opts.url
+        print >>sys.stderr, "Querying", opts.url
         readline.parse_and_bind('tab: complete')
         readline.parse_and_bind('set editing-mode emacs')
         if hasattr(readline, "read_history_file"):

@@ -125,10 +125,12 @@ for conffile in args:
     newsh = os.path.abspath(os.path.join(opts.smap_d, root + ".sh"))
     with open(newsh, "w") as fp:
         fp.write("""#!/bin/sh
+cd %(datadir)s
 %(env)s
 %(twistd)s --logfile=%(logfile)s  \\
             --pidfile=%(pidfile)s smap %(conf)s
 """ % {
+                'datadir', datadir,
                 'env' : build_env(opts),
                 'twistd' : opts.twistd,
                 'logfile' : logfile,
