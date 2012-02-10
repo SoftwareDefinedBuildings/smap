@@ -118,6 +118,7 @@ for conffile in args:
     with open(newconf, 'w') as fp:
         conf.write(fp)
     os.chown(newconf, uid, gid)
+    os.chmod(newconf, 0444)
 
     pidfile = os.path.abspath(os.path.join(datadir, "twistd.pid"))
     logfile = os.path.abspath(os.path.join(datadir, "twistd.log"))
@@ -134,6 +135,7 @@ for conffile in args:
                 'pidfile' : pidfile,
                 'conf': os.path.join(os.path.abspath(opts.smap_d), root + '.ini')
                 })
+    os.chown(newsh, uid, gid)
     os.chmod(newsh, 0744)
 
     # write out a monit service definition 
