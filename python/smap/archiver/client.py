@@ -291,7 +291,11 @@ class RepublishClient:
     
     def close(self):
         self.closing = True
-        self.receiver.transport.stopProducing()
+        try:
+            self.receiver.transport.stopProducing()
+        except:
+            return False
+        return True
 
 # if __name__ == '__main__':
 #     def cb(line):

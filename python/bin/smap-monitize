@@ -130,7 +130,7 @@ cd %(datadir)s
 %(twistd)s --logfile=%(logfile)s  \\
             --pidfile=%(pidfile)s smap %(conf)s
 """ % {
-                'datadir', datadir,
+                'datadir' : datadir,
                 'env' : build_env(opts),
                 'twistd' : opts.twistd,
                 'logfile' : logfile,
