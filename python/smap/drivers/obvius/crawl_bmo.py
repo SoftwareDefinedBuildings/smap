@@ -68,7 +68,7 @@ if __name__ == '__main__':
     # look at all the meters hanging off each of them
     for location in devices.iterkeys():
         if opts.progress:
-            print "Processing", location
+            print >>sys.stderr, "Processing", location
         soup = load_html(BMOROOT + devices[location]['href'], auth=AUTH, cache=opts.cache)
         subdevices = []
         for tr in soup.findAll('tr'):
@@ -91,10 +91,10 @@ if __name__ == '__main__':
                 mtypes[t['type']]['count'] = mtypes[t['type']]['count'] + 1
                 mtypes[t['type']]['locs'].append(name)
         for n, c in mtypes.iteritems():
-            print c['count'], n, ' '.join(c['locs'])
+            print >>sys.stderr, c['count'], n, ' '.join(c['locs'])
 
     if opts.buildings:
-        print '\n'.join(devices.iterkeys())
+        print >>sys.stderr, '\n'.join(devices.iterkeys())
 
 if opts.conf:
     def make_section(cmps):
@@ -117,7 +117,8 @@ if opts.conf:
         
         sec = None
         for d in devs['subdevices']:
-            if sensordb.get_map(d['type'], location) != None:
+            map = sensordb.get_map(d['type'], location)
+            if map != None:
                 sec = make_section((location, d['name']))
                 conf.add_section(sec)
                 conf.set(sec, 'type', 'smap.drivers.obvius.obvius.Driver')
@@ -155,23 +156,42 @@ elif opts.load:
     cf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
     cf.optionxform = str
     import obvius
+    cf.add_section('server')
+    cf.set('server', 'SuggestThreadPool', '20')
+    cf.set('server', 'Port', '9051')
+
     cf.add_section('/')
     cf.set('/', 'Metadata/Location/Campus', 'UCB')
     cf.set('/', 'Metadata/SourceName', 'buildingmanageronline archive')
+    cf.set('/', 'uuid', '91dde108-d02b-11e0-8542-0026bb56ec92')
+
     for building in conf.iterkeys():
         building_path = '/' + obvius.to_pathname(building)
         cf.add_section(building_path)
         cf.set(building_path, 'type', 'Collection')
-        cf.set(building_path, 'Metadata/Location/Building', building)
         for metername in conf[building].iterkeys():
             metertype, url = conf[building][metername]
+
+            building_name = building
+            if "New" in building_name:
+                building_name = building_name[:building_name.index("New")]
+            if "NEW" in building_name:
+                building_name = building_name[:building_name.index("NEW")]
 
             meter_path = building_path + '/' + obvius.to_pathname(metername)
             cf.add_section(meter_path)
             cf.set(meter_path, 'type', 'smap.drivers.obvius.bmo.BMOLoader')
             cf.set(meter_path, 'Metadata/Extra/MeterName', metername)
             cf.set(meter_path, 'Metadata/Instrument/Model', metertype)
+            cf.set(meter_path, 'Metadata/Location/Building', building_name)
             cf.set(meter_path, 'Url', url)
+
+            # add any extra config options specific to this meter type
+            map = sensordb.get_map(metertype, building_name)
+            if 'extra' in map:
+                for k,v in map['extra'].iteritems():
+                    cf.set(meter_path, k, v)
+
 
     cf.write(sys.stdout)
 #     else:

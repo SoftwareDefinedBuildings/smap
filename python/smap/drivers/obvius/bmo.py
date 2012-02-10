@@ -1,9 +1,11 @@
 
 import sys
 
+import re
 import csv
 import urllib
 import datetime, time
+import traceback
 
 import sensordb
 import auth
@@ -22,11 +24,14 @@ TIMEFMT = "%Y-%m-%d %H:%M:%S"
 
 # to prevent killing their db, we make all driver instances acquire
 # this semaphore before trying to download data
-active_reads = DeferredSemaphore(3)
+try:
+    active_reads
+except NameError:
+    active_reads = DeferredSemaphore(3)
 
-def make_field_idxs(type, header):
+def make_field_idxs(type, header, location=None):
     paths = [None]
-    map_ = sensordb.get_map(type)
+    map_ = sensordb.get_map(type, header=header, location=location)
     for t in header[1:]:
         paths.append(None)
         for channel in map_['sensors'] + map_['meters']:
@@ -44,28 +49,23 @@ def make_field_idxs(type, header):
             print header
             print paths
             print ddups
-    return paths
+    return paths, map_
 
 class BMOLoader(smap.driver.SmapDriver):
     def setup(self, opts):
         self.url = opts['Url']
         self.meter_type = opts['Metadata/Instrument/Model']
+        self.location = opts.get('Metadata/Location/Building', None)
         self.rate = int(opts.get('Rate', 3600))
         self.running = False
 
-        if not sensordb.get_map(self.meter_type):
-            raise SmapLoadError(self.meter_type + " is not a known obvius meter type")
+#         if not sensordb.get_map(self.meter_type, ):
+#             raise SmapLoadError(self.meter_type + " is not a known obvius meter type")
         self.push_hist = dtutil.now() - datetime.timedelta(hours=1)
 
-        map_ = sensordb.get_map(self.meter_type)
+        self.added = False
         self.set_metadata('/', {
                 'Extra/Driver' : 'smap.drivers.obvius.bmo.BMOLoader' })
-        for channel in map_['sensors'] + map_['meters']:
-            self.add_timeseries('/%s/%s' % channel[2:4], channel[4], data_type='double')
-            self.set_metadata('/%s' % channel[2], {
-                    'Extra/Phase' : channel[2],
-                    'Extra/ChannelName' : channel[0],
-                    })
 
         print self.url, self.rate
 
@@ -131,8 +131,24 @@ class BMOLoader(smap.driver.SmapDriver):
         if len(header) == 0:
             print "Warning: no data from", self.url
             raise core.SmapException("no data!")
-        self.field_map = make_field_idxs(self.meter_type, header)
-        # print '\n'.join(map(str, (zip(header, field_map))))
+        try:
+            self.field_map, self.map = make_field_idxs(self.meter_type, header, 
+                                                       location=self.location)
+        except:
+            traceback.print_exc()
+
+        if not self.added:
+            self.added = True
+            for channel in self.map['sensors'] + self.map['meters']:
+                try:
+                    self.add_timeseries('/%s/%s' % channel[2:4], channel[4], data_type='double')
+                    self.set_metadata('/%s/%s' % channel[2:4], {
+                            'Extra/ChannelName' : re.sub('\(.*\)', '', channel[0]).strip(),
+                            })
+                    
+                except:
+                    traceback.print_exc()
+
 
     def process(self):
         readcnt = 0

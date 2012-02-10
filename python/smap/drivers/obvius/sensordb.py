@@ -2,6 +2,10 @@
 AcquiSuite tool.
 """
 
+import sys
+import re
+
+from smap import util
 MAYBEFLOATPAT = r'^(-?\d+(\.\d+)?)'
 
 """Format for the entries under 'sensors' and 'meters' is a 5-tuple consisting of:
@@ -120,19 +124,6 @@ DB = [
             ('Electric Main #2 (#...378) (kWh)', r'^(\d)+', 'electric_2', 'true_energy_received', 'kWh'),
             ('Electric Main #2 (#...378) Demand (kW)', r'^(\d)+', 'electric_2', 'real_power', 'kW'),
             
-            ],
-        'sensors' : []
-        },
-    {
-        'obviusname' : 'Obvius, A8812, Internal I/O',
-        'locations' : ['Soda Hall New (as of 1/12/12)'],
-        'meters' : [
-            ('Steam (Lbs)', r'^(\d)+', 'steam', 'total', 'Lbs'),
-            ('Steam Instantaneous', r'^(\d)+', 'steam', 'rate', 'Lbs/hr'),
-            ('Electric Main#1 (#...213) (kWh)', r'^(\d)+', 'electric_1', 'true_energy_received', 'kWh'),
-            ('Electric Main#1 (#...213) Demand (kW)', r'^(\d)+', 'electric_1', 'real_power', 'kW'),
-            ('Electric Main#2 (#...378) (kWh)', r'^(\d)+', 'electric_2', 'true_energy_received', 'kWh'),
-            ('Electric Main#2 (#...378) Demand (kW)', r'^(\d)+', 'electric_2', 'real_power', 'kW'),
             ],
         'sensors' : []
         },
@@ -271,13 +262,62 @@ DB = [
 #             ('Demand C (kW)', MAYBEFLOATPAT, 'ABC', '', '') 
             ],
         "meters" : [],
+        "extra" : {
+            "Rate": 300
+            }
         }
     ]
 
+unit_replace = [
+    ("^[kK][wW][hH]", "kWh"),
+    ("^[Ll]bs\.?", "lbs"),
+    ("^lb[^s ]", "lbs"),
+    ("^Pounds", "lbs"),
+    (" per ", "/"),
+    ("minute", "min"),
+    ("^[cC]ubic [fF]t", "ft3"),
+    ("^CFm$", "ft3/min"),
+    ("^CF$", "ft3"),
+    ("^Cub feet", "ft3"),
+    ("^[Gg]al", "Gal"),
+    ("^[Gg]allons", "Gal"),
+#    ("^[Gg]pm", "Gal/min"),
+    ("^[cC][fF]", "CF"),
+    ]    
+
+def guess_conf(type, location, header):
+    print >>sys.stderr, "l", location, "t", type
+    if type.startswith("Obvius, A8812"):
+        conf = { "sensors" : [],  "meters" : [], "extra" : {"Rate": 300} }
+        if header:
+            # make a guessed config based on the header
+            for col in header:
+                m = re.match("^(.*)\((.*)\)$", col)
+                if m:
+                    name, unit = m.groups(0)
+                    for pat, rep in unit_replace:
+                        unit = re.sub(pat, rep, unit)
+                    name = name.strip()
+                    if name.endswith("Min") or \
+                            name.endswith("Max") or \
+                            name.startswith("time"): 
+                        continue
+                    print "%s ... %s ... %s" % (col, name, unit)
+                    conf["sensors"].append((col, MAYBEFLOATPAT, "", util.str_path(name), unit))
+        return conf
+#     elif type.startswith("AcquiSuite 8811-1"):
+#         if not header: return True
+#         print header
+#     elif type.startswith("Obvius, ModHopper, R9120"):
+#         if not header: return True
+#         print header
+    return None
+
 TYPES = [x['obviusname'] for x in DB]
-def get_map(type, location=None):
+def get_map(type, location=None, header=None):
     for m in DB:
         if type.startswith(m['obviusname']) and ( \
             location == None or not 'locations' in m or location in m['locations']):
             return m
-    return None
+    return guess_conf(type, location, header)
+
