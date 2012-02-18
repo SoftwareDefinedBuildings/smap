@@ -1,5 +1,36 @@
 #!/usr/bin/python
 # -*- python -*-
 
+import sys
 import uuid
-print uuid.uuid1()
+from optparse import OptionParser
+
+usage = "usage: %prog [options] [namespace names ...]"
+parser = OptionParser(usage=usage)
+parser.add_option('-t', '--type', dest="type",
+                  default="1", help="UUID generation algorithm.  "
+                  "1: host id/time. 3: MD5 hash. 4: random. 5: SHA-1 hash.")
+opts, args = parser.parse_args()
+
+if opts.type == "1":
+    print uuid.uuid1()
+elif opts.type == "4":
+    print uuid.uuid4()
+elif opts.type == "3" or opts.type == "5":
+    if len(args) < 2:
+        print >>sys.stderr, "error: type %s uuid requires namespace and name arguments" % opts.type
+        sys.exit(1)
+    if opts.type == "3": uuidfn = uuid.uuid3
+    else: uuidfn = uuid.uuid5
+
+    try:
+        ns = uuid.UUID(args[0])
+    except ValueError:
+        print >>sys.stderr, "error: invalid namespace (must be uuid): ", args[0]
+        sys.exit(2)
+
+    for name in args[1:]:
+        print str(uuidfn(ns, name))
+else:
+    print >>sys.stderr, "error: invalid uuid type:", opts.type
+    sys.exit(3)
