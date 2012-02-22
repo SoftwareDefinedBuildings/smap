@@ -1,8 +1,44 @@
 
 import pycurl
 import cStringIO as StringIO
+import time
+from threading import Thread
+from Queue import Queue
 
 from smap.util import json_decode
+
+class ParserThread(Thread):
+    """Parse the http results in parallel with getting them from the server
+    """
+    def __init__(self, parser):
+        self.parser = parser
+        self.q = Queue()
+        self.ptime = 0
+        self.rawlength = 0
+        Thread.__init__(self)
+    
+    def run(self):
+        self.result = []
+        while True:
+            next = self.q.get(True)
+            if next == None: break
+            (url, item) = next
+            # print "parsing result for", url
+            item.seek(0)
+            tic = time.time()
+            val = self.parser(item.read())
+            self.ptime += (time.time() - tic)
+            self.rawlength += item.tell()
+
+            self.result.append((url, val))
+
+    def add(self, url, pval):
+        self.q.put_nowait((url, pval))
+
+    def finish(self):
+        self.q.put_nowait(None)
+        self.join()
+        return self.result
 
 def mkrequest(c, spec):
     c.url = spec
@@ -18,6 +54,10 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
 
     Based on retriever-multi.py.
     """
+    tic = time.time()
+    parser_thread = ParserThread(parser)
+    parser_thread.start()
+
     rv = []
     m = pycurl.CurlMulti()
     m.handles = []
@@ -49,7 +89,7 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
             num_q, ok_list, err_list = m.info_read()
             for c in ok_list:
                 # print "Success:", c.url, c.getinfo(pycurl.EFFECTIVE_URL)
-                rv.append((c.url, c.body))
+                parser_thread.add(c.url, c.body)
                 c.fp = None
                 c.body = None
                 m.remove_handle(c)
@@ -69,8 +109,13 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
     for c in m.handles:
         c.close()
     m.close()
+    dlend = time.time()
 
-    map(lambda (_, x): x.seek(0), rv)
-    rv = map(lambda (u, x): (u, parser(x.read())), rv)
+    rv = parser_thread.finish()
+    total = sum(map(lambda x: len(x[1][0]['Readings']), rv))
+    toc = time.time()
+    print """downloaded %i points (%ib, %iB/s) from %i streams in %.03fs (download: %.03fs, parse: %03fs)""" % \
+        (total, parser_thread.rawlength, 
+         parser_thread.rawlength / (dlend - tic),
+         len(rv), toc - tic, dlend - tic, parser_thread.ptime)
     return rv
-    
