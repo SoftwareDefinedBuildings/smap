@@ -61,7 +61,6 @@ class OrderOperator(Operator):
         Operator.__init__(self, inputs, OP_N_TO_N)
         self.reorder = map(operator.itemgetter(0),
             sorted(enumerate(inputs), key=lambda x: x[1][order_tag]))
-        print self.reorder
 
     def process(self, inputs):
         # apply the operator to the reordered inputs
@@ -147,7 +146,7 @@ class SumOperator(CompositionOperator):
 
     def __init__(self, inputs, windowsz=300, delay=1.0, data_fraction=0.9):
         self.name = 'sum-%i' % windowsz
-        self.oplist = [
+        self.oplist = [            
             StandardizeUnitsOperator,
 
             lambda inputs: GroupbyTimeOperator(inputs,
@@ -156,6 +155,9 @@ class SumOperator(CompositionOperator):
                                                chunk_delay=delay),
 
             lambda inputs: o._MissingDataOperator(inputs, data_fraction),
+
+            # gotta fix them units before we add
+            StandardizeUnitsOperator,
 
             # then take the mean across all feeds
             _SumOperator,
@@ -170,7 +172,7 @@ class SumOperator(CompositionOperator):
 class SubtractOperator(CompositionOperator):
     """Compute the mean of differences of streams
     """
-    name = "difference-mean"
+    name = "subtract"
     def __init__(self, inputs, inner_order=None, windowsz=300):
         self.oplist = [
             lambda inputs: GroupbyTimeOperator(inputs, 
@@ -178,7 +180,8 @@ class SubtractOperator(CompositionOperator):
                                                chunk_length=windowsz),
             lambda inputs: OrderOperator(inputs, inner_order),
             _SubtractOperator,
-            lambda inputs: SnapTimes(inputs, windowsz)
+            lambda inputs: SnapTimes(inputs, windowsz),
+            # PrintOperator,
             ]
         CompositionOperator.__init__(self, inputs)
 
@@ -187,14 +190,14 @@ class WindowedDriver(GroupedOperatorDriver):
         ('Window', 'windowsz', 300, int, True),
         ('Delay', 'delay', None, float, False),
         ('DataFraction', 'data_fraction', None, float, False),
-        ('OrderKey', 'inner_order', 'Path', str, True),
+        ('OrderKey', 'inner_order', None, str, False),
         )
 
     def setup(self, opts):
         kwargs = {}
         for arg in self.INIT_ARGS:
             name, argname, default, cvtr, mandatory = arg
-            if manditory or name in opts:
+            if mandatory or name in opts:
                 val = opts.get(name, default)
                 kwargs[argname] = cvtr(val)
 
