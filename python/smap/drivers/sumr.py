@@ -23,6 +23,11 @@ joinedsum = lambda input: joinedop(np.nansum, input)
 joinedmean = lambda input: joinedop(nanmean, input)
 joinedmedian = lambda input: joinedop(np.median, input)
 
+def joinedsub(inputs):
+    assert len(inputs) == 2
+    vals = np.subtract(*map(lambda x: x[:,1], inputs))
+    return [np.dstack((inputs[0][:,0], vals))[0]]
+    
 ##
 ## Buffering operators. BufferedJoinOperator and LatestOperator are
 ## often placed at the head of the processing chain, so later
@@ -46,18 +51,22 @@ class _SumOperator(Operator):
     name = 'sum'
     process = staticmethod(joinedsum)
 
-class OrderedOperator(Operator):
-    def __init__(self, inputs, order_tag, op="np.subtract"):
+class _SubtractOperator(Operator):
+    name = 'subtract'
+    process = staticmethod(joinedsub)
+
+class OrderOperator(Operator):
+    def __init__(self, inputs, order_tag):
         self.name = 'order-by-%s' % order_tag
-        Operator.__init__(self, inputs, OP_N_TO_1)
+        Operator.__init__(self, inputs, OP_N_TO_N)
         self.reorder = map(operator.itemgetter(0),
             sorted(enumerate(inputs), key=lambda x: x[1][order_tag]))
-        self.op = eval(op)
+        print self.reorder
 
     def process(self, inputs):
         # apply the operator to the reordered inputs
-        v = self.op(*map(lambda x: inputs[x][:, 1], self.reorder))
-        return [np.dstack((inputs[0][:,0], v))[0]]
+        return map(lambda x: inputs[x], self.reorder)
+
 
 ##
 ## Subsampling operators
@@ -74,7 +83,6 @@ class SubsampledSumOperator(CompositionOperator):
         self.windowsz = windowsz
         self.oplist = [
             StandardizeUnitsOperator,
-##            PrintOperator,
             lambda inputs: SubsampleOperator(inputs, self.windowsz),
             BufferedJoinOperator,
             _SumOperator]
@@ -159,33 +167,39 @@ class SumOperator(CompositionOperator):
         CompositionOperator.__init__(self, inputs)
         
 
-class DifferenceMeanOperator(CompositionOperator):
+class SubtractOperator(CompositionOperator):
     """Compute the mean of differences of streams
     """
     name = "difference-mean"
-    def __init__(self, inputs, inner_order, windowsz=300):
+    def __init__(self, inputs, inner_order=None, windowsz=300):
         self.oplist = [
             lambda inputs: GroupbyTimeOperator(inputs, 
                                                _MeanVectorOperator,
                                                chunk_length=windowsz),
-            lambda inputs: OrderedOperator(inputs, inner_order),
-            _MeanOperator,
-            lambda inputs: SnapTimes(self, inputs)
+            lambda inputs: OrderOperator(inputs, inner_order),
+            _SubtractOperator,
+            lambda inputs: SnapTimes(inputs, windowsz)
             ]
         CompositionOperator.__init__(self, inputs)
 
 class WindowedDriver(GroupedOperatorDriver):
+    INIT_ARGS = (
+        ('Window', 'windowsz', 300, int, True),
+        ('Delay', 'delay', None, float, False),
+        ('DataFraction', 'data_fraction', None, float, False),
+        ('OrderKey', 'inner_order', 'Path', str, True),
+        )
+
     def setup(self, opts):
-        windowsz = int(opts.get("Window", 300))
-        delay = opts.get("Delay", None)
-        datafrac = opts.get("DataFraction", None)
-        kwargs = {'windowsz': windowsz}
-        if delay: kwargs['delay'] = float(delay)
-        if datafrac: kwargs['data_fraction'] = float(datafrac)
+        kwargs = {}
+        for arg in self.INIT_ARGS:
+            name, argname, default, cvtr, mandatory = arg
+            if manditory or name in opts:
+                val = opts.get(name, default)
+                kwargs[argname] = cvtr(val)
 
         self.operator_class = (lambda x: self.inner_operator(x, **kwargs))
         GroupedOperatorDriver.setup(self, opts)
-
 
 class DefaultSummationDriver(WindowedDriver):
     inner_operator = SubsampledSumOperator
@@ -195,12 +209,15 @@ class MissingSummationDriver(WindowedDriver):
 
 class SubsampleMeanDriver(WindowedDriver):
     inner_operator = SubsampleMeanOperator
-        
+
 class MeanDriver(WindowedDriver):
     inner_operator = MeanOperator
 
 class SumDriver(WindowedDriver):
     inner_operator = SumOperator
+
+class SubtractDriver(WindowedDriver):
+    inner_operator = SubtractOperator
 
 if __name__ == '__main__':
     ip = [{
@@ -209,8 +226,10 @@ if __name__ == '__main__':
             },
           {
             'uuid' : '7f2fef2c-44a9-11e1-afa5-00508dca5a06',
-            'tag' : 'goo',
+            'tag' : 'boo',
             }]
     
-    o = OrderedArithmeticOperator(ip, 'tag')
-    o([np.array([[0, 1], [1, 2]]), np.array([[0, 2], [1, 3]])])
+    # o = OrderedArithmeticOperator(ip, 'tag')
+    o = SubtractOperator(ip, 'tag')
+    print o([np.array([[0, 1], [600, 2]]), 
+             np.array([[0, 2], [600, 3]])])
