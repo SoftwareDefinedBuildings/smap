@@ -6,6 +6,7 @@ from scipy.stats import nanmean
 from smap.core import SmapException
 from smap.archiver.client import SmapClient
 from smap.operators import *
+from smap import util
 import smap.operators as o
 
 def _mean(vec):
@@ -173,6 +174,10 @@ class SubtractOperator(CompositionOperator):
     """Compute the mean of differences of streams
     """
     name = "subtract"
+    operator_name = 'subtract'
+    operator_constructors = [(str,),
+                             (str, int)]
+
     def __init__(self, inputs, inner_order=None, windowsz=300):
         self.oplist = [
             lambda inputs: GroupbyTimeOperator(inputs, 

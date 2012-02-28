@@ -33,6 +33,9 @@ def get_operator(name, args):
 
     :raises: ParseException if it can't match the operator
     """
+    groups = filter(lambda x: type(x) == type('') and x[0] == '$', args)
+    args = filter(lambda x: type(x) != type('') or x[0] != '$', args)
+
     if not name in installed_ops:
         raise qg.QueryException("No such operator: " + name)
     if len(args) == 0:
@@ -49,7 +52,7 @@ def get_operator(name, args):
         raise qg.QueryException("No valid constructor for operator %s: %s" % 
                                 (name, str(args)))
 
-def make_applicator(ops, (extractor, sql)):
+def make_applicator(ops, group=None):
     class _TmpOp(operators.CompositionOperator):
         oplist = ops
 
@@ -60,23 +63,22 @@ def make_applicator(ops, (extractor, sql)):
         return util.build_recursive(obj, suppress=[])
 
     def apply_op(data):
-        opmeta = [{'uuid': x['uuid'],
-                   'Properties/UnitofMeasure': ''} for x in data]
-        opdata = [np.array(x['Readings']) if len(x['Readings']) else operators.nulla
-                  for x in data]
+        opmeta = data[0][1]
+        opdata = [np.array(x['Readings']) if len(x['Readings']) else operators.null
+                  for x in data[1][1]]
+        opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
 
         # build and apply the operator
-        op = _TmpOp(opmeta)
+        if group and len(group):
+            print "making groups"
+            op = operators.GroupByTagOperator(opmeta, _TmpOp, group[0])
+        else:
+            op = _TmpOp(opmeta)
         redata = op.process(opdata)
 
         # construct a return value with metadata and data merged
         return map(build_result, zip(redata, op.outputs))
 
-    def applicator(*args):
-        d = extractor(*args)
-        d.addCallback(apply_op)
-        return d
-
-    return applicator, sql
+    return apply_op
     
 discover()

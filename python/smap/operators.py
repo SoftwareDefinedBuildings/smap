@@ -4,6 +4,7 @@ import shelve
 import operator
 import datetime
 import copy
+import itertools
 
 import numpy as np
 
@@ -39,7 +40,6 @@ class Operator:
         self._has_pending = False
         self._pending = [null] * len(inputs)
 
-        #print "i1", inputs
         uuids = map(operator.itemgetter('uuid'), inputs)
 
         # auto-construct output ids if requested
@@ -54,9 +54,7 @@ class Operator:
                                         map(uuid.UUID, uuids))):
                 self.outputs[i]['uuid'] = uid
         else:
-            #print "custom outputs"
             self.outputs = copy.deepcopy(outputs)
-        #print "outputs", self.outputs
 
     def index(self, streamid):
         for i in xrange(0, len(self.inputs)):
@@ -84,9 +82,10 @@ class Operator:
 :return list: a list of (timestamp, value)  """
         raise NotImplementedError()
 
-    def _push(self, stream, data):
+    def _push(self, stream, data, stream_idx=None):
         """Insert data for a single stream"""
-        self._pending[self.index(stream)] = data
+        if not stream_idx: stream_idx = self.index(stream) 
+        self._pending[stream_idx] = data
         self._has_pending = True
 
     def _process(self):
@@ -297,19 +296,10 @@ class GroupedOperatorDriver(OperatorDriver):
         # instantiate one operator per group with the appropriate inputs
         for group, tags in groupitems.iteritems():
             inputs = map(operator.itemgetter('uuid'), tags)
-            # units = set(map(operator.itemgetter('Properties/UnitofMeasure'), tags))
-            # print group, inputs
-            # if len(units) != 1:
-            #     raise SmapException("Group units differ in group %s: %s" % (
-            #             group, str(units)))
-
-            #print tags
-            #print inputs
             op = self.operator_class(tags)
-            #print op.inputs
             path = '/' + util.str_path(group)
-            #print tags[0]
             self.add_operator(path, op)
+
 
 ##############################################################################
 ##
@@ -428,7 +418,7 @@ class GroupbyTimeOperator(Operator):
     name = "latest buffer operator"
     def __init__(self, inputs, 
                  group_operator,
-                 chunk_length=10, 
+                 chunk_length=10,
                  chunk_delay=1):
         self.bucket_op = group_operator(inputs)
         Operator.__init__(self, inputs, outputs=self.bucket_op.outputs)
@@ -474,6 +464,35 @@ class GroupbyTimeOperator(Operator):
                            if len(x) else null, 
                            self.pending)
         return rv
+
+class GroupByTagOperator(Operator):
+    def __init__(self, inputs, group_operator, group_tag):
+        groups = [None]
+        self.group_idx = [[]]
+        group_inputs = [[]]
+        # compute 
+        for i, s in enumerate(inputs):
+            if not s.get(group_tag, None) in groups:
+                groups.append(s[group_tag])
+                self.group_idx.append(list())
+                group_inputs.append(list())
+
+            g_idx = groups.index(s.get(group_tag, None))
+            group_inputs[g_idx].append(s)
+            self.group_idx[g_idx].append(i)
+
+        self.operators = [group_operator(x) for x in group_inputs]
+        Operator.__init__(self, inputs, 
+                          outputs=util.flatten(map(operator.attrgetter('outputs'), 
+                                                   self.operators)))
+
+    def process(self, data):
+        rv = [[]] * len(self.operators)
+        for i, op in enumerate(self.operators):
+            print i
+            input_data = [data[j] for j in self.group_idx[i]]
+            rv[i] = self.operators[i](input_data)
+        return util.flatten(rv)
 
 class BufferedJoinOperator(Operator):
     """This operator takes an arbitrary number of streams as input,
@@ -602,6 +621,17 @@ class DatetimeOperator(ParallelSimpleOperator):
         ParallelSimpleOperator.__init__(self, inputs)
 
     def _base_operator(self, vec):
-        # print vec
         return zip(map(lambda x: dtutil.ts2dt(x).astimezone(self.tz), 
                        map(int, vec[:,0].astype(np.int))), vec[:, 1])
+
+
+if __name__ == '__main__':
+    from smap.drivers.sumr import SubtractOperator
+    c = SmapClient()
+    q = 'Metadata/Extra/Type = "room temperature" or Metadata/Extra/Type = "room setpoint"'
+    inputs = c.tags(q)
+    op = GroupByTagOperator(inputs, lambda x: SubtractOperator(x, 'Metadata/Extra/Type', 300000), 'Metadata/Extra/Vav')
+
+    data = c.latest(q, streamlimit=1000, limit = 500)
+    data = [np.array(x['Readings']) for x in data]
+    print op(data)

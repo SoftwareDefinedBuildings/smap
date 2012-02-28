@@ -110,6 +110,11 @@ def dict_all(dlist):
                 del keys[k]
     return dict(((k, dlist[0][k]) for k in keys.iterkeys()))
     
+def flatten(lst):
+    rv = []
+    for l in lst:
+        rv.extend(l)
+    return rv
 
 class FixedSizeList(list):
     """

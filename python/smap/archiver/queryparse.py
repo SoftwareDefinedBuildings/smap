@@ -78,7 +78,7 @@ def t_QSTRING(t):
 t_EQ = r'='
 
 def t_LVALUE(t):
-    r'[a-zA-Z\~][a-zA-Z0-9\/\%_\-]*'
+    r'[a-zA-Z\~\$][a-zA-Z0-9\/\%_\-]*'
     t.type = reserved.get(t.value, 'LVALUE')
     return t
 
@@ -144,7 +144,7 @@ def p_query(t):
              | SET set_list WHERE statement
              | APPLY apply_statement
              '''
-    if t[1] == 'select':
+    if t[1] == 'select': 
         if len(t) == 5:
             t[0] = make_select_rv(t, t[2], t[4])
         elif len(t) == 3:
@@ -193,27 +193,23 @@ def p_query(t):
              qg.normalize(t[4]).render(),
              qg.build_authcheck(t.parser.request, forceprivate=True))
     elif t[1] == 'apply':
-        t[0] = None, None
+        t[0] = t[2]
 
-
-#                         | apply_clause TO data_clause WHERE statement_as_list JOIN ON tag_list
-#                         | apply_clause TO data_clause WHERE statement_as_list JOIN ON tag_list GROUP BY tag_list 
 def p_apply_statement(t):
     """apply_statement  : apply_clause TO data_clause WHERE statement_as_list
                         | apply_clause TO data_clause WHERE statement_as_list GROUP BY tag_list
     """
-    tags = set.union(*map(lambda x: x.required_tags, t[1]))
-    tags = set.union(tags, *map(lambda x: x.optional_tags, t[1]))
-    if len(t) > 6:
-        tags = set.union(tags, t[8])
-    if len(t) > 9:
-        tags = set.union(tags, t[11])
+    if len(t[5]) != 1:
+        raise Exception("Only one group supported now...")
 
-    print t[5]
-    selects = map(lambda x: make_select_rv(t, make_tag_select(list(tags)), x[1]), 
-                  t[5])
-    print selects
-    print t[1]
+    tag_extractor, tag_query = make_select_rv(t, make_tag_select('*'), t[5][0][1])
+    data_extractor, data_query = make_select_rv(t, t[3], t[5][0][1])
+
+    if len(t) > 7: group = t[8]
+    else: group = None
+    app = stream.make_applicator(t[1], group=group)
+
+    t[0] = [app, tag_extractor, data_extractor], [None, tag_query, data_query]
 
 def make_tag_select(taglist):
     select = "s.uuid, m.tagname, m.tagval"
@@ -435,20 +431,34 @@ class QueryParser:
 
     def runquery(self, db, s, run=True, verbose=False):
         ext, q = self.parse(s)
+        if not isinstance(q, list):
+            q = [None, q]
+            ext = [None, ext]
 
         if verbose: print q
         if not run: return defer.succeed([])
         
-        if not ext:
-            d = db.runOperation(q)
-            d.addCallback(lambda: [])
-        else:
-            d = db.runQuery(q)
-            d.addCallback(ext)
-
         def eb(error):
             print error
-        d.addErrback(eb)
+        deferreds = []
+
+        for ext_, q_ in zip(ext[1:], q[1:]):
+            if not ext_:
+                d = db.runOperation(q_)
+                d.addCallback(lambda: [])
+            else:
+                d = db.runQuery(q_)
+                d.addCallback(ext_)
+
+            d.addErrback(eb)
+            deferreds.append(d)
+
+        if len(deferreds) > 0:
+            d = defer.DeferredList(deferreds)
+            if ext[0]:
+                d.addCallback(ext[0])
+        else:
+            d = deferreds[0]
 
         return d
 
