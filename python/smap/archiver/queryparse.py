@@ -453,7 +453,7 @@ class QueryParser:
             d.addErrback(eb)
             deferreds.append(d)
 
-        if len(deferreds) > 0:
+        if len(deferreds) > 1:
             d = defer.DeferredList(deferreds)
             if ext[0]:
                 d.addCallback(ext[0])

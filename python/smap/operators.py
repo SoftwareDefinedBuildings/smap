@@ -489,7 +489,6 @@ class GroupByTagOperator(Operator):
     def process(self, data):
         rv = [[]] * len(self.operators)
         for i, op in enumerate(self.operators):
-            print i
             input_data = [data[j] for j in self.group_idx[i]]
             rv[i] = self.operators[i](input_data)
         return util.flatten(rv)

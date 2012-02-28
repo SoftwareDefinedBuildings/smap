@@ -59,18 +59,22 @@ def make_applicator(ops, group=None):
     def build_result((d, s)):
         obj = dict(s)
         d[:,0] = np.int_(d[:, 0])
+        d[:,0] *= 1000
         obj['Readings'] = d.tolist()
         return util.build_recursive(obj, suppress=[])
 
     def apply_op(data):
         opmeta = data[0][1]
-        opdata = [np.array(x['Readings']) if len(x['Readings']) else operators.null
-                  for x in data[1][1]]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
+
+        opdata = [operators.null] * len(data[1][1])
+        for i, v in enumerate(data[1][1]):
+            if len(v['Readings']):
+                opdata[i] = np.array(v['Readings'])
+                opdata[i][:, 0] /= 1000
 
         # build and apply the operator
         if group and len(group):
-            print "making groups"
             op = operators.GroupByTagOperator(opmeta, _TmpOp, group[0])
         else:
             op = _TmpOp(opmeta)
