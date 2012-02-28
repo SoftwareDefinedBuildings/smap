@@ -2,6 +2,7 @@
 import uuid
 import datetime
 import time
+import sys
 from twisted.internet import reactor, threads, defer
 from zope.interface import implements
 
@@ -17,8 +18,6 @@ class SmapDriver:
     # drivers
     implements(ISmapInstance)
     load_chunk_size = datetime.timedelta(days=1)
-    # Dict of modules that can be loaded without calling __import__, used for py2exe
-    modules = None
 
     @classmethod
     def get_driver(cls, inst, name, attach_point, namespace):
@@ -29,13 +28,10 @@ class SmapDriver:
         assert len(cmps) > 1
         (mod_name, class_name) = ('.'.join(cmps[:-1]), cmps[-1])
 
-        if SmapDriver.modules:
-          if mod_name in SmapDriver.modules:
-            mod = SmapDriver.modules[mod_name]
-          else:
-            raise Exception('Module %s not found in %s' % (mod_name, SmapDriver.modules.keys()))
+        if mod_name in sys.modules:
+            mod = sys.modules[mod_name]
         else:
-          mod = __import__(mod_name, globals(), locals(), [class_name]) 
+            mod = __import__(mod_name, globals(), locals(), [class_name]) 
 
         klass = getattr(mod, class_name)
         driver = klass(inst, attach_point, namespace)
