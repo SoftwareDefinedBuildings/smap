@@ -440,7 +440,7 @@ class GroupbyTimeOperator(Operator):
                         self.pending))
         rv = [null] * len(self.outputs)
 
-        if np.isnan(startts) or np.isnan(endts):
+        if startts == np.inf or endts == 0:
             return rv
 
         startts = int(startts - (startts % self.chunk_length))
