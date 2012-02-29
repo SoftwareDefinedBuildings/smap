@@ -67,17 +67,22 @@ def make_applicator(ops, group=None):
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
 
-        opdata = [operators.null] * len(data[1][1])
-        for i, v in enumerate(data[1][1]):
-            if len(v['Readings']):
-                opdata[i] = np.array(v['Readings'])
-                opdata[i][:, 0] /= 1000
-
-        # build and apply the operator
+        # build the operator
         if group and len(group):
             op = operators.GroupByTagOperator(opmeta, _TmpOp, group[0])
         else:
             op = _TmpOp(opmeta)
+
+        # insert the data in the right index for the operator (it
+        # could come back in any order)
+        opdata = [operators.null] * len(data[1][1])
+        for v in data[1][1]:
+            if len(v['Readings']):
+                idx = op.index(v['uuid'])
+                opdata[idx] = np.array(v['Readings'])
+                opdata[idx][:, 0] /= 1000
+
+        # process
         redata = op.process(opdata)
 
         # construct a return value with metadata and data merged

@@ -67,6 +67,17 @@ class OrderOperator(Operator):
         # apply the operator to the reordered inputs
         return map(lambda x: inputs[x], self.reorder)
 
+class BucketOperator(GroupbyTimeOperator):
+    name = 'bucketed mean operator'
+    operator_name = 'bucket'
+    operator_constructors = [(),
+                             (int,),
+                             (int, float)]
+    def __init__(self, inputs, chunk_length=10, chunk_delay=1):
+        GroupbyTimeOperator.__init__(self, inputs,
+                                     _MeanVectorOperator, 
+                                     chunk_length, chunk_delay)
+
 
 ##
 ## Subsampling operators
@@ -143,11 +154,12 @@ class MeanOperator(CompositionOperator):
 class SumOperator(CompositionOperator):
     operator_name = 'sum'
     operator_constructors = [(),
-                             (int,)]
+                             (int,),
+                             (int, float, float)]
 
     def __init__(self, inputs, windowsz=300, delay=1.0, data_fraction=0.9):
         self.name = 'sum-%i' % windowsz
-        self.oplist = [            
+        self.oplist = [  
             StandardizeUnitsOperator,
 
             lambda inputs: GroupbyTimeOperator(inputs,

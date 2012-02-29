@@ -77,11 +77,13 @@ class _MeterSampler(ParallelSimpleOperator):
 class MeterSampler(CompositionOperator):
     name = "daily meter usage"
     chunksz = 60 * 15 
+    # operator_name = 'meter'
+    operator_constructors = [()]
+
     oplist = [
         lambda x: sumr.MissingSumOperator(x, MeterSampler.chunksz, 1.0),
         DatetimeOperator,
         _MeterSampler,
-        PrintOperator,
         ]
 #     def __init__(self, inputs, a2):
 #         # self.name = 'snaptimes-%i' % windowsz

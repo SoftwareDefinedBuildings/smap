@@ -385,6 +385,8 @@ class CompositionOperator(Operator):
         return reduce(lambda x, y: y(x), self.ops, data)
 
 class StandardizeUnitsOperator(Operator):
+    operator_name = 'units'
+    operator_constructors = [()]
     units = {
         'Watts' : ('kW', 0.001),
         }
@@ -428,12 +430,13 @@ class GroupbyTimeOperator(Operator):
 
     def process(self, input):
         # store the new data
+        # print "processing..."
         self.pending = _extend(self.pending, input)
 
         # apply the grouping operator to each window
-        startts = min(map(lambda x: np.min(x[:, 0]) if len(x) else np.nan,
+        startts = min(map(lambda x: np.min(x[:, 0]) if len(x) else np.inf,
                           self.pending))
-        endts = max(map(lambda x: np.max(x[:, 0]) if len(x) else np.nan, 
+        endts = max(map(lambda x: np.max(x[:, 0]) if len(x) else 0, 
                         self.pending))
         rv = [null] * len(self.outputs)
 
@@ -443,7 +446,7 @@ class GroupbyTimeOperator(Operator):
         startts = int(startts - (startts % self.chunk_length))
         endts = int((endts - (endts % self.chunk_length)) - \
                         (self.chunk_length * self.chunk_delay))
-
+ 
         # iterate over the groups
         for time in xrange(startts, endts, self.chunk_length):
             # print "group starting", time
@@ -481,13 +484,16 @@ class GroupByTagOperator(Operator):
             group_inputs[g_idx].append(s)
             self.group_idx[g_idx].append(i)
 
-        self.operators = [group_operator(x) for x in group_inputs]
+
+        self.operators = [group_operator(x) if len(x) else PrintOperator([])
+                          for x in group_inputs]
+
         Operator.__init__(self, inputs, 
                           outputs=util.flatten(map(operator.attrgetter('outputs'), 
                                                    self.operators)))
 
     def process(self, data):
-        rv = [[]] * len(self.operators)
+        rv = [[] for x in xrange(0, len(self.operators))]
         for i, op in enumerate(self.operators):
             input_data = [data[j] for j in self.group_idx[i]]
             rv[i] = self.operators[i](input_data)
@@ -605,6 +611,22 @@ class PrintOperator(Operator):
 
     def process(self, inputs):
         print inputs
+        return inputs
+
+class StripMetadata(Operator):
+    name = "strip_metadata"
+    operator_name = 'strip_metadata'
+    operator_constructors = [()]
+
+    def __init__(self, inputs):
+        outputs = [{} for x in xrange(0, len(inputs))]
+        for i, stream in enumerate(inputs):
+            for k, v in stream.iteritems():
+                if not k.startswith('Metadata/'):
+                    outputs[i][k] = v
+        Operator.__init__(self, inputs, outputs)
+
+    def process(self, inputs):
         return inputs
 
 class DatetimeOperator(ParallelSimpleOperator):

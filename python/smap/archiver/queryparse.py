@@ -5,6 +5,7 @@ import time
 from twisted.internet import defer
 
 from smap.util import build_recursive
+from smap.contrib import dtutil
 
 import querygen as qg
 from data import escape_string
@@ -84,12 +85,20 @@ def t_LVALUE(t):
 
 
 def t_NUMBER(t):
-    r'[0-9]+'
-    try:
-        t.value = int(t.value)
-    except ValueError:
-        print "Integer value too large %d", t.value
-        t.value = 0
+    r'([0-9]+)|([+-]?([0-9]*\.)?[0-9]+)'
+    if '.' in t.value:
+        try:
+            t.value = float(t.value)
+        except ValueError:
+            print "Invalid floating point number", t.value
+            t.value = 0
+    else:
+        try:
+            t.value = int(t.value)
+        except ValueError:
+            print "Integer value too large %d", t.value
+            t.value = 0
+        
     return t
 
 t_ignore = " \t"
@@ -120,6 +129,20 @@ def ext_plural(x):
             rv[uuid] = {'uuid' : uuid}
         rv[uuid][tagname] = tagval
     return map(lambda x: build_recursive(x, suppress=[]), rv.itervalues())
+
+TIMEZONE_PATTERNS = [
+    "%m/%d/%Y",
+    "%m/%d/%Y %M:%H",
+    "%Y-%m-%dT%H:%M:%S",
+    ]
+def parse_time(ts):
+    for pat in TIMEZONE_PATTERNS:
+        try:
+            dt = dtutil.strptime_tz(ts, pat)
+            return dtutil.dt2ts(dt) * 1000
+        except ValueError:
+            continue
+    raise ValueError("Invalid time string:" + ts)
 
 def make_select_rv(t, sqlsel, wherestmt=None):
     if wherestmt != None:
@@ -242,7 +265,7 @@ def p_selector(t):
         t[0] = make_tag_select(t[1])
 
 def p_data_clause(t):
-    '''data_clause : DATA IN LPAREN NUMBER COMMA NUMBER RPAREN limit
+    '''data_clause : DATA IN LPAREN timeref COMMA timeref RPAREN limit
                    | DATA BEFORE timeref limit
                    | DATA AFTER timeref limit'''
     if t[2] == 'in':
@@ -267,9 +290,12 @@ def p_data_clause(t):
 
 def p_timeref(t):
     '''timeref : NUMBER 
+               | QSTRING
                | NOW'''
     if t[1] == 'now':
-        t[0] = str(int(time.time()) * 1000)
+        t[0] = int(time.time()) * 1000
+    elif type(t[1]) == type(''):
+        t[0] = parse_time(t[1])
     else:
         t[0] = t[1]
 
