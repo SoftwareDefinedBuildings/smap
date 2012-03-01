@@ -471,7 +471,7 @@ class QueryParser:
         for ext_, q_ in zip(ext[1:], q[1:]):
             if not ext_:
                 d = db.runOperation(q_)
-                d.addCallback(lambda: [])
+                d.addCallback(lambda _: [])
             else:
                 d = db.runQuery(q_)
                 d.addCallback(ext_)

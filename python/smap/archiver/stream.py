@@ -66,6 +66,8 @@ def make_applicator(ops, group=None):
     def apply_op(data):
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
+        if not len(opmeta):
+            return []
 
         # build the operator
         if group and len(group):
