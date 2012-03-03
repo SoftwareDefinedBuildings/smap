@@ -85,9 +85,17 @@ contain a ``uuid`` key to set the root identifier for the source.
 :raise smap.loader.SmapLoadError: an error is encountered processing the file
 :raise smap.core.SmapError: some other error is encountered validating the loaded object 
     """
+    found = None
+    for l in ['', os.getcwd(), sys.prefix]:
+      path = os.path.join(l, file)
+      if os.path.isfile(path):
+        found = path
+    if not found:
+      raise Exception("Config file %s not found." % file)
+
     conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
     conf.optionxform = str
-    conf.read(file)
+    conf.readfp(open(found, 'r'))
 
     # if there's a server section, override the default server
     # configuration with that
