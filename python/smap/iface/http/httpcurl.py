@@ -1,4 +1,5 @@
 
+import sys
 import pycurl
 import cStringIO as StringIO
 import time
@@ -48,7 +49,7 @@ def mkrequest(c, spec):
     c.setopt(pycurl.WRITEFUNCTION, c.body.write)
     return c
 
-def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
+def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0, verbose=True):
     """get a list of urls, using a connection pool of up to nconn connections.
     apply "parser" to each of the results.
 
@@ -89,6 +90,7 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
             num_q, ok_list, err_list = m.info_read()
             for c in ok_list:
                 # print "Success:", c.url, c.getinfo(pycurl.EFFECTIVE_URL)
+                # print "Success:", c.url, c.getinfo(pycurl.EFFECTIVE_URL)
                 parser_thread.add(c.url, c.body)
                 c.fp = None
                 c.body = None
@@ -101,10 +103,13 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
                 freelist.append(c)
 
             num_processed += len(ok_list) + len(err_list)
+            if verbose:
+                print >>sys.stderr, str(num_processed) + '/' + str(num_urls) +  '\r'
             if num_q == 0:
                 break
 
         m.select(select_timeout)
+    print
 
     for c in m.handles:
         c.close()
@@ -112,10 +117,11 @@ def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0):
     dlend = time.time()
 
     rv = parser_thread.finish()
-    total = sum(map(lambda x: len(x[1][0]['Readings']), rv))
     toc = time.time()
-    print """downloaded %i points (%ib, %iB/s) from %i streams in %.03fs (download: %.03fs, parse: %03fs)""" % \
-        (total, parser_thread.rawlength, 
-         parser_thread.rawlength / (dlend - tic),
-         len(rv), toc - tic, dlend - tic, parser_thread.ptime)
+    print """downloaded %ib from %i urls in %.03fs (%.03fMB/s download: %.03fs, parse: %03fs)""" % \
+        (parser_thread.rawlength, 
+         
+         len(rv), toc - tic, 
+         float(parser_thread.rawlength) / ((dlend - tic) * 1e6),
+         dlend - tic, parser_thread.ptime)
     return rv

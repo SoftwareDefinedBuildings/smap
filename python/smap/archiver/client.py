@@ -98,6 +98,11 @@ the result.
             load_list.append([(fetch_start, fetch_end)])
             
         return load_list, map(operator.itemgetter(1), cached_data[1:-1])
+
+    @staticmethod
+    def _parser(data):
+        obj = util.json_decode(data)
+        return obj[0]['uuid'], np.array(obj[0]['Readings'])
         
     def data_uuid(self, uuids, start, end, cache=True):
         """Load a time range of data for a list of uuids
@@ -134,17 +139,17 @@ Attempts to use cached data and load missing data in parallel.
                     region.append(None)
 
         # load all of the missing chunks in parallel
-        newdata = dict(get(urls))
+        newdata = dict(get(urls, parser=self._parser, verbose=False))
 
         # insert all the new data and return the result
         rv = []
         for u in uuids:
             loaddata = []
             for range, url in data[u][0]:
-                if url != None and len(newdata[url][0]['Readings']) > 0:
-                    assert newdata[url][0]['uuid'] == u
-                    loaddata.append(np.array(newdata[url][0]['Readings']))
-                    print "downloaded", len(loaddata[-1])
+                if url != None and len(newdata[url][1]) > 0:
+                    assert newdata[url][0] == u
+                    loaddata.append(newdata[url][1])
+                    # print "downloaded", len(loaddata[-1])
 
                     if cache and range[0] < now:
                         c = tscache.TimeseriesCache(u)

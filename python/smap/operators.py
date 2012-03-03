@@ -117,7 +117,7 @@ class OperatorDriver(driver.SmapDriver):
     data, using `smap-load` to load source data and pipe it through
     operators.
     """
-    load_chunk_size = datetime.timedelta(days=1)
+    load_chunk_size = datetime.timedelta(hours=4)
 
     def add_operator(self, path, op):
         """Add an operator to the driver
@@ -155,8 +155,11 @@ class OperatorDriver(driver.SmapDriver):
             for path, op in oplist.itervalues():
                 op.reset()
 
-    def _data(self, data):
+    def _data(self, data, process=True):
         """Process incoming data by pushing it through the operators
+        
+        process: don't actually process the operators, just add the
+           pending data.
         """
         print "_data", len(data)
         for v in data.itervalues():
@@ -177,6 +180,8 @@ class OperatorDriver(driver.SmapDriver):
             for addpath, op in self.operators[source_id].itervalues():
                 op._push(source_id, data)
 
+        if not process: return
+
         for addpath, op in self.oplist:
             new = op._process()
             for newv in new[0]:
@@ -185,7 +190,7 @@ class OperatorDriver(driver.SmapDriver):
                 self._add(addpath, ts, v)
 
     def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
-        self.source_url = opts.get('SourceUrl', 'http://smote.cs.berkeley.edu:8079')
+        self.source_url = opts.get('SourceUrl', 'http://ar2.openbms.org:8079')
         if not raw:
             self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
         else:

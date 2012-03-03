@@ -14,9 +14,9 @@ from smap.contrib import dtutil
 def get_parser():
     usage = 'usage: %prog [options] conf-file <paths ...>'
     parser = OptionParser(usage=usage)
-    parser.add_option('-t', '--timefmt', dest='timefmt', default='%s',
+    parser.add_option('-t', '--timefmt', dest='timefmt', default='%m-%d-%Y',
                       type='str', 
-                      help='time format string for start and end ("%s")')
+                      help='time format string for start and end ("%m-%d-%Y")')
     parser.add_option('-s', '--start-time', dest='start_time', 
                       default=str(int(time.time()) - 3600), type='str',
                       help='start time of import (1 hour ago)')
@@ -59,12 +59,8 @@ if __name__ == '__main__':
             log.msg("Resetting driver")
             driver.reset()
 
-    if opts.timefmt != '%s':
-        st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
-        et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
-    else:
-        st = dtutil.ts2dt(int(opts.start_time))
-        et = dtutil.ts2dt(int(opts.end_time))
+    st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
+    et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
     print st, et
 
     dl = []
