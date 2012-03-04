@@ -35,6 +35,7 @@ for sf in SCHEMAS:
         try:
             path = os.path.join(d, 'schema', sf.lower() + '.av')
             obj = json.load(open(path, 'r'))
+            break
         except:
             pass
     if obj == None:
