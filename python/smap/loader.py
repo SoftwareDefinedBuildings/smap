@@ -92,6 +92,7 @@ contain a ``uuid`` key to set the root identifier for the source.
         found = path
     if not found:
       raise Exception("Config file %s not found." % file)
+    print "Loading config file:", found
 
     conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
     conf.optionxform = str
