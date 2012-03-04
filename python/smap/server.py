@@ -3,11 +3,12 @@
 When run as the main module, runs a sample server on port 8080
 """
 
-import sys
+import sys, os
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
 from twisted.internet import reactor, task, defer
 from twisted.python import log
+from twisted.python.logfile import LogFile
 
 import uuid
 import json
@@ -209,15 +210,23 @@ def getSite(inst):
     site = server.Site(root)
     return site
 
-def run(inst, port=None):
+def run(inst, port=None, logdir=None):
     """Start the ``twisted`` event loop, with an HTTP server.
 
 :param inst: a :py:class:`~smap.core.SmapInstance` which you want to server.
 :param int port: port to run on
 :rtype: none; this function does not return
     """
-    if not port: port = int(smapconf.SERVER['port'])
-    log.startLogging(sys.stdout)
+    if not port: port = int(smapconf.SERVER.get('port', 8085))
+    if not logdir: logdir = smapconf.SERVER.get('logdir', os.getcwd())
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
+    print "Logging to", logdir
+    print "Starting server on port", port    
+    # Allow 50 1MB files
+    observer = log.FileLogObserver(LogFile('sMAP.log', logdir, rotateLength=1000000, maxRotatedFiles=50))
+    log.startLogging(observer)
+    # Start server
     inst.start()
     reactor.listenTCP(port, getSite(inst))
     reactor.run()
