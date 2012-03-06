@@ -176,11 +176,11 @@ contain a ``uuid`` key to set the root identifier for the source.
             if inst.get_timeseries(s) != None:
                 c = inst.get_timeseries(s)
             else:   
-                    try:
-                       props['Properties']['UnitofMeasure']
-                       except KeyError:
-                       raise SmapLoadError("A Timeseries must have at least the Propertes/UnitofMeasure key")
-
+                try:
+                    props['Properties']['UnitofMeasure']
+                except KeyError:
+                    raise SmapLoadError("A Timeseries must have at least the Properites/UnitofMeasure key")
+                
                 # the Timeseries uses defaults if the conf file doesn't
                 # contain the right sections.
                 c = core.Timeseries(id, props['Properties']['UnitofMeasure'],
