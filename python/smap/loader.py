@@ -173,20 +173,23 @@ contain a ``uuid`` key to set the root identifier for the source.
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
         elif not conf.has_option(s, 'type') or conf.get(s, "type") == "Timeseries":
-            try:
-                props['Properties']['UnitofMeasure']
-            except KeyError:
-                raise SmapLoadError("A Timeseries must have at least the Propertes/UnitofMeasure key")
+            if inst.get_timeseries(s) != None:
+                c = inst.get_timeseries(s)
+            else:   
+                    try:
+                       props['Properties']['UnitofMeasure']
+                       except KeyError:
+                       raise SmapLoadError("A Timeseries must have at least the Propertes/UnitofMeasure key")
 
-            # the Timeseries uses defaults if the conf file doesn't
-            # contain the right sections.
-            c = core.Timeseries(id, props['Properties']['UnitofMeasure'],
-                                data_type=props['Properties'].get('ReadingType', 
-                                                                  core.Timeseries.DEFAULTS['Properties/ReadingType']),
-                                timezone=props['Properties'].get('Timezone', 
-                                                                 core.Timeseries.DEFAULTS['Properties/Timezone']),
-                                buffersz=int(props.get('BufferSize', core.Timeseries.DEFAULTS['BufferSize'])))
-            inst.add_timeseries(s, c)
+                # the Timeseries uses defaults if the conf file doesn't
+                # contain the right sections.
+                c = core.Timeseries(id, props['Properties']['UnitofMeasure'],
+                                    data_type=props['Properties'].get('ReadingType', 
+                                                                      core.Timeseries.DEFAULTS['Properties/ReadingType']),
+                                    timezone=props['Properties'].get('Timezone', 
+                                                                     core.Timeseries.DEFAULTS['Properties/Timezone']),
+                                    buffersz=int(props.get('BufferSize', core.Timeseries.DEFAULTS['BufferSize'])))
+                inst.add_timeseries(s, c)
         else:
             if not id:
                 raise SmapLoadError("A driver must have a key or uuid to generate a namespace")
