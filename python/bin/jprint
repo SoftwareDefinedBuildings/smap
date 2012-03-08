@@ -46,9 +46,18 @@ def pprint(obj):
 
 if len(sys.argv) > 1:
     for arg in sys.argv[1:]:
-        with open(arg, "r") as fp:
-            obj = json.load(fp)
-            pprint(obj)
+        try:
+            with open(arg, "r") as fp:
+                obj = json.load(fp)
+                pprint(obj)
+        except KeyboardInterrupt:
+            exit(1)
+        except Exception, e:
+            print e
+            sys.exit(1)
 else:
-    obj = json.load(sys.stdin)
-    pprint(obj)
+    try:
+        obj = json.load(sys.stdin)
+        pprint(obj)
+    except KeyboardInterrupt:
+        sys.exit(1)
