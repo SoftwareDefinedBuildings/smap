@@ -69,7 +69,7 @@ class SmapClient:
     """Blocking client class for the archiver API.
     """
     def __init__(self, base='http://new.openbms.org/backend', 
-                 key=None, private=False, timeout=5.0):
+                 key=None, private=False, timeout=50.0):
         self.base = base
         self.timeout = timeout
         self.key = key
@@ -105,6 +105,7 @@ the result.
 
     def tags(self, qbody, tags='*', nest=False):
         """Look up tags associated with a specific query body"""
+        print qbody
         tags = self.query('select %s where %s' % (tags, qbody))
         if not nest:
             return map(lambda t: dict(util.buildkv('', t)), tags)

@@ -39,6 +39,7 @@ import traceback
 import datetime
 
 import numpy as np
+from twisted.python import log
 
 from smap.archiver.client import SmapClient
 from smap.operators import *
@@ -131,11 +132,12 @@ class SubsampleDriver(OperatorDriver):
 
         We'll only find new streams on a restart ATM.
         """
-        self.restrict = opts.get("Restrict", 
-                                 "has Path and (not has Metadata/Extra/SourceStream)")
-        OperatorDriver.setup(self, opts, self.restrict, shelveoperators=False, raw=True)
+        restrict = opts.get("Restrict", 
+                            "has Path and (not has Metadata/Extra/SourceStream)")
+        OperatorDriver.setup(self, opts, shelveoperators=False, raw=True,
+                             inherit_metadata=False)
         client = SmapClient(smapconf.BACKEND)
-        source_ids = client.tags(self.restrict, 'uuid, Properties/UnitofMeasure')
+        source_ids = client.tags(restrict, 'uuid, Properties/UnitofMeasure')
         for new in source_ids:
             id = str(new['uuid'])
             if not 'Properties/UnitofMeasure' in new:
@@ -145,3 +147,4 @@ class SubsampleDriver(OperatorDriver):
                 self.add_operator('/%s/%s' % (id, o1.name), o1)
                 o2 = SubsampleOperator([new], 3600)
                 self.add_operator('/%s/%s' % (id, o2.name), o2)
+        log.msg("Done setting up subsample driver; " + str(len(source_ids)) + " ops")

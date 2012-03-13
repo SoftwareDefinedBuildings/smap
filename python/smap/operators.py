@@ -117,7 +117,7 @@ class OperatorDriver(driver.SmapDriver):
     data, using `smap-load` to load source data and pipe it through
     operators.
     """
-    load_chunk_size = datetime.timedelta(hours=4)
+    load_xsec_size = 200
 
     def add_operator(self, path, op):
         """Add an operator to the driver
@@ -134,12 +134,14 @@ class OperatorDriver(driver.SmapDriver):
         self.add_timeseries(path, opid, unit, 
                             data_type=op.data_type[0],
                             milliseconds=False)
+
         self.set_metadata(path, {
                 'Extra/SourceStream' : \
                     ','.join(map(operator.itemgetter('uuid'), op.inputs)),
                 'Extra/Operator' : str(op.name)
                 })
-        self.set_metadata(path, op.outputs[0])
+        if self.inherit_metadata:
+            self.set_metadata(path, op.outputs[0])
 
         for source in op.inputs:
             source = source['uuid']
@@ -155,20 +157,22 @@ class OperatorDriver(driver.SmapDriver):
             for path, op in oplist.itervalues():
                 op.reset()
 
-    def _data(self, data, process=True):
+    def _data(self, newdata, process=True):
         """Process incoming data by pushing it through the operators
         
         process: don't actually process the operators, just add the
            pending data.
         """
-        print "_data", len(data)
-        for v in data.itervalues():
+        print "_data", len(newdata)
+        pushlist = set([])
+        for v in newdata.itervalues():
             if not 'uuid' in v: 
                 continue
             source_id = str(v['uuid'])
             if not source_id in self.operators: 
                 continue
 
+            # prepare the data
             data = v['Readings']
             if not isinstance(data, np.ndarray):
                 data = np.array(data)
@@ -179,19 +183,22 @@ class OperatorDriver(driver.SmapDriver):
             # push all data through the appropriate operators
             for addpath, op in self.operators[source_id].itervalues():
                 op._push(source_id, data)
+                pushlist.add((addpath, op))
 
         if not process: return
 
-        for addpath, op in self.oplist:
+        for addpath, op in pushlist:
             new = op._process()
             for newv in new[0]:
                 ts, v = int(newv[0]), op.data_type[1](newv[1])
-                # print "adding", addpath, newv
                 self._add(addpath, ts, v)
 
-    def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
-        self.source_url = opts.get('SourceUrl', 'http://ar2.openbms.org:8079')
-        if not raw:
+    def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False,
+              inherit_metadata=True):
+        self.inherit_metadata = inherit_metadata
+        self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 4)))
+        self.source_url = opts.get('SourceUrl', 'http://ar1.openbms.org:8079')
+        if not raw and restrict:
             self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
         else:
             self.restrict = restrict
@@ -217,12 +224,14 @@ class OperatorDriver(driver.SmapDriver):
     def start(self):
         """Start receiving real-time data when used in daemon mode"""
         # set up clients to provide the data
-        self.client = RepublishClient(self.source_url, self._data, 
-                                      restrict=self.restrict)
-        self.client.connect()
-
-        # can have multiple sources
-        # RepublishClient('http://local.cs.berkeley.edu:8079', self.data).connect()
+        source = [
+            'http://ar1.openbms.org:8079',
+            'http://ar2.openbms.org:8079']
+        self.clients = []
+        for url in source:
+            self.clients.append(RepublishClient(url, self._data, 
+                                                restrict=self.restrict))
+            self.clients[-1].connect()
 
     def load(self, start_dt, end_dt, cache=True):
         """Load a range of time by pulling it from the database and
@@ -237,7 +246,10 @@ class OperatorDriver(driver.SmapDriver):
         if self.start_dt >= self.end_dt:
             return None
 
-        # pick a new window
+        self.load_offset = 0
+        return self.load_crossection()
+
+    def load_crossection(self, *args):
         start = self.start_dt
         end = self.start_dt + self.load_chunk_size
         if end > self.end_dt: end = self.end_dt
@@ -245,26 +257,36 @@ class OperatorDriver(driver.SmapDriver):
         start, end  = dtutil.dt2ts(start), \
             dtutil.dt2ts(end)
 
-        print "loading", self.start_dt, '-', self.end_dt
-        self.start_dt = self.start_dt + self.load_chunk_size
-        #print start, end
-        #print self.load_uids
+        print "loading", self.load_offset, self.start_dt, '-', self.end_dt
         d = threads.deferToThread(self.arclient.data_uuid, 
-                                  self.load_uids,
+                                  self.load_uids[self.load_offset:
+                                                     self.load_offset + 
+                                                 self.load_xsec_size],
                                   start, end, 
                                   self.cache)
-        d.addCallback(self.load_data)
-        d.addCallback(lambda _: self._flush())
-        d.addCallback(self.load_time_chunk)
+
+        d.addCallback(self.load_data, self.load_offset)
+        d.addCallback(lambda _: (self._flush(), None))
+
+        self.load_offset += self.load_xsec_size
+        if self.load_offset >= len(self.load_uids):
+            # pick a new window
+            self.start_dt += self.load_chunk_size
+            d.addCallback(self.load_time_chunk)
+        else:
+            d.addCallback(self.load_crossection)
         def err(e):
             print e
         d.addErrback(err)
+
         return d
 
-    def load_data(self, data):
+    def load_data(self, data, offset):
         dobj = dict((('/%s' % str(uid), {
                     'uuid' : str(uid), 
-                    'Readings' : dv}) for uid, dv in zip(self.load_uids, data)))
+                    'Readings' : dv}) for uid, dv in 
+                     zip(self.load_uids[offset:offset+self.load_xsec_size], 
+                         data)))
         self._data(dobj)
 
 
@@ -333,7 +355,7 @@ def join(inputs, last=None):
 
 class ParallelSimpleOperator(Operator):
     """Parent class for operators which can be applied separately to
-    each stream.  Create a classmethod called `base_operator` which
+    each stream.  Create a staticmethod called `base_operator` which
     performs the appropriate operation when called on a single stream
 
     Any keyword args will be passed to this classmethod on invocation;
@@ -563,7 +585,7 @@ def _subsample(vec, last=-1, bucketsz=5):
     if len(vec) == 0:
         return null, {'last' : last,
                       'bucketsz' : bucketsz}
-    
+
     # ignore data before "last"
     vec[:, 0] -= np.mod(vec[:,0], bucketsz)
     times = vec[:,0]

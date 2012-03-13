@@ -441,7 +441,8 @@ class Reporting:
     def _flush(self, force=False):
         """Send out json-packed report objects to registered listeners. 
         
-        :param boolean force: if True, ignore ``MinPeriod``/``MaxPeriod``.
+        :param boolean force: if True, ignore ``MinPeriod``/``MaxPeriod``
+         and force the reporting metadata to disk
         :rtype: a :py:class:`twisted.internet.task.DeferredList`
          instance which will fire when deliver to all subscribers has
          finished, or errBack when any fail
@@ -465,7 +466,7 @@ class Reporting:
 
         map(self.del_report, deleteList)
         d = defer.DeferredList(deferList, fireOnOneErrback=True, consumeErrors=True)
-        d.addBoth(self.save_reports)
+        if force: d.addBoth(self.save_reports)
         return d
 
     def flush(self):
