@@ -586,6 +586,7 @@ def _subsample(vec, last=-1, bucketsz=5):
         return null, {'last' : last,
                       'bucketsz' : bucketsz}
 
+    vec = np.copy(vec)
     # ignore data before "last"
     vec[:, 0] -= np.mod(vec[:,0], bucketsz)
     times = vec[:,0]
