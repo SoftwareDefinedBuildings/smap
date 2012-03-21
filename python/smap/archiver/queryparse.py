@@ -262,8 +262,8 @@ def p_apply_statement(t):
     if len(t) > 7: group = t[8]
     else: group = None
     app = stream.make_applicator(t[1], group=group)
-
     t[0] = [app, tag_extractor, data_extractor], [None, tag_query, data_query]
+
 
 def make_tag_select(taglist):
     select = "s.uuid, m.tagname, m.tagval"
@@ -315,9 +315,13 @@ def p_data_clause(t):
         limit = t[4]
         if limit[0] == None: limit[0] = 1
 
-    t[0] = ("distinct(s.uuid), s.id", "true", 
+    t[0] = ("distinct(s.uuid), s.id", "true",             
             lambda streams: extract_data(streams, method, start, end,
-                                         limit[0], limit[1]))
+                                         limit[0], limit[1]), {
+            'start' : start,
+            'end' : end,
+            'method' : method,
+            'limit' : limit })
 
 def p_timeref(t):
     '''timeref : NUMBER 

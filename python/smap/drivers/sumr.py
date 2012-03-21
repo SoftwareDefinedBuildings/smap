@@ -28,7 +28,36 @@ def joinedsub(inputs):
     assert len(inputs) == 2
     vals = np.subtract(*map(lambda x: x[:,1], inputs))
     return [np.dstack((inputs[0][:,0], vals))[0]]
-    
+
+def joinedewma(inputs, alpha=0.9, prev=None):
+    if len(inputs) == 0:
+        return null, {'alpha': alpha, 'prev': prev}
+
+    inputs = np.array(inputs, dtype=float)
+    if prev == None:
+        prev = inputs[0][1]
+
+    inputs[0][1] = alpha * prev + (1 - alpha) * inputs[0][1]
+    for i in xrange(1, len(inputs)):
+        inputs[i][1] = alpha * inputs[i - 1][1] + (1 - alpha) * inputs[i][1]
+
+    return inputs, {'alpha': alpha, 'prev': inputs[-1][1]}
+
+def joinedma(inputs, lag=10, hist=null):
+    inputs = np.array(inputs, dtype=float)
+    data = np.vstack((hist, inputs))
+
+    if len(data) < lag:
+        return null, {'hist': data, 'lag': lag}
+
+    # perform the windowed average using a convolution
+    w = np.ones(lag) / lag
+    avgs = np.convolve(w, data[:,1])[lag-1:-lag+1]
+    output = np.vstack((data[lag-1:, 0], avgs)).T
+
+    return output, {'hist': data[-lag+1:], 'lag': lag}
+
+
 ##
 ## Buffering operators. BufferedJoinOperator and LatestOperator are
 ## often placed at the head of the processing chain, so later
@@ -47,6 +76,24 @@ class _MeanVectorOperator(ParallelSimpleOperator):
     """Take the mean of all data presented from N feeds"""
     name = 'mean vector'
     base_operator = staticmethod(_mean)
+
+class _EwmaOperator(ParallelSimpleOperator):
+    name = 'ewma'
+    base_operator = staticmethod(joinedewma)
+    operator_name = 'ewma'
+    operator_constructors = [(),
+                             (float,)]
+    def __init__(self, inputs, alpha=0.9):
+        ParallelSimpleOperator.__init__(self, inputs, alpha=alpha)
+
+class _MovingAverageOperator(ParallelSimpleOperator):
+    name = 'movingavg'
+    base_operator = staticmethod(joinedma)
+    operator_name = 'movingavg'
+    operator_constructors = [(),
+                             (int,)]
+    def __init__(self, inputs, lag=10):
+        ParallelSimpleOperator.__init__(self, inputs, lag=lag)
 
 class _SumOperator(Operator):
     name = 'sum'
@@ -251,5 +298,6 @@ if __name__ == '__main__':
     
     # o = OrderedArithmeticOperator(ip, 'tag')
     o = SubtractOperator(ip, 'tag')
-    print o([np.array([[0, 1], [600, 2]]), 
-             np.array([[0, 2], [600, 3]])])
+#     print o([np.array([[0, 1], [600, 2]]), 
+#              np.array([[0, 2], [600, 3]])])
+

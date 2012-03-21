@@ -1,6 +1,8 @@
 
 import inspect
 import numpy as np
+from twisted.spread import pb
+from twisted.internet import reactor
 
 import smap.util as util
 import smap.operators as operators
@@ -22,9 +24,14 @@ def discover():
     for m in operator_modules:
         for name, obj in inspect.getmembers(m):
             if inspect.isclass(obj) and \
-                    issubclass(obj, operators.Operator) and \
-                    hasattr(obj, "operator_name"):
-                installed_ops[obj.operator_name] = obj
+                    issubclass(obj, operators.Operator):
+                if  hasattr(obj, "operator_name"):
+                    installed_ops[obj.operator_name] = obj
+
+                # register all operators with the perspective broker
+                # so we can remote-call them if we want to.
+                pb.setUnjellyableForClass(obj, obj)
+
     print "found ops:", ', '.join(installed_ops.iterkeys())
 
 def get_operator(name, args):
@@ -90,6 +97,6 @@ def make_applicator(ops, group=None):
         # construct a return value with metadata and data merged
         return map(build_result, zip(redata, op.outputs))
 
-    return apply_op
-    
+    return apply_op    
+
 discover()

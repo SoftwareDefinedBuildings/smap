@@ -13,6 +13,7 @@ from smap import driver, util, smapconf
 from smap.core import SmapException
 from smap.archiver.client import SmapClient, RepublishClient
 from smap.contrib import dtutil
+from twisted.spread import pb
 
 from dateutil.tz import gettz
 
@@ -23,7 +24,7 @@ null = np.reshape(null, (0, 2))
 OP_N_TO_1 = 1
 OP_N_TO_N = 2
 
-class Operator:
+class Operator(pb.Copyable, pb.RemoteCopy):
     # data type of operator output
     data_type = ('double', float)
     required_tags = set(['uuid'])
@@ -97,6 +98,8 @@ class Operator:
             return rv
         else:
             return [null] * len(self.inputs)
+
+pb.setUnjellyableForClass('smap.operators.Operator', Operator)
 
 
 class OperatorDriver(driver.SmapDriver):
@@ -186,6 +189,8 @@ class OperatorDriver(driver.SmapDriver):
                 pushlist.add((addpath, op))
 
         if not process: return
+        pushlist = list(pushlist)
+        pushlist.sort(key=lambda x: x[0])
 
         for addpath, op in pushlist:
             new = op._process()
@@ -414,8 +419,14 @@ class CompositionOperator(Operator):
 class StandardizeUnitsOperator(Operator):
     operator_name = 'units'
     operator_constructors = [()]
+
     units = {
         'Watts' : ('kW', 0.001),
+        'W' : ('kW', 0.001),
+        'pounds/hour' : ('lbs/hr', 1.0),
+        'Lbs/hr' : ('lbs/hr', 1.0),
+        'lbs/min' : ('lbs/hr', 60),
+        'lbs/hour' : ('lbs/hr', 1.0),
         }
     name = 'standardize units'
     required_tags = set(['uuid', 'Properties/UnitofMeasure'])
@@ -588,6 +599,7 @@ def _subsample(vec, last=-1, bucketsz=5):
 
     vec = np.copy(vec)
     # ignore data before "last"
+    vec = np.copy(vec)
     vec[:, 0] -= np.mod(vec[:,0], bucketsz)
     times = vec[:,0]
     sp = np.where(times > last)

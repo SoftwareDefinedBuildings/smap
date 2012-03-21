@@ -37,9 +37,10 @@ import operator
 import urllib
 import csv
 
-from twisted.internet import threads, defer
+from twisted.internet import reactor, threads, defer
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
+from twisted.spread import pb
 
 import smap.util as util
 from smap.server import setResponseCode
@@ -222,6 +223,17 @@ class Api(resource.Resource):
         self.db = db
         resource.Resource.__init__(self)
 
+        # open a connection to the query parsing server
+        self.backend_factory = pb.PBClientFactory()
+        self.backend_root = None
+#         reactor.connectTCP('localhost', 8789, self.backend_factory)
+#         d = self.backend_factory.getRootObject()
+#         d.addCallback(self._set_root)
+#         d.addErrback(lambda err: self._set_root(None))
+        
+    def _set_root(self, root):
+        self.backend_root = root
+
     def generic_extract_result(self, request, result):
         """Extract postgres results which are just wrapped with an extra
         list"""
@@ -318,8 +330,12 @@ class Api(resource.Resource):
         parser = qp.QueryParser(request)
         query = request.content.read() 
         try: 
-            # run the query
-            d = parser.runquery(self.db, query)
+            if query.strip().startswith('apply') and self.backend_root:
+                print "executing remotely"
+                d = self.backend_root.callRemote('query', query, request.args)
+            else:
+                # run the query locally
+                d = parser.runquery(self.db, query)
         except SmapException, e:
             return self.send_error(request, e)
         else:
