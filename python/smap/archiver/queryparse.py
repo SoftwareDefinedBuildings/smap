@@ -32,10 +32,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import operator
 import time
+import inspect
 
 from twisted.internet import defer
 
-from smap.util import build_recursive
+from smap import operators
+from smap.util import build_recursive, is_string
 from smap.contrib import dtutil
 
 import querygen as qg
@@ -43,6 +45,7 @@ from data import escape_string
 from querydata import extract_data
 import data
 import stream
+import help
 
 import ply
 import ply.lex as lex
@@ -54,7 +57,7 @@ tokens = (
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
-    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'JOIN', 'ON',
+    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP',
     )
 
 precedence = (
@@ -90,9 +93,8 @@ reserved = {
     'to' : 'TO',
     'as' : 'AS',
     'group' : 'GROUP',
-    'join' : 'JOIN',
-    'on' : 'ON',
     'by' : 'BY',
+    'help' : 'HELP',
     }
 
 t_LPAREN = r'\('
@@ -110,7 +112,7 @@ def t_QSTRING(t):
 t_EQ = r'='
 
 def t_LVALUE(t):
-    r'[a-zA-Z\~\$][a-zA-Z0-9\/\%_\-]*'
+    r'[a-zA-Z\~\$\_][a-zA-Z0-9\/\%_\-]*'
     t.type = reserved.get(t.value, 'LVALUE')
     return t
 
@@ -163,13 +165,13 @@ def ext_plural(x):
 
 TIMEZONE_PATTERNS = [
     "%m/%d/%Y",
-    "%m/%d/%Y %M:%H",
+    "%m/%d/%Y %H:%M",
     "%Y-%m-%dT%H:%M:%S",
     ]
 def parse_time(ts):
     for pat in TIMEZONE_PATTERNS:
         try:
-            dt = dtutil.strptime_tz(ts, pat)
+            dt = dtutil.strptime_tz(ts, pat, tzstr='America/Los_Angeles')
             return dtutil.dt2ts(dt) * 1000
         except ValueError:
             continue
@@ -189,6 +191,7 @@ def make_select_rv(t, sqlsel, wherestmt=None):
                            (sqlsel[0], sqlsel[1], 
                             qg.build_authcheck(t.parser.request)))
 
+# top-level statement dispatching
 def p_query(t):
     '''query : SELECT selector WHERE statement
              | SELECT selector
@@ -197,6 +200,8 @@ def p_query(t):
              | DELETE WHERE statement
              | SET set_list WHERE statement
              | APPLY apply_statement
+             | HELP
+             | HELP LVALUE
              '''
     if t[1] == 'select': 
         if len(t) == 5:
@@ -248,14 +253,17 @@ def p_query(t):
              qg.build_authcheck(t.parser.request, forceprivate=True))
     elif t[1] == 'apply':
         t[0] = t[2]
+    elif t[1] == 'help':
+        if len(t) == 2:
+            t[0] = help.help(), None
+        else:
+            t[0] = help.help(t[2]), None
 
+# apply a sequence of operators to data
 def p_apply_statement(t):
     """apply_statement  : apply_clause TO data_clause WHERE statement_as_list
                         | apply_clause TO data_clause WHERE statement_as_list GROUP BY tag_list
     """
-    if len(t[5]) != 1:
-        raise Exception("Only one group supported now...")
-
     tag_extractor, tag_query = make_select_rv(t, make_tag_select('*'), t[5][0][1])
     data_extractor, data_query = make_select_rv(t, t[3], t[5][0][1])
 
@@ -278,6 +286,8 @@ def make_tag_select(taglist):
         restrict = ('(' + " OR ".join(map(make_clause, taglist)) + ')')
     return (select, restrict, ext_plural)
 
+# make a tag selector: the things to select.  this is how you specify
+# what tags you want back.
 def p_selector(t):
     '''selector : tag_list
                 | STAR
@@ -295,6 +305,7 @@ def p_selector(t):
     else:
         t[0] = make_tag_select(t[1])
 
+# make a data selector: what data to load.
 def p_data_clause(t):
     '''data_clause : DATA IN LPAREN timeref COMMA timeref RPAREN limit
                    | DATA BEFORE timeref limit
@@ -323,6 +334,8 @@ def p_data_clause(t):
             'method' : method,
             'limit' : limit })
 
+# a time reference point.  can be a unix timestamp, a date string, or
+# "now"
 def p_timeref(t):
     '''timeref : NUMBER 
                | QSTRING
@@ -334,6 +347,8 @@ def p_timeref(t):
     else:
         t[0] = t[1]
 
+# limit the amount of data returned by number of streams and number of
+# points
 def p_limit(t):
     '''limit : 
              | LIMIT NUMBER
@@ -350,34 +365,46 @@ def p_limit(t):
         slimit = t[2]
     t[0] = [limit, slimit]
 
+# apply operators
 def p_apply_clause(t):
-    '''apply_clause   : LVALUE LPAREN RPAREN
-                      | LVALUE LPAREN call_list RPAREN
-                      | LVALUE LPAREN apply_clause RPAREN
-                      | LVALUE LPAREN apply_clause COMMA call_list RPAREN
-                     '''
-    if len(t) == 4:
-        t[0] = [stream.get_operator(t[1], [])]
-    elif len(t) == 5:
-        if len(t[3]) > 0 and t[3][0] == 'args':
-            t[0] = [stream.get_operator(t[1], t[3][1])]
-        else:
-            t[0] = t[3] + [stream.get_operator(t[1], [])]
-    elif len(t) == 7:
-        t[0] = t[3] + [stream.get_operator(t[1], t[5][1])]
+    '''apply_clause   : LVALUE LPAREN arg_list RPAREN
+                      | LPAREN apply_clause RPAREN
+    '''
+    if len(t) == 5:
+        t[0] = stream.get_operator(t[1], t[3])
+    else:
+        t[0] = t[2]
 
-def p_call_list(t):
-    '''call_list     : QSTRING
-                     | NUMBER
-                     | LVALUE
-                     | QSTRING COMMA call_list
-                     | NUMBER COMMA call_list
-                     | LVALUE COMMA call_list
+def p_arg_list(t):
+    '''arg_list     : call_argument
+                    | call_argument COMMA arg_list
                      '''
     if len(t) == 2:
-        t[0] = ('args', [t[1]])
+        alist = (list(), dict())
     else:
-        t[0] = ('args', [t[1]] + t[3][1])
+        alist = t[3]
+
+    if t[1][0] == 'arg':
+        alist[0].reverse()
+        alist[0].append(t[1][1])
+        alist[0].reverse()
+    elif t[1][0] == 'kwarg':
+        alist[1].update(t[1][1])
+    t[0] = alist
+        
+def p_call_argument(t):
+    '''call_argument   : QSTRING
+                       | NUMBER
+                       | LVALUE
+                       | LVALUE EQ NUMBER
+                       | LVALUE EQ QSTRING
+                       | apply_clause'''
+    if len(t) == 4:
+        t[0] = ('kwarg', {
+            t[1] : t[3]
+            })
+    else:
+        t[0] = ('arg', t[1])
 
 def p_tag_list(t):
     '''tag_list : LVALUE
@@ -478,7 +505,16 @@ def p_statement_binary(t):
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
-smapql_parser = yacc.yacc()
+# smapql_parser = yacc.yacc()
+opex_parser = yacc.yacc(start="apply_clause")
+
+def parse_opex(exp):
+    global opex_parser
+    try:
+        opex_parser
+    except NameError:
+        pass
+    return opex_parser.parse(exp)
 
 class QueryParser:
     """Class to manage parsing and extracting results from the
@@ -492,7 +528,9 @@ class QueryParser:
 
     def runquery(self, db, s, run=True, verbose=False):
         ext, q = self.parse(s)
-        if not isinstance(q, list):
+        if is_string(ext):
+            return defer.succeed(ext)
+        elif not isinstance(q, list):
             q = [None, q]
             ext = [None, ext]
 
@@ -602,6 +640,8 @@ if __name__ == '__main__':
             return reactor.callFromThread(reactor.stop)
         except:
             traceback.print_exc()
+            return readquery()
+            
 
         d = qp.runquery(cp, s, verbose=opts.verbose, run=opts.run)
         d.addCallback(lambda v: pprint.pprint(v))

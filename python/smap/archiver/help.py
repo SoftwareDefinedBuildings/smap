@@ -26,3 +26,24 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
+import stream
+
+def help(topic=None):
+    if not topic:
+        return """Welcome to the archiver query language.  
+
+We know about the following operators: """ +\
+            ', '.join(sorted(stream.installed_ops.keys()))
+    
+    elif topic in stream.installed_ops:
+        opdocs = stream.installed_ops[topic].__doc__
+        if opdocs == None and hasattr(stream.installed_ops[topic], 
+                                      'base_operator'):
+            opdocs = stream.installed_ops[topic].base_operator.__doc__
+        if opdocs == None:
+            return "Operator '%s' is installed but we don't have any documentation for it" % topic
+        else:
+            return opdocs
+    else:
+        return "No help topic found for " + topic

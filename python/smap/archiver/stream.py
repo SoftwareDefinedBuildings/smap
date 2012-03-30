@@ -1,38 +1,43 @@
+"""
+Copyright (c) 2011, 2012, Regents of the University of California
+All rights reserved.
 
-import inspect
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions 
+are met:
+
+ - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+ - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+"""
+@author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+"""
+
 import numpy as np
-from twisted.spread import pb
 from twisted.internet import reactor
 
 import smap.util as util
 import smap.operators as operators
 import querygen as qg
 
-import smap.operators
-import smap.drivers.sumr
-import smap.drivers.resamplr
-
-operator_modules = [
-    smap.operators,
-    smap.drivers.sumr,
-    smap.drivers.resamplr,
-    ]
-
-installed_ops = {}
-
-def discover():
-    for m in operator_modules:
-        for name, obj in inspect.getmembers(m):
-            if inspect.isclass(obj) and \
-                    issubclass(obj, operators.Operator):
-                if  hasattr(obj, "operator_name"):
-                    installed_ops[obj.operator_name] = obj
-
-                # register all operators with the perspective broker
-                # so we can remote-call them if we want to.
-                pb.setUnjellyableForClass(obj, obj)
-
-    print "found ops:", ', '.join(installed_ops.iterkeys())
+from smap.ops import installed_ops
 
 def get_operator(name, args):
     """Look up an operator by name.  If given args, try to parse them
@@ -40,12 +45,24 @@ def get_operator(name, args):
 
     :raises: ParseException if it can't match the operator
     """
-    groups = filter(lambda x: type(x) == type('') and x[0] == '$', args)
-    args = filter(lambda x: type(x) != type('') or x[0] != '$', args)
+    args, kwargs = args
+    # groups = filter(lambda x: type(x) == type('') and x[0] == '$', args)
+    # args = filter(lambda x: type(x) != type('') or x[0] != '$', args)
+    thisop = lookup_operator_by_name(name, args[1:], kwargs)
+    if util.is_string(args[0]):
+        # then our input will be bound somewhere else
+        return thisop
+    else:
+        # otherwise assume the first op is another operator, and we
+        # need to compose them
+        return operators.make_composition_operator([args[0], thisop])
 
+def lookup_operator_by_name(name, args, kwargs):
+    """Lookup an operator by name and return a closure which will
+    instantiate the operator with the given args and kwargs"""
     if not name in installed_ops:
         raise qg.QueryException("No such operator: " + name)
-    if len(args) == 0:
+    if len(args) == 0 and len(kwargs) == 0:
         # if the op doesn't take any args, just return the bare operator
         return installed_ops[name]
     else:
@@ -53,21 +70,26 @@ def get_operator(name, args):
             if len(proto) != len(args): continue
             try:
                 alist = map(lambda (fn, a): fn(a), zip(proto, args))
+                kwargs_ = kwargs
             except ValueError:
                 continue
-            return lambda inputs: installed_ops[name](inputs, *alist)
+
+            return lambda inputs: installed_ops[name](inputs, *alist, **kwargs_)
         raise qg.QueryException("No valid constructor for operator %s: %s" % 
                                 (name, str(args)))
 
-def make_applicator(ops, group=None):
-    class _TmpOp(operators.CompositionOperator):
-        oplist = ops
+def make_applicator(appop, group=None):
+    """Make a closure that will apply the operator expresion to a
+    specific set of streams and metadata."""
 
     def build_result((d, s)):
         obj = dict(s)
-        d[:,0] = np.int_(d[:, 0])
-        d[:,0] *= 1000
-        obj['Readings'] = d.tolist()
+        if isinstance(d, np.ndarray):
+            d[:,0] = np.int_(d[:, 0])
+            d[:,0] *= 1000
+            obj['Readings'] = d.tolist()
+        else:
+            obj['Readings'] = d
         return util.build_recursive(obj, suppress=[])
 
     def apply_op(data):
@@ -78,13 +100,13 @@ def make_applicator(ops, group=None):
 
         # build the operator
         if group and len(group):
-            op = operators.GroupByTagOperator(opmeta, _TmpOp, group[0])
+            op = smap.ops.grouping.GroupByTagOperator(opmeta, appop, group[0])
         else:
-            op = _TmpOp(opmeta)
+            op = appop(opmeta)
 
         # insert the data in the right index for the operator (it
         # could come back in any order)
-        opdata = [operators.null] * len(data[1][1])
+        opdata = [operators.null] * len(op.inputs)
         for v in data[1][1]:
             if len(v['Readings']):
                 idx = op.index(v['uuid'])
@@ -98,5 +120,3 @@ def make_applicator(ops, group=None):
         return map(build_result, zip(redata, op.outputs))
 
     return apply_op    
-
-discover()

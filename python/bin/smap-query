@@ -43,6 +43,7 @@ import json
 import operator
 import subprocess
 from optparse import OptionParser
+from smap import util
 from smap.archiver import settings
 
 HISTFILE = os.path.expanduser('~/.smap-query-history')
@@ -85,7 +86,10 @@ def run_query(opts, q):
             if opts.dates:
                 stringify_times(obj)
 
-            json.dump(obj, sys.stdout, sort_keys=True, indent=2)
+            if util.is_string(obj):
+                print obj
+            else:
+                json.dump(obj, sys.stdout, sort_keys=True, indent=2)
             print # add a newline
         print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
 
@@ -130,7 +134,7 @@ def plot(dat):
         print >>fp, get_gnuplot()
         print >>fp, """
 plot %s
-    """ % ','.join(['"%s" using ($1/1000):%i' % (pfile, x+2) for x in xrange(0, len(dat))])
+    """ % ','.join(['"%s" using ($1/1000):%i with linesp' % (pfile, x+2) for x in xrange(0, len(dat))])
 
     with open('/dev/null', 'w') as null:
         p = subprocess.Popen("gnuplot %s" % pscript, 
@@ -153,7 +157,7 @@ if __name__ == '__main__':
     parser.add_option('-p', '--private', dest='private', default=False,
                       help='display only results associated with the api key',
                       action='store_true')
-    parser.add_option('-t', '--timeout', dest='timeout', default=10,
+    parser.add_option('-t', '--timeout', dest='timeout', default=60,
                       type="int")
     parser.add_option('-v', dest='verbose', default=0,
                       help="be verbose", action="count")
@@ -179,11 +183,13 @@ if __name__ == '__main__':
             atexit.register(readline.write_history_file, HISTFILE)
             
         blank = re.compile('^[ \t\n\r]*$')
+        quit = re.compile("^\W*(quit|exit)")
 
         while True:
             try:
                 s = raw_input('query > ')   # Use raw_input on Python 2
                 if blank.match(s): continue
+                elif quit.match(s): break
                 run_query(opts, s)
             except (EOFError, StopIteration):
                 break

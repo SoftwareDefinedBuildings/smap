@@ -26,3 +26,39 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
+import sys
+import inspect
+
+from twisted.spread import pb
+
+from smap import operators
+
+__all__ = [
+    'smap.operators',
+    'smap.ops.grouping',
+    'smap.ops.arithmetic',
+    'smap.ops.filters',
+    'smap.ops.meter',
+    'smap.ops.util',
+    'smap.ops.ts',
+    ]
+map(__import__, __all__)
+
+installed_ops = {}
+
+def discover():
+    for m in __all__:
+        for name, obj in inspect.getmembers(sys.modules[m]):
+            if inspect.isclass(obj) and \
+                    issubclass(obj, operators.Operator):
+                if  hasattr(obj, "operator_name"):
+                    installed_ops[obj.operator_name] = obj
+
+                # register all operators with the perspective broker
+                # so we can remote-call them if we want to.
+                pb.setUnjellyableForClass(obj, obj)
+
+    # print "found ops:", ', '.join(sorted(installed_ops.iterkeys()))
+
+discover()
