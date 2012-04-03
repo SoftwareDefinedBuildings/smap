@@ -243,7 +243,7 @@ class DataRequester:
         now = int(time.time()) * 1000
         start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
         end = int(request.args.get('endtime', [now])[0])
-        limit = int(request.args.get('limit', [10000])[0])
+        limit = int(request.args.get('limit', [100000])[0])
 
         self.streamids = streamids
         ids = map(operator.itemgetter(1), streamids)

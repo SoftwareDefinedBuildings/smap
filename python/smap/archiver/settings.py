@@ -63,7 +63,10 @@ def import_rdb():
     try:
         __import__(READINGDB_MOD)
         rdb = sys.modules[READINGDB_MOD]
-        rdb.db_setup(READINGDB_HOST, int(READINGDB_PORT))
+        try:
+            rdb.db_setup(READINGDB_HOST, int(READINGDB_PORT))
+        except AttributeError:
+            pass
     except ImportError:
         pass
 
