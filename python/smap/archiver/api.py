@@ -343,7 +343,9 @@ class Api(resource.Resource):
         else:
             # and send the reply
             request.setHeader('Content-type', 'application/json')
-            # d.addCallback(self.send_reply)
+            if not query.strip().startswith('apply'):
+                d.addCallback(lambda reply: (request, reply))
+                d.addCallback(self.send_reply)
             d.addErrback(lambda x: self.send_error(request, x))
             return server.NOT_DONE_YET
 
