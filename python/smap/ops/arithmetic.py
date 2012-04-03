@@ -97,7 +97,7 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
 # for most operators the timestamps aren't super meaningful so doing
 # something like taking the first one is sensible for column-wise
 # operator.
-percentile = _op_from_compressive_op('percentile', np.percentile)
+# percentile = _op_from_compressive_op('percentile', np.percentile)
 median = _op_from_compressive_op('median', np.median)
 mean = _op_from_compressive_op('mean', np.mean)
 sum = _op_from_compressive_op('sum', np.sum)

@@ -274,7 +274,6 @@ class Api(resource.Resource):
     def send_data_reply(self, (request, result)):
         """After reading back some data, format it and send it to the client
         """
-        print "reply", result
         if not 'format' in request.args or 'json' in  request.args['format']:
             request.setHeader('Content-type', 'application/json')
             request.write(util.json_encode(result))

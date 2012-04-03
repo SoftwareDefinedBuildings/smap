@@ -265,7 +265,6 @@ class DataRequester:
 
     def screw_data(self, data, streamids):
         rv = []
-        print self.ndarray, self.as_smapobj
         for (uid, id), d in zip(streamids, data):
             if not self.ndarray:
                 d[:,0] = np.int_(d[:, 0])
