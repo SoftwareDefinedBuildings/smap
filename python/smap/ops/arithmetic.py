@@ -84,8 +84,10 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
         if kwargs['axis'] == 0:
-            return np.dstack((timestamp(data[:, 0]), 
-                              op(data[:, 1:], *args, **kwargs)))[0]
+            v = np.hstack(([timestamp(data[:, 0])], 
+                           op(data[:, 1:], *args, **kwargs)))
+            v = v.reshape((1, len(v)))
+            return v
         elif kwargs['axis'] == 1:
             return np.dstack((data[:, 0], op(data[:, 1:], *args, **kwargs)))[0]
     _operator.__doc__ = op.__doc__
@@ -126,6 +128,12 @@ ceil = _op_from_ufunc('ceil', np.ceil)
 floor = _op_from_ufunc('floor', np.floor)
 trunc = _op_from_ufunc('trunc', np.trunc)
 around = _op_from_ufunc('around', np.around)
+
+def _diff(data, axis=1):
+    """Compute discrete differences in either axis"""
+    rdata = np.diff(data[:, 1:], axis)
+    return np.column_stack((data[:, 0], rdata))
+diff = vector_operator_factory('diff', _diff)
 
 def _first(data, axis=0):
     """Return the first column or the first row of data.

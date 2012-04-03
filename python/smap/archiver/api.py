@@ -274,6 +274,7 @@ class Api(resource.Resource):
     def send_data_reply(self, (request, result)):
         """After reading back some data, format it and send it to the client
         """
+        print "reply", result
         if not 'format' in request.args or 'json' in  request.args['format']:
             request.setHeader('Content-type', 'application/json')
             request.write(util.json_encode(result))
@@ -307,6 +308,8 @@ class Api(resource.Resource):
         request.finish()
 
     def send_error(self, request, error):
+        print "got error", error
+        print error.getTraceback()
         setResponseCode(request, error, 400)
         return str(error)
 
@@ -331,7 +334,6 @@ class Api(resource.Resource):
         query = request.content.read() 
         try: 
             if query.strip().startswith('apply') and self.backend_root:
-                print "executing remotely"
                 d = self.backend_root.callRemote('query', query, request.args)
             else:
                 # run the query locally
@@ -340,8 +342,8 @@ class Api(resource.Resource):
             return self.send_error(request, e)
         else:
             # and send the reply
-            d.addCallback(lambda x: (request, x))
-            d.addCallback(self.send_reply)
+            request.setHeader('Content-type', 'application/json')
+            # d.addCallback(self.send_reply)
             d.addErrback(lambda x: self.send_error(request, x))
             return server.NOT_DONE_YET
 

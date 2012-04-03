@@ -33,6 +33,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import ConfigParser
 
+from twisted.python import log
+
 # my local hostname and port to run the twisted server on.  the
 # hostname should be something smap sources can send their data to
 MY_LOCATION = 'localhost'
@@ -54,13 +56,14 @@ DB_PASS = 'password'
 # the location of the readingdb server which holds the timeseries
 READINGDB_MOD = 'readingdb'
 READINGDB_HOST = DB_HOST
-READINGDB_PORT = 4242
+READINGDB_PORT = 4243
 
 def import_rdb():
     global rdb
     try:
         __import__(READINGDB_MOD)
         rdb = sys.modules[READINGDB_MOD]
+        rdb.db_setup(READINGDB_HOST, int(READINGDB_PORT))
     except ImportError:
         pass
 
@@ -72,9 +75,10 @@ def load(conffile):
     conf.read(conffile)
     if conf.has_section("archiver"):
         for k, v in conf.items("archiver"):
-            globals()[munge_key(k)] = v
-
+            globals()[munge_key(k)] = v 
+            log.msg(k + ": " + v)
     # import the readingdb module
     import_rdb()
 
 import_rdb()
+

@@ -265,12 +265,16 @@ def p_apply_statement(t):
                         | apply_clause TO data_clause WHERE statement_as_list GROUP BY tag_list
     """
     tag_extractor, tag_query = make_select_rv(t, make_tag_select('*'), t[5][0][1])
-    data_extractor, data_query = make_select_rv(t, t[3], t[5][0][1])
-
+    _, data_query = make_select_rv(t, t[3], t[5][0][1])
+    
+    # this does not make me feel good.
+    
+    data_extractor = lambda x: x
     if len(t) > 7: group = t[8]
     else: group = None
-    app = stream.make_applicator(t[1], group=group)
-    t[0] = [app, tag_extractor, data_extractor], [None, tag_query, data_query]
+    app = stream.OperatorApplicator(t[1], t[3][3], 
+                                    t.parser.request, group=group)
+    t[0] = [app.start_processing, tag_extractor, data_extractor], [None, tag_query, data_query]
 
 
 def make_tag_select(taglist):
@@ -326,12 +330,24 @@ def p_data_clause(t):
         limit = t[4]
         if limit[0] == None: limit[0] = 1
 
+    t.parser.request.args = {
+        'starttime' : [start],
+        'endtime' : [end],
+        'limit' : [limit[0]],
+        'streamlimit' : [limit[1]],
+        }
+
     t[0] = ("distinct(s.uuid), s.id", "true",             
-            lambda streams: extract_data(streams, method, start, end,
-                                         limit[0], limit[1]), {
+            lambda streams: data.data_load_result(t.parser.request,
+                                                  method,
+                                                  streams,
+                                                  ndarray=False,
+                                                  as_smapobj=True,
+                                                  send=True), {
             'start' : start,
             'end' : end,
             'method' : method,
+            'chunk': None,
             'limit' : limit })
 
 # a time reference point.  can be a unix timestamp, a date string, or
@@ -505,15 +521,14 @@ def p_statement_binary(t):
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
-# smapql_parser = yacc.yacc()
-opex_parser = yacc.yacc(start="apply_clause")
+smapql_parser = yacc.yacc(tabmodule='arq_tab.py')
 
 def parse_opex(exp):
     global opex_parser
     try:
         opex_parser
     except NameError:
-        pass
+        opex_parser = yacc.yacc(start="apply_clause", tabmodule='opex_tab.py')
     return opex_parser.parse(exp)
 
 class QueryParser:
@@ -620,7 +635,14 @@ if __name__ == '__main__':
     # make a fake request to give the parser with whatever
     # command-line options we need.
     class Request(object):
-        pass
+        def write(self, data):
+            print "got data", data
+
+        def finish(self):
+            print "data done"
+
+        def registerProducer(self, a1, a2):
+            pass
 
     request = Request()
     args = {}
@@ -642,7 +664,7 @@ if __name__ == '__main__':
             traceback.print_exc()
             return readquery()
             
-
+        # print  parse_opex(s)
         d = qp.runquery(cp, s, verbose=opts.verbose, run=opts.run)
         d.addCallback(lambda v: pprint.pprint(v))
         d.addCallback(lambda x: readquery())

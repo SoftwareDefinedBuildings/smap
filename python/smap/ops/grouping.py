@@ -183,8 +183,9 @@ class GroupByDatetimeField(Operator):
             # snap the final bin differently.
             fval = getattr(point, self.DT_FIELDS[field_idx])
             kwargs[self.DT_FIELDS[field_idx] + 's'] = \
-                fval - int(fval / increment)
+                int(fval % increment)
             td = datetime.timedelta(**kwargs)
+            # print point, td
             return point - td
         return snapper
 
@@ -202,8 +203,15 @@ class GroupByDatetimeField(Operator):
         assert len(prev_datetimes) == len(prev)
         output = [null] * len(op.outputs)
 
+        if len(prev_datetimes) == 0:
+            return output, {
+                'prev': prev,
+                'prev_datetimes': prev_datetimes,
+                }
+
         # find all the blocks in the time window.
         bin_start, bin_start_idx, truncate_to = self.snapper(prev_datetimes[0]), 0, 0
+        # print bin_start
         while True:
             bin_end = bin_start + self.bin_width
 
@@ -229,22 +237,22 @@ class GroupByDatetimeField(Operator):
             # and deal with the common case where this is
             # what ya want.
             if self.snap_times:
+                t = dtutil.dt2ts(bin_start)
                 for j in xrange(0, len(opdata)):
-                       opdata[j][:, 0] = dtutil.dt2ts(bin_start)
+                       opdata[j][:, 0] = t
             output = extend(output, opdata)
 
             bin_start = bin_end
             bin_start_idx = bin_end_idx
 
         toc = time.time()
-        log.msg("dt processing took %0.05f: %i/%i converted" %  \
-                    (toc-tic,
-                     prev_datetimes.conversions,
-                     len(prev_datetimes)))
+#         print("dt processing took %0.05f: %i/%i converted" %  \
+#                   (toc-tic,
+#                    prev_datetimes.conversions,
+#                    len(prev_datetimes)))
 
         prev_datetimes.truncate(truncate_to)
         prev = prev[truncate_to:]
-
 
         return output, {
             'prev': prev,
@@ -307,8 +315,22 @@ class PasteOperator(Operator):
     operator_name = "paste"
     operator_constructors = [()]
 
+    def __init__(self, inputs, sort=None, reverse=False):
+        if sort:
+            keys = zip(map(operator.itemgetter(sort), inputs), range(0, len(inputs)))
+            keys.sort(key=lambda x: x[0], reverse=reverse)
+            self.order = map(operator.itemgetter(1), keys)
+        else:
+            self.order = None
+        Operator.__init__(self, inputs)
+
     def process(self, data):
-        return [transpose_streams(join_union(data))]
+        if not self.order:
+            return [transpose_streams(join_union(data))]
+        else:
+            return [transpose_streams(join_union(map(lambda i: data[i], 
+                                                     self.order)))]
+
 
 class GroupingPasteOperator(Operator):
     """An operator which allows us to apply different operators to

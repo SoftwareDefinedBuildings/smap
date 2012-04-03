@@ -93,6 +93,20 @@ class PrintOperator(NullOperator):
         print inputs
         return inputs
 
+class SnapOperator(ParallelSimpleOperator):
+    """Snap the timestamps of all readings to the nearest multiple of
+    the given period (kwarg). 
+    """
+    name = 'snap'
+    operator_name = 'snap'
+    operator_constructors = [()]
+
+    @staticmethod
+    def base_operator(vec, period=3600):
+        vec = np.copy(vec)
+        vec[:, 0] -= np.mod(vec[:, 0], period)
+        return vec
+
 class NlOperator(ParallelSimpleOperator):
     """Append a column to all inputs with the index of each element"""
     name = 'nl'
@@ -106,7 +120,6 @@ class NlOperator(ParallelSimpleOperator):
     def __init__(self, inputs):
         # don't change uuids
         ParallelSimpleOperator.__init__(self, inputs) 
-
 
 class StripMetadata(Operator):
     name = "strip_metadata"
@@ -181,6 +194,7 @@ class MaskedDTList:
         self.dts.extend([None] * len(lst))
 
     def truncate(self, i):
+        self.conversions = 0
         self.lst = self.lst[i:]
         self.dts = self.dts[i:]
 

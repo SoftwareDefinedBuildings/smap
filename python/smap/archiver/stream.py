@@ -31,13 +31,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import numpy as np
-from twisted.internet import reactor
+import time
+import traceback
+
+from zope.interface import implements
+from twisted.internet import interfaces, reactor
 
 import smap.util as util
 import smap.operators as operators
-import querygen as qg
-
 from smap.ops import installed_ops
+from smap.archiver import data
+from smap.archiver import querygen as qg
 
 def get_operator(name, args):
     """Look up an operator by name.  If given args, try to parse them
@@ -78,11 +82,127 @@ def lookup_operator_by_name(name, args, kwargs):
         raise qg.QueryException("No valid constructor for operator %s: %s" % 
                                 (name, str(args)))
 
-def make_applicator(appop, group=None):
+class OperatorApplicator(object):
     """Make a closure that will apply the operator expresion to a
     specific set of streams and metadata."""
+    implements(interfaces.IPushProducer)
+    DATA_DAYS = 50
 
-    def build_result((d, s)):
+    def __init__(self, op, data_spec, consumer, group=None):
+        self.op = op
+        self.data_spec = data_spec
+        self.group = group
+        self.requester = data.DataRequester(ndarray=True, as_smapobj=False)
+        self.consumer = consumer
+
+        self._paused = self._stop = self._error = False
+        self.chunk_idx = 0
+        # print "creating opapp", op, data_spec, group
+
+        consumer.registerProducer(self, True)
+
+    def pauseProducing(self):
+        self._paused = True
+
+    def resumeProducing(self):
+        self._paused = False
+        return self.load_chunk()
+
+    def stopProducing(self):
+        self._stop = True
+
+    def start_processing(self, data):
+        """data: a list with two elements: the first is the metadata,
+        and the second is the stream information we will need to fetch
+        the actual data"""
+        # save the metadata and streamids for loading
+        opmeta = data[0][1]
+        opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
+        if not len(opmeta):
+            return []
+
+        self.streamids = data[1][1]
+
+        # use a heuristic for how much data we want to load at once...
+        self.chunk_length = (3600 * 24 * self.DATA_DAYS) / len(self.streamids)
+        if self.chunk_length < 300:
+            self.chunk_length = 300
+
+        # build the operator
+        if self.group and len(self.group):
+            self.op = smap.ops.grouping.GroupByTagOperator(opmeta, 
+                                                           self.op, 
+                                                           self.group[0])
+        else:
+            self.op = self.op(opmeta)
+
+        self.resumeProducing()
+
+    def load_chunk(self):
+        """load a chunk of data for the operator"""
+        # decide on a new chunk to load
+        start = (self.data_spec['start'] / 1000) + \
+            (self.chunk_idx * self.chunk_length)
+        end = (self.data_spec['start'] / 1000) + \
+            ((self.chunk_idx+1) * self.chunk_length)
+        start *= 1000
+        end *= 1000
+        last = False
+        if end >= self.data_spec['end']:
+            end = self.data_spec['end']
+            last = True
+        self.chunk_idx += 1
+
+        self.args = {
+            'starttime' : [start],
+            'endtime' : [end],
+            'limit' : [self.data_spec['limit'][0]],
+            'streamlimit' : [self.data_spec['limit'][1]]
+        }
+        d = self.requester.load_data(self, 
+                                     self.data_spec['method'], 
+                                     self.streamids)
+        if not last:
+            d.addCallback(self.start_next)
+        d.addCallback(self.apply_operator, last)
+        d.addErrback(self.abort)
+        self._loading = True
+        return d
+
+    def abort(self, error):
+        self._stop = True
+        error = {
+            'error': "Encountered error while reading data; results are incomplete",
+            'exception': str(error.value),
+            }
+        self.consumer.write(util.json_encode(error))
+        self.consumer.unregisterProducer()
+        self.consumer.finish()
+        return error
+
+    def start_next(self, data):
+        if not self._paused and not self._stop:
+            self.load_chunk()
+        return data
+
+    def apply_operator(self, opdata, last):
+        # print "apply to", opdata
+        tic = time.time()
+
+        # process
+        redata = self.op.process(opdata)
+
+        # construct a return value with metadata and data merged
+        redata = map(self.build_result, zip(redata, self.op.outputs))
+
+        if not self._stop:
+            self.consumer.write(util.json_encode(redata))
+            self.consumer.write('\r\n')
+            if last:
+                self.consumer.unregisterProducer()
+                self.consumer.finish()
+
+    def build_result(self, (d, s)):
         obj = dict(s)
         if isinstance(d, np.ndarray):
             d[:,0] = np.int_(d[:, 0])
@@ -92,31 +212,3 @@ def make_applicator(appop, group=None):
             obj['Readings'] = d
         return util.build_recursive(obj, suppress=[])
 
-    def apply_op(data):
-        opmeta = data[0][1]
-        opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
-        if not len(opmeta):
-            return []
-
-        # build the operator
-        if group and len(group):
-            op = smap.ops.grouping.GroupByTagOperator(opmeta, appop, group[0])
-        else:
-            op = appop(opmeta)
-
-        # insert the data in the right index for the operator (it
-        # could come back in any order)
-        opdata = [operators.null] * len(op.inputs)
-        for v in data[1][1]:
-            if len(v['Readings']):
-                idx = op.index(v['uuid'])
-                opdata[idx] = np.array(v['Readings'])
-                opdata[idx][:, 0] /= 1000
-
-        # process
-        redata = op.process(opdata)
-
-        # construct a return value with metadata and data merged
-        return map(build_result, zip(redata, op.outputs))
-
-    return apply_op    

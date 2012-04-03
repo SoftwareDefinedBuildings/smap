@@ -93,3 +93,7 @@ class TestArithmetic(unittest.TestCase):
         rv = arithmetic.count.base_operator(self.jdata, axis=1)
         self.assertEquals(np.sum(rv[:, 0] - self.jdata[:, 0]), 0)
         self.assertEquals(np.sum(rv[:, 1]), 5 * 20)
+
+    def test_sum(self):
+        rv = arithmetic.sum.base_operator(self.jdata, axis=0)
+        self.assertEquals(rv.shape, (1, 6))
