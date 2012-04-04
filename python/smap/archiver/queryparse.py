@@ -57,7 +57,7 @@ tokens = (
     'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
     'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
-    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP',
+    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP', 'OPSEP',
     )
 
 precedence = (
@@ -101,6 +101,8 @@ t_LPAREN = r'\('
 t_RPAREN = r'\)'
 t_STAR = r'\*'
 t_COMMA = r','
+t_OPSEP = r'<'
+
 def t_QSTRING(t):
     r'("[^"\\]*?(\\.[^"\\]*?)*?")|(\'[^\'\\]*?(\\.[^\'\\]*?)*?\')'    
     if t.value[0] == '"':
@@ -118,7 +120,7 @@ def t_LVALUE(t):
 
 
 def t_NUMBER(t):
-    r'([0-9]+)|([+-]?([0-9]*\.)?[0-9]+)'
+    r'([+-]?([0-9]*\.)?[0-9]+)'
     if '.' in t.value:
         try:
             t.value = float(t.value)
@@ -261,12 +263,12 @@ def p_query(t):
 
 # apply a sequence of operators to data
 def p_apply_statement(t):
-    """apply_statement  : apply_clause TO data_clause WHERE statement_as_list
-                        | apply_clause TO data_clause WHERE statement_as_list GROUP BY tag_list
+    """apply_statement  : operator_list TO data_clause WHERE statement_as_list
+                        | operator_list TO data_clause WHERE statement_as_list GROUP BY tag_list
     """
     tag_extractor, tag_query = make_select_rv(t, make_tag_select('*'), t[5][0][1])
     _, data_query = make_select_rv(t, t[3], t[5][0][1])
-    
+
     # this does not make me feel good.
     
     data_extractor = lambda x: x
@@ -381,24 +383,52 @@ def p_limit(t):
         slimit = t[2]
     t[0] = [limit, slimit]
 
+def p_operator_list(t):
+    """operator_list   : priv_operator_list"""
+    if len(t[1]) > 1:
+        t[0] = operators.make_composition_operator(t[1])
+    else:
+        t[0] = t[1][0]
+
+
+def p_priv_operator_list(t):
+    '''priv_operator_list   : apply_operator
+                            | apply_operator OPSEP priv_operator_list'''
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[3].append(t[1])
+        t[0] = t[3]
+
 # apply operators
-def p_apply_clause(t):
-    '''apply_clause   : LVALUE LPAREN arg_list RPAREN
-                      | LPAREN apply_clause RPAREN
+def p_apply_operator(t):
+    '''apply_operator   : LVALUE LPAREN arg_list RPAREN
+                        | LPAREN apply_operator RPAREN
+                        | LVALUE
     '''
-    if len(t) == 5:
+    if len(t) == 2:
+        t[0] = stream.get_operator(t[1], empty_arg_list())
+    elif len(t) == 5:
         t[0] = stream.get_operator(t[1], t[3])
     else:
         t[0] = t[2]
 
+def empty_arg_list():
+    return (list(), dict())
+
 def p_arg_list(t):
-    '''arg_list     : call_argument
+    '''arg_list     : 
+                    | call_argument
                     | call_argument COMMA arg_list
                      '''
+    if len(t) == 1:
+        t[0] = empty_arg_list()
+        return
     if len(t) == 2:
-        alist = (list(), dict())
+        alist = empty_arg_list()
     else:
         alist = t[3]
+
 
     if t[1][0] == 'arg':
         alist[0].reverse()
@@ -411,10 +441,9 @@ def p_arg_list(t):
 def p_call_argument(t):
     '''call_argument   : QSTRING
                        | NUMBER
-                       | LVALUE
                        | LVALUE EQ NUMBER
                        | LVALUE EQ QSTRING
-                       | apply_clause'''
+                       | operator_list '''
     if len(t) == 4:
         t[0] = ('kwarg', {
             t[1] : t[3]
@@ -642,6 +671,9 @@ if __name__ == '__main__':
             print "data done"
 
         def registerProducer(self, a1, a2):
+            pass
+
+        def unregisterProducer(self):
             pass
 
     request = Request()

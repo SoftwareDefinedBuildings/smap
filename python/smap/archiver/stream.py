@@ -39,7 +39,7 @@ from twisted.internet import interfaces, reactor
 
 import smap.util as util
 import smap.operators as operators
-from smap.ops import installed_ops
+from smap.ops import installed_ops, grouping
 from smap.archiver import data
 from smap.archiver import querygen as qg
 
@@ -50,16 +50,9 @@ def get_operator(name, args):
     :raises: ParseException if it can't match the operator
     """
     args, kwargs = args
-    # groups = filter(lambda x: type(x) == type('') and x[0] == '$', args)
-    # args = filter(lambda x: type(x) != type('') or x[0] != '$', args)
-    thisop = lookup_operator_by_name(name, args[1:], kwargs)
-    if util.is_string(args[0]):
-        # then our input will be bound somewhere else
-        return thisop
-    else:
-        # otherwise assume the first op is another operator, and we
-        # need to compose them
-        return operators.make_composition_operator([args[0], thisop])
+    thisop = lookup_operator_by_name(name, args, kwargs)
+    return thisop
+
 
 def lookup_operator_by_name(name, args, kwargs):
     """Lookup an operator by name and return a closure which will
@@ -98,7 +91,6 @@ class OperatorApplicator(object):
         self._paused = self._stop = self._error = False
         self.chunk_idx = 0
         # print "creating opapp", op, data_spec, group
-
         consumer.registerProducer(self, True)
 
     def pauseProducing(self):
@@ -130,11 +122,14 @@ class OperatorApplicator(object):
 
         # build the operator
         if self.group and len(self.group):
-            self.op = smap.ops.grouping.GroupByTagOperator(opmeta, 
-                                                           self.op, 
-                                                           self.group[0])
+            self.op = grouping.GroupByTagOperator(opmeta, 
+                                                  self.group[0],
+                                                  self.op)
         else:
             self.op = self.op(opmeta)
+            for o in self.op.outputs:
+                if not 'Metadata/Extra/Operator' in o:
+                    o['Metadata/Extra/Operator'] = str(self.op)
 
         self.resumeProducing()
 
@@ -148,7 +143,8 @@ class OperatorApplicator(object):
         start *= 1000
         end *= 1000
         last = False
-        if end >= self.data_spec['end']:
+
+        if self.op.block_streaming or end >= self.data_spec['end']:
             end = self.data_spec['end']
             last = True
         self.chunk_idx += 1
@@ -171,10 +167,16 @@ class OperatorApplicator(object):
 
     def abort(self, error):
         self._stop = True
+        if hasattr(error, "getTraceback"):
+            tb = str(error.getTraceback())
+        else:
+            tb = str(error)
         error = {
             'error': "Encountered error while reading data; results are incomplete",
             'exception': str(error.value),
+            'traceback': tb,
             }
+
         self.consumer.write(util.json_encode(error))
         self.consumer.unregisterProducer()
         self.consumer.finish()

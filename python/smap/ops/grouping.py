@@ -79,7 +79,6 @@ class GroupByTimeOperator(Operator):
 
     def process(self, input):
         # store the new data
-        # print "processing..."
         self.pending = extend(self.pending, input)
 
         # apply the grouping operator to each window
@@ -121,6 +120,8 @@ class GroupByTimeOperator(Operator):
 
         return rv
 
+def P(x):
+    return map(lambda i: [x] * i, xrange(0, 5))
 
 class GroupByDatetimeField(Operator):
     """Grouping operator which works using datetime objects
@@ -135,13 +136,15 @@ class GroupByDatetimeField(Operator):
     operators like max, min, or mean; something which summarizes the
     contents of the bin.
     """ 
-    name = 'group by datetime'
+    name = 'window'
     operator_name = 'window'
     operator_constructors = [(lambda x: x,)]
     DT_FIELDS = ['year', 'month', 'day', 'hour', 'minute', 'second']
-    def __init__(self, inputs, group_operator, field='day', 
-                 increment=1, inclusive=(True, False),
-                 snap_times=True):
+    def __init__(self, inputs, group_operator, **kwargs):
+        field = kwargs.get('field', 'day') 
+        increment = int(kwargs.get("increment", 1))
+        inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
+        snap_times = bool(kwargs.get("snap_times", True))
         if not field in self.DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
 
@@ -151,13 +154,19 @@ class GroupByDatetimeField(Operator):
 
         self.tzs = map(lambda x: dtutil.gettz(x['Properties/Timezone']), inputs)
         self.ops = map(lambda x: group_operator([x]), inputs)
+        # self.ops = [[op([x]) for op in ops] for x in inputs]
         self.comparator = self.make_bin_comparator(field, increment)
         self.snapper = self.make_bin_snapper(field, increment)
         self.snap_times = snap_times
         self.bin_width = datetime.timedelta(**{field + 's': increment})
+        self.name = "window(%s, field=%s, increment=%i, inclusive=%s, snap_times=%s)" % ( \
+            str(self.ops[0]), field, increment, str(inclusive), str(snap_times))
         Operator.__init__(self, inputs, 
                           util.flatten(map(operator.attrgetter('outputs'), 
                                            self.ops)))
+#                           util.flatten([util.flatten(map(operator.attrgetter('outputs'),
+#                                                          op))
+#                                         for op in self.ops]))
         self.reset()
 
     def reset(self):
@@ -192,6 +201,7 @@ class GroupByDatetimeField(Operator):
     def process_one(self, data, op, tz,
                     prev=None,
                     prev_datetimes=None):
+        # print "PRCESSING"
         tic = time.time()
         if prev == None:
             prev = np.copy(data)
@@ -202,6 +212,8 @@ class GroupByDatetimeField(Operator):
         
         assert len(prev_datetimes) == len(prev)
         output = [null] * len(op.outputs)
+        # output = [null] * len(util.flatten(map(operator.attrgetter("outputs"), ops)))
+        # print output
 
         if len(prev_datetimes) == 0:
             return output, {
@@ -230,6 +242,14 @@ class GroupByDatetimeField(Operator):
                 take_end = bin_end_idx
 
             opdata = op([prev[bin_start_idx:take_end, :]])
+#             opdata = [op([prev[bin_start_idx:take_end, :]]) for op in ops]
+#             opdata = util.flatten(opdata)
+#             print "THAT", opdata
+# #             print [opdata[0][:, 0]]
+# #             print [o[:, 1:] for o in opdata]
+#             opdata = [np.column_stack([opdata[0][:, 0]] + [o[:, 1:] 
+#                                                            for o in opdata])]
+#             print "THIS ONE", opdata
             
             # snap the times to the beginning of the
             # window, if we were asked to.  do this here
@@ -239,7 +259,7 @@ class GroupByDatetimeField(Operator):
             if self.snap_times:
                 t = dtutil.dt2ts(bin_start)
                 for j in xrange(0, len(opdata)):
-                       opdata[j][:, 0] = t
+                    opdata[j][:, 0] = t
             output = extend(output, opdata)
 
             bin_start = bin_end
@@ -275,10 +295,11 @@ class GroupByDatetimeField(Operator):
 
 class GroupByTagOperator(Operator):
     """Group streams by values of a shared tag"""
-    operator_name = 'tag_group'
-    operator_constructors = [(lambda x: x, str)]
+    operator_name = 'tgroup'
+    operator_constructors = [(str, lambda x: x)]
+    name = 'tgroup'
 
-    def __init__(self, inputs, group_operator, group_tag):
+    def __init__(self, inputs, group_tag, group_operator):
         groups = [None]
         self.group_idx = [[]]
         group_inputs = [[]]
@@ -297,6 +318,14 @@ class GroupByTagOperator(Operator):
         self.operators = [group_operator(x) if len(x) else PrintOperator([])
                           for x in group_inputs]
 
+        for o in self.operators:
+            for i in xrange(0, len(o.outputs)):
+                o.outputs[i]['Metadata/Extra/Operator'] = 'tgroup(%s, %s)' % (group_tag,
+                                                                              str(o))
+                                                                       
+        self.block_streaming = reduce(operator.__or__,
+                                      map(operator.attrgetter('block_streaming'), 
+                                          self.operators))
         Operator.__init__(self, inputs, 
                           outputs=util.flatten(map(operator.attrgetter('outputs'), 
                                                    self.operators)))
@@ -315,13 +344,14 @@ class PasteOperator(Operator):
     operator_name = "paste"
     operator_constructors = [()]
 
-    def __init__(self, inputs, sort=None, reverse=False):
+    def __init__(self, inputs, sort='uuid', reverse=False):
         if sort:
             keys = zip(map(operator.itemgetter(sort), inputs), range(0, len(inputs)))
             keys.sort(key=lambda x: x[0], reverse=reverse)
             self.order = map(operator.itemgetter(1), keys)
         else:
             self.order = None
+        self.name = 'paste(sort=%s, reverse=%s)' % (str(sort), str(reverse))
         Operator.__init__(self, inputs)
 
     def process(self, data):
@@ -332,22 +362,3 @@ class PasteOperator(Operator):
                                                      self.order)))]
 
 
-class GroupingPasteOperator(Operator):
-    """An operator which allows us to apply different operators to
-    groups of data"""
-
-    def __init__(self, groups):
-        """groups: a list of (key, operator) tuples responsible for eaach group
-        """
-        self.groups = groups
-
-    def bind(self, group_inputs):
-        """Bind the operator maps to specific inputs
-        
-        group_inputs: a map from the same key strings to the actual
-            streams.  This step instantiates all the operators.
-        """
-        print "binding", group_inputs
-
-    def process(self, data, push=False):
-        print "PROCESS ME"

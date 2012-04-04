@@ -35,10 +35,13 @@ import operator
 import datetime
 import numpy as np
 import pprint
+import traceback
+import sys
 
 from smap.core import SmapException
 from smap.operators import Operator, ParallelSimpleOperator, CompositionOperator, mknull
 from smap.contrib import dtutil
+from smap import operators
 
 class StandardizeUnitsOperator(Operator):
     """Make some unit conversions"""
@@ -150,22 +153,80 @@ class MissingDataOperator(ParallelSimpleOperator):
     operator_name = 'missing'
     operator_constructors = [(), (float,)]
 
-    def __init__(self, inputs, ndatathresh=0.6):
-        ParallelSimpleOperator.__init__(self, inputs, ndatathresh=ndatathresh)
+    def __init__(self, inputs, ndatathresh=0.6, invert=False):
+        ParallelSimpleOperator.__init__(self, inputs, 
+                                        ndatathresh=ndatathresh,
+                                        invert=invert)
         if ndatathresh < 0 or ndatathresh > 1:
             raise SmapException("Invalid data availability threshold: must be in [0, 1]")
 
     @staticmethod
-    def base_operator(data, ndatathresh=0.6):
+    def base_operator(data, ndatathresh=0.6, invert=False):
         length, width = data.shape
         width -= 1
         nancnt = np.sum(np.isnan(data[:, 1:]), axis=1)
-        takerows = np.where(width - nancnt >= width * ndatathresh)
+        print "invert?", invert
+        if not invert:
+            takerows = np.where(width - nancnt >= width * ndatathresh)
+        else:
+            takerows = np.where(width - nancnt <= width * ndatathresh)
+            
         if len(takerows[0]):
-            return data[takerows]
+            return data[takerows[0], :]
         else:
             return mknull(width)
 
+def make_colspec(cols):
+    return map(int, cols.split(','))
+
+
+class CopyOperator(ParallelSimpleOperator):
+    name = "copy"
+    operator_name = "copy"
+    operator_constructors = [(), (str,)]
+
+    def __init__(self, inputs, cols=""):
+        cols = make_colspec(cols)
+        return ParallelSimpleOperator.__init__(self, inputs, cols=cols)
+
+    @staticmethod
+    def base_operator(data, cols=""):
+        return np.column_stack([data] + map(lambda i: data[:, i], cols))
+
+class IndexOperator(ParallelSimpleOperator):
+    name = "index"
+    operator_name = "index"
+    operator_constructors = [(), (str,)]
+
+    def __init__(self, inputs, cols=""):
+        cols = make_colspec(cols)
+        return ParallelSimpleOperator.__init__(self, inputs, cols=cols)
+
+    @staticmethod
+    def base_operator(data, cols=""):        
+        return np.column_stack([data[:, 0]] + map(lambda i: data[:, i], cols))
+
+class AddColumnOperator(Operator):
+    name = 'addcol'
+    operator_name = 'catcol'
+    operator_constructors = [(str, lambda x: x)]
+    def __init__(self, inputs, cols="1", operator=None):
+
+        self.cols = make_colspec(cols)
+        self.ops = map(lambda x: operator([x]), inputs)
+        self.name = 'catcol(%s, %s)' % (','.join(map(str, self.cols)), 
+                                        str(self.ops[0]))
+        # print self.cols, self.ops
+        Operator.__init__(self, inputs, operators.OP_N_TO_N)
+
+    def process(self, data):
+        rv = []
+        for i, d in enumerate(data):
+            input_data = np.column_stack((d[:, 0], d[:, self.cols]))
+            newcols = self.ops[i]([input_data])
+            assert len(newcols) == 1
+            rv.append(np.column_stack((d, newcols[0][:, 1:])))
+        return rv
 
 class MaskedDTList:
     """List which lazily performs datetime conversions, and memoizes

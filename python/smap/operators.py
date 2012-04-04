@@ -64,6 +64,7 @@ class Operator(object):
     data_type = ('double', float)
     required_tags = set(['uuid'])
     optional_tags = set([])
+    block_streaming = False
 
     def __init__(self, inputs, 
                  outputs=OP_N_TO_1, 
@@ -134,6 +135,8 @@ class Operator(object):
         else:
             return [null] * len(self.inputs)
 
+    def __str__(self):
+        return self.name
 
 class OperatorDriver(driver.SmapDriver):
     """Base class for code which wants to process single streams.
@@ -378,7 +381,9 @@ def extend(a1, a2):
     assert(len(a1) == len(a2))
     rv = [None] * len(a1)
     for i in xrange(0, len(a2)):
-        if len(a2[i]):
+        if a1[i].shape[0] == 0:
+            rv[i] = a2[i]
+        elif len(a2[i]):
             rv[i] = np.vstack((a1[i], a2[i]))
         else:
             rv[i] = a1[i]
@@ -398,13 +403,15 @@ def join_union(inputs):
     if len(inputs) == 1: return inputs
     times = reduce(lambda x, y: np.union1d(x, y[:, 0]), inputs[1:], 
                    inputs[0][:, 0])
-    proto = np.dstack((times, np.ones(len(times)) * np.nan))[0]
-    vals = map(lambda x: np.copy(proto), inputs)
-
-    # fill in the values from each stream that are present
-    for (stream, rv) in zip(inputs, vals):
-        rv[np.nonzero(np.in1d(times, stream[:, 0])), 1] = stream[:, 1]
-    return vals
+    times = np.reshape(times, (len(times), 1))
+    rv = []
+    for stream in inputs:
+        new = np.column_stack((times, 
+                               np.ones((len(times), stream.shape[1] - 1)) * np.nan))
+        if stream.shape[0] > 0:
+            new[np.nonzero(np.in1d(times, stream[:, 0])), 1:] = stream[:, 1:]
+        rv.append(new)
+    return rv
 
 def transpose_streams(inputs):
     """Takes aligned inputs and returns a matrix with t, v1, v2, ... vN"""
@@ -469,11 +476,16 @@ class VectorOperator(Operator):
     def __init__(self, inputs, *opargs, **initargs):
         self.axis = 0 if initargs.get('axis', 'time') in ['time', 0] else 1
         initargs['axis'] = self.axis
+        self.name = "%s(%s)" % (self.name, 
+                                ",".join(list(map(str, opargs)) +
+                                         map(lambda (k, v): str(k) + "=" + str(v), 
+                                             initargs.iteritems())))
 
         if self.axis == 0:
             # if we operate in parallel then we also produce n output
             # operators
             outputs = OP_N_TO_N
+            self.block_streaming = True
             self.op = parallelize(self.base_operator,
                                   len(inputs),
                                   *opargs,
@@ -514,11 +526,16 @@ class CompositionOperator(Operator):
             _inputs = op.outputs
         self.required_tags = set.union(*map(lambda x: x.required_tags, self.ops))
         self.optional_tags = set.union(*map(lambda x: x.optional_tags, self.ops))
+        self.block_streaming = reduce(operator.__or__,
+                                      map(operator.attrgetter('block_streaming'), self.ops))
 
         Operator.__init__(self, inputs, _inputs)
 
     def process(self, data):
         return reduce(lambda x, y: y(x), self.ops, data)
+
+    def __str__(self):
+        return ' < '.join(map(str, reversed(self.ops)))
 
 def make_composition_operator(ops):
     class _TmpOp(CompositionOperator):

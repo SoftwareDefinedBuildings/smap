@@ -46,6 +46,7 @@ def vector_operator_factory(name, op, constructors=[()]):
         def __new__(meta, _classname, bases, classdict):
             klass = type.__new__(meta, classname, bases, classdict)
             klass.base_operator = staticmethod(op)
+            klass.name = name
             klass.operator_name = name
             klass.operator_constructors = constructors
             return klass

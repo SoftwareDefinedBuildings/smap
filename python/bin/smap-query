@@ -76,22 +76,29 @@ def run_query(opts, q):
             doplot = False
 
         tic = time.time()
+        total = 0
         fp = urllib2.urlopen(qurl, data=q, timeout=opts.timeout)
-        obj = json.load(fp)
-        toc = time.time()
+        while True:
+            obj =  fp.readline()
+            if not obj: break
+            obj = json.loads(obj)
 
-        if doplot:
-            plot(obj)
-        else:
-            if opts.dates:
-                stringify_times(obj)
-
-            if util.is_string(obj):
-                print obj
+            if doplot:
+                plot(obj)
             else:
-                json.dump(obj, sys.stdout, sort_keys=True, indent=2)
-            print # add a newline
-        print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
+                if opts.dates:
+                    stringify_times(obj)
+
+                if util.is_string(obj):
+                    print obj
+                else:
+                    json.dump(obj, sys.stdout, sort_keys=True, indent=2)
+                print # add a newline
+            toc = time.time()
+            print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
+            total += len(obj)
+        toc = time.time()
+        print >>sys.stderr, "%i (%i ms)" % (total, int((toc - tic) * 1000))
 
     except urllib2.HTTPError, e:
         print >>sys.stderr, "ERROR:", e.read()
