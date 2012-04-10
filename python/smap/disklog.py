@@ -31,6 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import util
+from twisted.python import log
 
 import os
 
@@ -52,7 +53,8 @@ class DiskLog:
     def _read_seqno(self, seq):
         try:
             return util.pickle_load(os.path.join(self.dirname, snp(seq)))
-        except IOError:
+        except IOError, e:
+            log.err("Warning: got exception reading sequence number: " + str(e))
             return None
 
     def __init__(self, dirname):
@@ -87,6 +89,7 @@ class DiskLog:
         return self._tail
 
     def head(self):
+        if self._head == None: self.pop()
         return self._head
 
     def update_tail(self, obj):
@@ -122,6 +125,15 @@ class DiskLog:
     close = sync
 
     def pop(self):
+        readback = None
+        while self.meta['tail'] > self.meta['head']  and readback == None:
+            self._pop()
+            readback = self._head
+            if readback == None:
+                log.err("WARN: disappeared log entry:" +
+                        str(self.meta['head'] - 1))
+
+    def _pop(self):
         """Truncate sequence numbers less than `seqno`
         """
         self.sync()

@@ -70,7 +70,7 @@ class ReadingdbPool:
         map(settings.rdb.db_close, self.pool)
 
     def get(self):
-        print "connect", settings.READINGDB_HOST, settings.READINGDB_PORT
+        # print "connect", settings.READINGDB_HOST, settings.READINGDB_PORT
         return settings.rdb.db_open(host=settings.READINGDB_HOST,
                            port=int(settings.READINGDB_PORT))
             

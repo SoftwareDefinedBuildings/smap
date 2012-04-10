@@ -27,6 +27,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import os
+import glob
 from smap.disklog import DiskLog
 from twisted.trial import unittest
 
@@ -169,3 +171,53 @@ class TestDiskLog(unittest.TestCase):
         finally:
             shutil.rmtree("testdir")
 
+
+    def test_disappearing_logs(self):
+        try:
+            dl = DiskLog("testdir")
+            for i in xrange(0, 10):
+                dl.append(i)
+            dl.sync()
+
+            # head is cached even though we removed it
+            os.remove("testdir/00000000")
+            os.remove("testdir/00000001")
+            self.assertEqual(dl.head(), 0)
+
+            # this should cause it to notice that it's missing
+            dl.pop()
+            self.assertEqual(dl.head(), 2)
+
+            # remove the rast of the logs
+            for f in glob.glob("testdir/0000*"):
+                os.remove(f)
+            self.assertEqual(dl.head(), 2)
+            dl.pop()
+            # head was still in memory
+            self.assertEqual(dl.head(), dl.tail())
+            self.assertEqual(dl.head(), 9)
+        finally:
+            shutil.rmtree("testdir")
+
+    def test_disappearing_all(self):
+        """Make sure we can hose all of the log files and still make
+        progress"""
+        try:
+            dl = DiskLog("testdir")
+            for i in xrange(0, 10):
+                dl.append(i)
+            dl.sync()
+        finally:
+            shutil.rmtree("testdir")
+
+        map(os.remove, glob.glob("testdir/000*"))
+
+        try:
+            dl = DiskLog("testdir")
+            self.assertEqual(dl.head(), None)
+            for i in xrange(20, 30):
+                dl.append(i)
+            dl.sync()
+            self.assertEqual(dl.head(), 20)
+        finally:
+            shutil.rmtree("testdir")
