@@ -27,6 +27,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import time
+import datetime
 import os
 import glob
 from smap.disklog import DiskLog
@@ -171,6 +173,20 @@ class TestDiskLog(unittest.TestCase):
         finally:
             shutil.rmtree("testdir")
 
+    def test_aging(self):
+        try:
+            max_age = datetime.timedelta(seconds=1)
+            dl = DiskLog("testdir", max_age)
+            for i in xrange(0, 10):
+                dl.append(str(i))
+            dl.sync()
+            self.assertEqual(dl.head(), "0")
+            time.sleep(2)
+            dl.append("11")
+            dl.sync()
+            self.assertEqual(dl.head(), "11")
+        finally:
+            shutil.rmtree("testdir")
 
     def test_disappearing_logs(self):
         try:

@@ -30,10 +30,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-import util
-from twisted.python import log
-
 import os
+import util
+import time
+from twisted.python import log
 
 def snp(s):
     return "%08i" % s
@@ -57,7 +57,7 @@ class DiskLog:
             log.err("Warning: got exception reading sequence number: " + str(e))
             return None
 
-    def __init__(self, dirname):
+    def __init__(self, dirname, max_age=None):
         self.dirname = dirname
 
         if not os.path.isdir(dirname):            
@@ -79,6 +79,7 @@ class DiskLog:
 
             self._head = self._read_seqno(self.meta['head'])
 
+        self.max_age = max_age
         self.dirty = False
             
     def __len__(self):
@@ -118,13 +119,15 @@ class DiskLog:
 
     def sync(self):
         if self.dirty:
+            self.dirty = False
             self._write_tail()
             self._write_meta()
-            self.dirty = False
+            self._age_buffers()
 
     close = sync
 
     def pop(self):
+        """Remove the head of the queue from disk"""
         readback = None
         while self.meta['tail'] > self.meta['head']  and readback == None:
             self._pop()
@@ -134,8 +137,6 @@ class DiskLog:
                         str(self.meta['head'] - 1))
 
     def _pop(self):
-        """Truncate sequence numbers less than `seqno`
-        """
         self.sync()
 
         try:
@@ -155,6 +156,20 @@ class DiskLog:
         else:
             # read the new head off disk
             self._head = self._read_seqno(self.meta['head'])
+
+    def _age_buffers(self):
+        """Remove buffers which have been on disk for longer than max_age"""
+        if self.max_age == None: return
+        seqno = self.meta['head']
+        now = time.time()
+        for seqno in xrange(self.meta['head'], self.meta['tail'] + 1):
+            try:
+                mtime = os.path.getmtime(os.path.join(self.dirname, 
+                                                      snp(self.meta['head'])))
+            except OSError:
+                break
+            if now - mtime > self.max_age.total_seconds():
+                self.pop()
 
     def idxtoseq(self, idx):
         pass

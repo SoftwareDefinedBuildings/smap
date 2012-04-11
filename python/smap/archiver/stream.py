@@ -33,6 +33,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import numpy as np
 import time
 import traceback
+import operator
 
 from zope.interface import implements
 from twisted.internet import interfaces, reactor
@@ -113,7 +114,11 @@ class OperatorApplicator(object):
         if not len(opmeta):
             return []
 
+        # sort the streamids to be in the same order as the operator inputs
+        meta_uid_order = dict(zip(map(operator.itemgetter('uuid'), opmeta), 
+                                  xrange(0, len(opmeta))))
         self.streamids = data[1][1]
+        self.streamids.sort(key=lambda elt: meta_uid_order[elt[0]])
 
         # use a heuristic for how much data we want to load at once...
         self.chunk_length = (3600 * 24 * self.DATA_DAYS) / len(self.streamids)

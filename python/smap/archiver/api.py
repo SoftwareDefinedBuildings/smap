@@ -308,7 +308,7 @@ class Api(resource.Resource):
 
     def send_error(self, request, error):
         print "got error", error
-        print error.getTraceback()
+        # print error.getTraceback()
         setResponseCode(request, error, 400)
         return str(error)
 

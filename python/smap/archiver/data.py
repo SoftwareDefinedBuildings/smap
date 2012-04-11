@@ -424,5 +424,5 @@ def data_load_result(request, method, result, send=False, **loadargs):
         if send: d.addCallback(send_result)
         return d
     else:
-        return defer.succeed((request, []))
+        return defer.succeed([])
 
