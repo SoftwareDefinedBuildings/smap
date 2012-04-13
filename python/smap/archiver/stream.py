@@ -112,7 +112,10 @@ class OperatorApplicator(object):
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
         if not len(opmeta):
-            return []
+            self.consumer.write(util.json_encode([]))
+            self.consumer.unregisterProducer()
+            self.consumer.finish()
+            return 
 
         # sort the streamids to be in the same order as the operator inputs
         meta_uid_order = dict(zip(map(operator.itemgetter('uuid'), opmeta), 
