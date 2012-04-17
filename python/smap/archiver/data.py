@@ -231,7 +231,7 @@ class DataRequester:
         self.as_smapobj = as_smapobj
 
     def load_data(self, request, method, streamids):
-        if method == 'data':
+        if method == 'data' and False:
             return self.multi_load_data(request, method, streamids)
         else:
             mdr = ManualDataRequester(ndarray=self.ndarray, 
@@ -417,7 +417,8 @@ def data_load_result(request, method, result, send=False, **loadargs):
     if count == 0:
         count = len(result)
 
-    if len(result) > 0:
+    print "Data load res"
+    if len(result) > 0 and False:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])
         d.addCallback(lambda x: (request, x))

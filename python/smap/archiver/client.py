@@ -70,6 +70,12 @@ class SmapClient:
     """
     def __init__(self, base='http://new.openbms.org/backend', 
                  key=None, private=False, timeout=50.0):
+        """
+:param string base: URL of the base archiver
+:param string key: an archiver API key to send along with requests
+:param bool private: if True, only query streams owned by `key`
+:param float timeout: how long to wait for results
+"""
         self.base = base
         self.timeout = timeout
         self.key = key
@@ -137,13 +143,14 @@ the result.
         return obj[0]['uuid'], np.array(obj[0]['Readings'])
         
     def data_uuid(self, uuids, start, end, cache=True):
-        """Load a time range of data for a list of uuids
-        
-Attempts to use cached data and load missing data in parallel.
+        """Low-level interface for loading a time range of data from a list of
+uuids.  Attempts to use cached data and load missing data in parallel.
 
 :param list uuids: a list of stringified UUIDs
 :param int start: the timestamp of the first record in seconds, inclusive
 :param int end: the timestamp of the last record, exclusive
+:param bool cache: if true, try to save/read data from an on-disk
+  cache.  Sometimes useful if the same data is frequently accessed.
 :return: a list of data vectors.  Each element is
   :py:class:`numpy.array` of data in the same order as the input list of
   uuids
@@ -245,7 +252,21 @@ Attempts to use cached data and load missing data in parallel.
 
 
 class RepublishClient:
-    """Listener for streaming data from a sMAP source or archiver's /republish feed
+    """Listener for streaming data from an archiver's
+`/republish` feed.  This class uses :py:class:`twisted` for
+event-driven programming so this is most useful for other twisted
+programs.  For instance::
+
+ from twisted.internet import reactor
+
+ def data_callback(data):
+     print data
+
+ r = RepublishClient("http://localhost:8079/republish", data_callback)
+ r.connect()
+ reactor.callLater(5, reactor.stop)
+ reactor.run()
+
     """
     def __init__(self, url, datacb, reconnect=True, restrict=None, connect_error=None):
         """
@@ -253,7 +274,9 @@ class RepublishClient:
 :param datacb: callable to be called with each new sMAP object
 :param bool reconnect: weather to reconnect if the socket connection is dropped.
 :param str restrict: "where" clause restricting data to be delivered.
-    This is only evaluated once, when connecting.
+:param connect_error: callback to be called when the archiver returns an HTTP error code.
+    This is only evaluated once, when connecting.  Will be called with a 
+    :py:class:`twisted.web.client.Response` object as the first argument.
         """
         self.url = url
         self.datacb = datacb
@@ -310,7 +333,8 @@ class RepublishClient:
         self._reconnect()
 
     def connect(self):
-        """Subscribe and start receiving data
+        """Subscribe and start receiving data.  No callbacks will be called
+before this connecting.
         """
         self.closing = False
         if not self.restrict:
@@ -327,6 +351,8 @@ class RepublishClient:
         d.addErrback(self._connect_failed)
     
     def close(self):
+        """Close the connection to the server, and abandon any retries.
+        """
         self.closing = True
         try:
             self.receiver.transport.stopProducing()

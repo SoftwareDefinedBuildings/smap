@@ -25,6 +25,7 @@ profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
    conf
    internals
    core
+   archiver
 
 Indices and tables
 ==================

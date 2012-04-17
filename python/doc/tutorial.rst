@@ -109,6 +109,8 @@ under which all the resources are added and implemented
 programmatically.  To be a driver, you need to implement two
 methods; the :py:class:`smap.driver.BaseDriver` class is one
 example::
+
+  from smap import driver, util
     
   class BaseDriver(driver.SmapDriver):
       def setup(self, opts):
@@ -185,7 +187,7 @@ running at a given time.  This means you may not use any
 non-thread-safe :py:mod:`twisted` methods; however you may use normal
 blocking APIs::
 
-  import util
+  from smap import util
   def readValue(val):
       print "Reading value:", val
   util.periodicSequentialCall(readValue, 1).start(1)

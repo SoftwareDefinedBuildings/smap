@@ -37,6 +37,7 @@ import operator
 
 from zope.interface import implements
 from twisted.internet import interfaces, reactor
+from twisted.python import failure
 
 import smap.util as util
 import smap.operators as operators
@@ -99,7 +100,10 @@ class OperatorApplicator(object):
 
     def resumeProducing(self):
         self._paused = False
-        return self.load_chunk()
+        try:
+            return self.load_chunk()
+        except Exception, e:
+            self.abort(failure.Failure(e))
 
     def stopProducing(self):
         self._stop = True
