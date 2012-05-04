@@ -58,9 +58,13 @@ SCHEMA_OBJECTS = []
 
 # load all the schemas when we check an object
 for sf in SCHEMAS:
-    # print "Loading", sf
+    #print "Loading", sf
 	
-    dirs = [os.path.dirname(sys.modules[__name__].__file__), sys.prefix]
+    dirs = [os.path.dirname(sys.modules[__name__].__file__),
+            os.path.join(os.path.dirname(sys.modules[__name__].__file__),
+                         os.path.join(os.pardir, os.pardir)),
+            sys.prefix]
+    #print dirs
     obj = None
     for d in dirs:
         try:
