@@ -25,7 +25,7 @@ import traceback
 import smap.server
 import smap.loader
 
-from smap.drivers import example
+from smap.drivers import example, opc, opc_exe
 
 class smapService(win32serviceutil.ServiceFramework):
   _svc_name_ = "smapService"

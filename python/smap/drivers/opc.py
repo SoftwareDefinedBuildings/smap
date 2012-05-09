@@ -30,6 +30,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import operator
+import re
 from twisted.internet import task
 from twisted.python import log
 
@@ -47,20 +49,20 @@ def exclude(key):
        if key.find(exclude) >= 0: return True
     return False
 
-
 class Driver(SmapDriver):
     def setup(self, opts):
         self.opc_name = opts.get('OpcName')
         self.opc_host = opts.get('OpcHost', '127.0.0.1')
-        self.unit_tag = opts.get('OpcUnitProperty', 'Item EUInfo')
-        self.pointlist = [opts.get('OpcPoint', '*')]
+        self.unit_tag = opts.get('OpcUnitProperty', 'Engineering Units')
+        self.points = {opts.get('OpcPoint', '*'): {}}
         self.opc_timefmt = opts.get("OpcTimeFormat", "%m/%d/%y %H:%M:%S")
-        self.opc_timezone = opts.get("OpcTimeZone", "Local")
+        self.opc_timezone = opts.get("OpcTimezone", "Local")
         
-        self.rate = int(opts.get("Rate", 3))
+        self.rate = int(opts.get("Rate", 30))
         if opts.get('OpcPointFile', None):
-            with open(opts.get('OpcPointList', None), 'r') as fp:
-                self.pointlist.extend(fp.readlines())
+            with open(opts.get('OpcPointFile'), 'r') as fp:
+                self.points = self.parse_pointfile(fp)
+        print self.points.keys()
 
     def start(self):
         self.connect()
@@ -75,16 +77,32 @@ class Driver(SmapDriver):
         name = '/' + '/'.join(map(str_path, name[:-1]))
         return name
 
+    def parse_pointfile(self, fp):
+        pointdfns = {}
+        cur_tag = None
+        while True:
+            line = fp.readline()
+            if not line: break
+            line = re.sub("#(.*)$", "", line.rstrip())
+            if not re.match("^[ ]+", line):
+                pointdfns[line] = {}
+                cur_tag = line
+            elif cur_tag:
+                pieces = line.lstrip().split(" ")
+                pointdfns[cur_tag][pieces[0]] = ' '.join(pieces[1:])
+        return pointdfns
+            
     def connect(self):
         print "attempting OPC connection to", self.opc_name
         self.opc = OpenOPC.client()
         self.opc.connect(self.opc_name, self.opc_host)
-        props = self.opc.properties(self.pointlist)
+        props = self.opc.properties(self.points.keys())
+        print "loaded", len(props), "properties"
         points = {}
         for point, pid, key, val in props:
             name = self.make_path(point)
             if not name in points:
-                points[name] = {}
+                points[name] = self.points[point]
             if not exclude(key):
                 points[name]['OpcDA/' + key] = str(val)
 
@@ -104,10 +122,11 @@ class Driver(SmapDriver):
                 continue
             if not self.get_timeseries(name):
                 self.add_timeseries(name, unit, data_type=dtype)
-                self.set_metadata(name, meta)
+                self.set_metadata(name, points[name])
+        vals = self.opc.read(self.points.keys(), group="smap-points-group")
 
     def _update(self):
-        vals = self.opc.read(self.pointlist)
+        vals = self.opc.read(group="smap-points-group")
         for point, value, quality, time in vals:
             # parse the timestamp in the timezone of the server
             ts = dtutil.strptime_tz(time, self.opc_timefmt, self.opc_timezone)
@@ -122,4 +141,15 @@ class Driver(SmapDriver):
                 self._update()
         except:
             log.err()
+
+            # try to clean up and reconnect on an error
+            try:
+                self.opc.remove(self.opc.groups())
+            except:
+                pass
+            
+            try:
+                self.opc.close()
+            except:
+                pass
             del self.opc

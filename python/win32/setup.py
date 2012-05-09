@@ -1,9 +1,12 @@
 import platform
 from distutils.core import setup, Extension
 import os, sys, glob
+sys.path.append(os.pardir)
+
 import smap
 import py2exe
 import py2exe2msi.command
+
 
 # From http://www.py2exe.org/index.cgi/data_files
 def find_data_files(source,target,patterns):
@@ -58,6 +61,7 @@ data_files = find_data_files(os.path.dirname(sys.modules['smap'].__file__),
                              '', ['schema/*.av'])
 data_files.extend(find_data_files(os.path.dirname(__file__),
                                   '', ['dateutil/zoneinfo/*.tar.gz','db_ws', 'BACnet.ini']))
+
 setup(
     name='bacnet',
     version='0.1',
@@ -65,7 +69,7 @@ setup(
     # ext_modules=[bacnet_module],
     data_files = data_files,
     # console=["scan.py", "bacnet_smap2.py", "print_list.py", "win32traceutil.py"],
-    console = ["win32traceutil.py"],
+    console = ["win32traceutil.py", "smap2_cmdline.py"],
     service=[ServiceDesc()],
     zipfile=None,
     options = dict(
