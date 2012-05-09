@@ -127,7 +127,8 @@ class GroupByDatetimeField(Operator):
     """Grouping operator which works using datetime objects
 
     usage:
-       date_window($1, group_operator(), field="day", increment=1)
+       window($1, group_operator(), field="day", 
+              width=1, increment=None)
 
     This operator first bins data in the time dimension using datetime
     objects; for instance, if you say field = "day", the operator will
@@ -135,6 +136,14 @@ class GroupByDatetimeField(Operator):
     applies the group operator to these bins; these are typically
     operators like max, min, or mean; something which summarizes the
     contents of the bin.
+
+    The window width defaults to one.  Is the number of units of the
+    "field" to include in a window -- that is, field="minute",
+    width=15 would create 15-minute buckets.
+
+    The window increment determines how far forward the begining of
+    the window advances each time; by default, increment=width.  This
+    can be used to implement sliding-window filters.
     """ 
     name = 'window'
     operator_name = 'window'
@@ -142,11 +151,14 @@ class GroupByDatetimeField(Operator):
     DT_FIELDS = ['year', 'month', 'day', 'hour', 'minute', 'second']
     def __init__(self, inputs, group_operator, **kwargs):
         field = kwargs.get('field', 'day') 
-        increment = int(kwargs.get("increment", 1))
+        width = int(kwargs.get("width", 1))
+        increment = int(kwargs.get("increment", width))
         inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
         snap_times = bool(kwargs.get("snap_times", True))
         if not field in self.DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
+        if not increment <= width:
+            raise core.SmapException("window: Cannot increment more than the window width!")
 
         self.inclusive = make_inclusive(inclusive)
         if self.inclusive[0] == False:
@@ -155,25 +167,23 @@ class GroupByDatetimeField(Operator):
         self.tzs = map(lambda x: dtutil.gettz(x['Properties/Timezone']), inputs)
         self.ops = map(lambda x: group_operator([x]), inputs)
         # self.ops = [[op([x]) for op in ops] for x in inputs]
-        self.comparator = self.make_bin_comparator(field, increment)
+        self.comparator = self.make_bin_comparator(field, width)
         self.snapper = self.make_bin_snapper(field, increment)
         self.snap_times = snap_times
-        self.bin_width = datetime.timedelta(**{field + 's': increment})
-        self.name = "window(%s, field=%s, increment=%i, inclusive=%s, snap_times=%s)" % ( \
-            str(self.ops[0]), field, increment, str(inclusive), str(snap_times))
+        self.bin_width = datetime.timedelta(**{field + 's': width})
+        self.bin_increment = datetime.timedelta(**{field + 's': increment})
+        self.name = "window(%s, field=%s, width=%i, inclusive=%s, snap_times=%s)" % ( \
+            str(self.ops[0]), field, width, str(inclusive), str(snap_times))
         Operator.__init__(self, inputs, 
                           util.flatten(map(operator.attrgetter('outputs'), 
                                            self.ops)))
-#                           util.flatten([util.flatten(map(operator.attrgetter('outputs'),
-#                                                          op))
-#                                         for op in self.ops]))
         self.reset()
 
     def reset(self):
         self.state = [{}] * len(self.inputs)
 
-    def make_bin_comparator(self, field, increment):
-        td = datetime.timedelta(**{field + 's': increment})
+    def make_bin_comparator(self, field, width):
+        td = datetime.timedelta(**{field + 's': width})
         if self.inclusive[1] == False:
             cmp = operator.__lt__
         else:
@@ -182,7 +192,7 @@ class GroupByDatetimeField(Operator):
             return cmp(point - ref, td)
         return comparator
 
-    def make_bin_snapper(self, field, increment):
+    def make_bin_snapper(self, field, width):
         field_idx = self.DT_FIELDS.index(field)
         def snapper(point):
             kwargs = {}
@@ -192,7 +202,7 @@ class GroupByDatetimeField(Operator):
             # snap the final bin differently.
             fval = getattr(point, self.DT_FIELDS[field_idx])
             kwargs[self.DT_FIELDS[field_idx] + 's'] = \
-                int(fval % increment)
+                int(fval % width)
             td = datetime.timedelta(**kwargs)
             # print point, td
             return point - td
@@ -222,19 +232,21 @@ class GroupByDatetimeField(Operator):
                 }
 
         # find all the blocks in the time window.
-        bin_start, bin_start_idx, truncate_to = self.snapper(prev_datetimes[0]), 0, 0
+        bin_start, truncate_to = self.snapper(prev_datetimes[0]), 0
         # print bin_start
         while True:
             bin_end = bin_start + self.bin_width
 
             # perform a binary search to find the next window boundary
+            bin_start_idx = bisect.bisect_left(prev_datetimes, bin_start) 
             bin_end_idx = bisect.bisect_left(prev_datetimes, bin_end)
+            truncate_to = bin_start_idx
+
             if bin_end_idx == len(prev_datetimes): break
             if bin_start_idx == bin_end_idx: 
                 # skip empty bins
-                bin_start = bin_end
+                bin_start += self.bin_increment
                 continue
-            truncate_to = bin_end_idx
 
             if self.comparator(bin_start, prev_datetimes[bin_end_idx]):
                 take_end = bin_end_idx + 1
@@ -262,8 +274,9 @@ class GroupByDatetimeField(Operator):
                     opdata[j][:, 0] = t
             output = extend(output, opdata)
 
-            bin_start = bin_end
-            bin_start_idx = bin_end_idx
+            bin_start += self.bin_increment
+
+            # bin_start_idx = bin_end_idx
 
         toc = time.time()
 #         print("dt processing took %0.05f: %i/%i converted" %  \

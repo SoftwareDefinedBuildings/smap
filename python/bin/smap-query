@@ -44,7 +44,7 @@ import operator
 import subprocess
 from optparse import OptionParser
 from smap import util
-from smap.archiver import settings
+from smap.archiver import settings, client
 
 HISTFILE = os.path.expanduser('~/.smap-query-history')
 
@@ -78,27 +78,29 @@ def run_query(opts, q):
         tic = time.time()
         total = 0
         fp = urllib2.urlopen(qurl, data=q, timeout=opts.timeout)
-        while True:
-            obj =  fp.readline()
-            if not obj: break
-            obj = json.loads(obj)
+        obj = client.parser(fp.read())
 
-            if doplot:
-                plot(obj)
-            else:
-                if opts.dates:
-                    stringify_times(obj)
+        if util.is_string(obj):
+            print obj
+        elif doplot:
+            plot(obj)
+        else:
+            if opts.dates:
+                stringify_times(obj)
+            json.dump(obj, sys.stdout, sort_keys=True, indent=2)
 
-                if util.is_string(obj):
-                    print obj
-                else:
-                    json.dump(obj, sys.stdout, sort_keys=True, indent=2)
-                print # add a newline
-            toc = time.time()
-            print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
-            total += len(obj)
+#                 json
+#         while True:
+#             obj =  fp.readline()
+#             if not obj: break
+#             obj = json.loads(obj)
+
+#                 print # add a newline
+#             toc = time.time()
+#             print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
+#             total += len(obj)
         toc = time.time()
-        print >>sys.stderr, "%i (%i ms)" % (total, int((toc - tic) * 1000))
+        print >>sys.stderr, "%i (%i ms)" % (len(obj), int((toc - tic) * 1000))
 
     except urllib2.HTTPError, e:
         print >>sys.stderr, "ERROR:", e.read()
@@ -120,32 +122,28 @@ def plot(dat):
     pfile = '/tmp/smap-query.%i.pfile' % os.getpid()
     pscript = '/tmp/smap-query.%i.pscript' % os.getpid()
     # write the data file
-    dvecs = map(operator.itemgetter("Readings"), dat) 
+    # data = # dvecs = map(operator.itemgetter("Readings"), dat) 
+    data = dat[0]
+    if len(dat) > 1:
+        print "WARNING: can only print pasted data, plotting only the first series"
+
     def getpoint(d):
         if len(d) > 0: return d[0]
         else: 0xffffffff * 1000
 
     with open(pfile, "w") as fp:
-        while sum((len(x) for x in dvecs)):
-            ts = min(map(operator.itemgetter(0),
-                         map(getpoint, dvecs)))
-            line = []
-            for i in xrange(0, len(dvecs)):
-                if dvecs[i][0][0] == ts:
-                    line.append(dvecs[i][0][1])
-                    del dvecs[i][0]
-                else:
-                    line.append(float("NaN"))
-            print >>fp, ts, ' '.join(map(str, line))
+        for line in data['Readings']:
+            print >>fp, ' '.join(map(str, line))
+        
     with open(pscript, "w") as fp:
         print >>fp, get_gnuplot()
         print >>fp, """
 plot %s
-    """ % ','.join(['"%s" using ($1/1000):%i with linesp' % (pfile, x+2) for x in xrange(0, len(dat))])
+    """ % ','.join(['"%s" using ($1/1000):%i with linesp' % (pfile, x+2) for x in xrange(0, len(data['Readings'][0]))])
 
     with open('/dev/null', 'w') as null:
         p = subprocess.Popen("gnuplot %s" % pscript, 
-                             shell=True, stderr=null)
+                             shell=True, stderr=None)
     rc = p.wait()
     if rc == 127:
         print "ERROR: could not find gnuplot in $PATH; is it installed?"

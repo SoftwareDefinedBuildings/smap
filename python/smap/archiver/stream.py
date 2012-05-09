@@ -209,6 +209,8 @@ class OperatorApplicator(object):
         # construct a return value with metadata and data merged
         redata = map(self.build_result, zip(redata, self.op.outputs))
 
+        print "processing and writing took", time.time() - tic
+
         if not self._stop:
             self.consumer.write(util.json_encode(redata))
             self.consumer.write('\r\n')

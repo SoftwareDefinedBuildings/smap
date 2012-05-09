@@ -42,6 +42,7 @@ from StringIO import StringIO
 import numpy as np
 import smap.util as util
 import tscache
+from smap import util
 from smap.core import SmapException
 
 from twisted.internet import reactor
@@ -64,6 +65,30 @@ except ImportError:
   --> Falling back on urllib2
   --> Install pycURL for parallel data downloads"""
     from smap.iface.http.httputils import get
+
+def parser(data):
+    """Parse a response body from the server.  Since this may include
+multiple lines, we need to be careful to do this right and merge the
+results together."""
+    rv = {}
+    for line in data.split('\n'):
+        if len(line.strip()) == 0: continue
+        line_obj = util.json_decode(line)
+        if not isinstance(line_obj, list): return data
+        if len(line_obj) == 0: continue
+        if not isinstance(line_obj, dict): return line_obj
+        for v in line_obj:
+            if not 'uuid' in v:
+                raise SmapException("Invalid sMAP object: " + str(v))
+            id = v['uuid']
+            if not id in rv:
+                rv[id] = v
+            else:
+                if 'Readings' in v and 'Readings' in rv[id]:
+                    rv[id]['Readings'].extend(v['Readings'])
+                    del v['Readings']
+                rv[id] = util.dict_merge(rv[id], v)
+    return rv.values()
 
 class SmapClient:
     """Blocking client class for the archiver API.
@@ -142,7 +167,7 @@ the result.
         obj = util.json_decode(data)
         return obj[0]['uuid'], np.array(obj[0]['Readings'])
         
-    def data_uuid(self, uuids, start, end, cache=True):
+    def data_uuid(self, uuids, start, end, cache=True, limit=-1):
         """Low-level interface for loading a time range of data from a list of
 uuids.  Attempts to use cached data and load missing data in parallel.
 
@@ -156,7 +181,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
   uuids
         """
         qdict = self._build_qdict()
-        qdict['limit'] = -1
+        qdict['limit'] = str(int(limit))
         data, urls = {}, []
         start, end = start * 1000, end * 1000
         now = int((time.time() - 300) * 1000)
@@ -217,13 +242,20 @@ uuids.  Attempts to use cached data and load missing data in parallel.
         return self.query(qbody)
         
 
-    def data(self, qbody, start, end):
+    def data(self, qbody, start, end, limit=10000):
         """Load data for streams matching a particular query
 
         Uses the local time-series cache in the .cache directory.
+
+        :param str qbody: the selector for the data in questions
+        :param int start: query start time in UTC seconds (inclusive)
+        :param int end: query end time in UTC seconds (exclusive)
+        :return: a tuple of (uuids, data).  uuids is a list of uuids matching
+    the selector, and data is a list numpy matrices with the data 
+    corresponding to each uuid.
         """
         uids = self.query('select distinct uuid where %s' % qbody)
-        data = self.data_uuid(uids, start, end)
+        data = self.data_uuid(uids, start, end, limit=limit)
         return uids, data
 
     def prev(self, qbody, ref, limit=1, streamlimit=10):

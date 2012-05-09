@@ -172,7 +172,7 @@ class TestGroupByDatetime(unittest.TestCase):
         for incr in [2, 4, 6, 8, 12, 24]:
             op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first, 
                                                field='hour', 
-                                               increment=incr)
+                                               width=incr)
             rv = op([self.testdata[:25, :]])
             # check the shape
             self.assertEquals(len(rv[0]), 24 / incr)
@@ -201,7 +201,7 @@ class TestGroupByDatetime(unittest.TestCase):
 
         op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first, 
                                            field='hour',
-                                           increment=12,
+                                           width=12,
                                            snap_times=True)
         rv = op([self.testdata[10:30, :]])
         self.assertEquals(len(rv[0]), 2)

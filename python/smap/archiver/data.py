@@ -34,7 +34,6 @@ import traceback
 import operator
 import pprint
 import time
-import gc
 
 import numpy as np
 
@@ -226,38 +225,69 @@ def del_streams(streams):
         
 
 class DataRequester:
+    """Class to manage extracting data from the readingdb and return
+    it either as a numpy matix, a list, or a smap object with
+    readings.
+    """
     def __init__(self, ndarray=False, as_smapobj=True):
+        """
+:param ndarray: return the data as a numpy matrix
+:param: as_smapobj: return the data as a list of sMAP objects (dicts,
+     with uuid and Readings set) instead of a bare list of data.
+        """
         self.ndarray = ndarray
         self.as_smapobj = as_smapobj
 
     def load_data(self, request, method, streamids):
-        if method == 'data' and False:
-            return self.multi_load_data(request, method, streamids)
-        else:
-            mdr = ManualDataRequester(ndarray=self.ndarray, 
-                                      as_smapobj=self.as_smapobj)
-            return mdr.load_data(request, method, streamids)
-
-    def multi_load_data(self, request, method, streamids):
-        assert method == 'data'
+        """
+:param: request: a twisted http request
+:param method: 'data', 'prev', or 'next'
+:param streamids: a list of (uuid, streamid) tuples data is requested for.
+        """
         now = int(time.time()) * 1000
-        start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
-        end = int(request.args.get('endtime', [now])[0])
-        limit = int(request.args.get('limit', [100000])[0])
 
         self.streamids = streamids
         ids = map(operator.itemgetter(1), streamids)
-        d = threads.deferToThread(settings.rdb.db_multiple, 
-                                  ids,
-                                  start / 1000,
-                                  end / 1000,
-                                  limit=limit)
-        d.addCallback(self.check_data)
+
+        # args are a bit different for different requests
+        if method == 'data':
+            method = settings.rdb.db_query
+            args = [
+                ids,
+                int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0]) / 1000,
+                int(request.args.get('endtime', [now])[0]) / 1000
+                ]
+            kwargs = {
+                'limit': int(request.args.get('limit', [100000])[0])
+                }
+        else:
+            if method == 'prev':
+                method = settings.rdb.db_prev
+            elif method == 'next':
+                method = settings.rdb.db_next
+            args = [
+                ids,
+                int(request.args.get('starttime', [now])[0]) / 1000
+                ]
+            kwargs = {
+                'n': int(request.args.get('limit', [1])[0])
+                }
+                
+
+        # run the request in a (twisted) thread.
+        print "loading", ids
+        d = threads.deferToThread(method, *args, **kwargs)
+
+        # d.addCallback(self.check_data)
+
+        # add the data munging if requested
         if not self.ndarray or self.as_smapobj:
             d.addCallback(self.screw_data, streamids)
         return d
 
     def check_data(self, data):
+        """Run a check to see if the the data we get back from
+        readingdb is sensible."""
         for d in data:
             times = set(d[:, 0])
             assert len(times) == len(d[:, 0])
@@ -278,147 +308,30 @@ class DataRequester:
         return rv
 
 
-class ManualDataRequester:
-    """Manage loading data from a single stream from a readingdb
-    backend.  Will chain deferred together to return a partial
-    timeseries which contains just the uuid and the requested data.
-    """
-    def __init__(self, pool_size=2, ndarray=False, as_smapobj=True):
-        self.pool_size = pool_size
-        self.ndarray = ndarray
-        self.as_smapobj = as_smapobj
-
-    def _munge_data(self, request, data):
-        """Tweak the resulting object to be a Timeseries
-        """
-        if data != None:
-            toc = time.time()
-
-            data = np.vstack(map(np.array, data))
-            if data.shape[1] > 0:
-                data[:, 0] *= 1000
-                data = data[:, [0,2]] 
-            else:
-                data = null
-            if not self.ndarray:
-                data = data.tolist()
-
-            rv = {
-                'uuid': request['uuid'],
-                'Readings' : data, 
-                }
-            print "munge", time.time() - toc
-            return rv
-        return None
-
-    def _merge_results(self, returns):
-        rv = [None] * len(self.uids)
-        for rc, streams in returns:
-            if not rc: 
-                print "ERROR: streams"
-                raise streams
-            for data in streams:
-                if self.as_smapobj:
-                    rv[self.uids.index(data['uuid'])] = data
-                else:
-                    data['Readings'][:, 0] /= 1000
-                    rv[self.uids.index(data['uuid'])] = data['Readings']
-        return rv
-
-    def load_data(self, request, method, streamids):
-        """Called to kick off a load -- returns a deferred which will
-        yield a (request, Timeseries) tuple when it finishes.        
-        """
-        self.pending = []
-        self.uids = []
-        for uid, streamid in streamids:
-            # if these raise an exception we'll cancel all the loads
-            now = int(time.time()) * 1000
-            if method == 'data':
-                start = int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0])
-            else:
-                start = int(request.args.get('starttime', [now])[0])
-            end = int(request.args.get('endtime', [now])[0])
-            limit = int(request.args.get('limit', [-1])[0])
-
-            self.pending.append({
-                    'uuid': uid,
-                    'streamid': streamid,
-                    'method': method,
-                    'start': start,
-                    'end': end,
-                    'limit': limit,
-                    'request': request,
-                    })
-            self.uids.append(uid)
-
-        return self.start_workers()
-
-    def start_workers(self):
-        dl = []
-        for w in xrange(0, min(len(self.pending), self.pool_size)):
-            dl.append(threads.deferToThread(self.worker_thread))
-        d = defer.DeferredList(dl)
-        d.addCallback(self._merge_results)
-        return d
-    
-    def worker_thread(self):
-        conn = rdb_pool.get()
-        try:
-            return self._worker_thread(conn)
-        finally:
-            rdb_pool.put(conn)
-
-    def _worker_thread(self, conn):
-        pending_data = []
-        print "worker thread starting"
-        while True:
-            try:
-                request = self.pending.pop()
-            except IndexError:
-                return pending_data
-            rv = []
-
-            if request['method'] == 'data':
-                # no limit if zero
-                if request['limit'] == -1:
-                    request['limit'] = 1000000
-
-                # fetch all the data for this stream
-                while True:
-                    data = settings.rdb.db_query(conn, request['streamid'],
-                                                 request['start'] / 1000, request['end'] / 1000)
-                    t2 = time.time()
-                    rv.append(data) 
-                    t3 = time.time()
-                    request['limit'] -= min(len(data), request['limit'])
-                    if len(data) < 10000 or \
-                            request['limit'] <= 0: 
-                        break
-                    request['start'] = (data[-1][0] + 1) * 1000
-                    del data
-
-            elif request['method'] == 'next':
-                if request['limit'] == -1: request['limit'] = 1
-                rv = [settings.rdb.db_next(conn, request['streamid'], 
-                                           request['start'] / 1000, n = request['limit'])]
-            elif request['method'] == 'prev':
-                if request['limit'] == -1: request['limit'] = 1
-                rv = [settings.rdb.db_prev(conn, request['streamid'], 
-                                           request['start'] / 1000, n = request['limit'])]
-            pending_data.append(self._munge_data(request, rv))
-
 def send_result((request, result)):
     request.write(util.json_encode(result))
     request.finish()
 
 def data_load_result(request, method, result, send=False, **loadargs):
+    """Callback that can be chained onto a db query to load the data
+    from the reading db.
+
+:param request: the twisted request
+:param str method: data method
+:param result: the result of a previous query (usually).  list of
+    (uuid, streamid) tuples.
+:param bool send: write the output to the request object.  If true,
+    the resulting data will be sent back to the client by calling the
+    request.write method.  Otherwise you can chain your own callback
+    onto this guy.
+:param loadargs: additional args for the data loader (see :py:class:`DataRequester`).
+:return: a deferred which will fire with the result of loading the requested data.
+    """
     count = int(request.args.get('streamlimit', ['10'])[0])
     if count == 0:
         count = len(result)
 
-    print "Data load res"
-    if len(result) > 0 and False:
+    if len(result) > 0:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])
         d.addCallback(lambda x: (request, x))

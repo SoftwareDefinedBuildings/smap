@@ -307,10 +307,15 @@ class Api(resource.Resource):
         request.finish()
 
     def send_error(self, request, error):
-        print "got error", error
-        # print error.getTraceback()
         setResponseCode(request, error, 400)
+        try:
+            request.write(str(error.value))
+        except:
+            request.write(str(error))
+        request.unregisterProducer()
+        request.finish()
         return str(error)
+    
 
     def getChild(self, name, request):
         # except for streams, all api resources specify a set of
@@ -337,12 +342,16 @@ class Api(resource.Resource):
             else:
                 # run the query locally
                 d = parser.runquery(self.db, query)
-        except SmapException, e:
-            return self.send_error(request, e)
+        except Exception, e:
+            setResponseCode(request, e, 400)
+            return str(e)
         else:
             # and send the reply
             request.setHeader('Content-type', 'application/json')
+
             if not query.strip().startswith('apply'):
+                # apply streams the output out itself; other query
+                # types don't so we need to write it out ourself
                 d.addCallback(lambda reply: (request, reply))
                 d.addCallback(self.send_reply)
             d.addErrback(lambda x: self.send_error(request, x))

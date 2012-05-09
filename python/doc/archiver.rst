@@ -10,12 +10,13 @@ developing applications which access sMAP data, or retrieve data for
 offline analysis.
 
 The archiver API is available over HTTP.  To provide easier access,
-the `py:class:client` provides python bindings for this API.  Using
-this client interface may be faster than using the HTTP API directly,
-because it attempts to conduct multiple parallel downloads using HTTP
-1.1 sessions, if pycurl bindings are available.
+the :py:class:`smap.archiver.client` class provides python bindings
+for this API.  Using this client interface may be faster than using
+the HTTP API directly, because it attempts to conduct multiple
+parallel downloads using HTTP 1.1 sessions, if pycurl bindings are
+available.
 
-.. autoclass:: smap.archiver.client.SmapClient
+.. autoclass:: SmapClient
 
   .. automethod:: __init__
 
