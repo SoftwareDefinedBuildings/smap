@@ -355,11 +355,10 @@ class Api(resource.Resource):
             # and send the reply
             request.setHeader('Content-type', 'application/json')
 
-            #if not query.strip().startswith('apply'):
-                # apply streams the output out itself; other query
-                # types don't so we need to write it out ourself
-                #d.addCallback(lambda reply: (request, reply))
-                # d.addCallback(self.send_reply)
+            if not query.strip().startswith('apply'):
+                # apply streams the output out itself
+                d.addCallback(lambda reply: (request, reply))
+                d.addCallback(self.send_reply)
             d.addErrback(lambda x: self.send_error(request, x))
             return server.NOT_DONE_YET
 

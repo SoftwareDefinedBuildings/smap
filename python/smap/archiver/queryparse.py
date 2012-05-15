@@ -573,8 +573,6 @@ class QueryParser:
     def runquery(self, db, s, run=True, verbose=False):
         ext, q = self.parse(s)
         if is_string(ext):
-            self.parser.request.write(json.dumps(ext))
-            self.parser.request.finish()
             return defer.succeed(ext)
         elif not isinstance(q, list):
             q = [None, q]

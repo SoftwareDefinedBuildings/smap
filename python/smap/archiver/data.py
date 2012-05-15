@@ -334,8 +334,6 @@ def data_load_result(request, method, result, send=False, **loadargs):
     if len(result) > 0:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])
-        d.addCallback(lambda x: (request, x))
-        if send: d.addCallback(send_result)
         return d
     else:
         return defer.succeed([])
