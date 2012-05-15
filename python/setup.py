@@ -48,6 +48,7 @@ setup(name="Smap",
         "smap", 
         "smap.drivers", 
         "smap.contrib",
+        "smap.ops",
 
         # smap archiver components
         "smap.archiver",
