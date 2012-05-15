@@ -38,6 +38,7 @@ from twisted.internet import defer
 
 from smap import operators
 from smap.util import build_recursive, is_string
+from smap import sjson as json
 from smap.contrib import dtutil
 
 import querygen as qg
@@ -429,7 +430,6 @@ def p_arg_list(t):
     else:
         alist = t[3]
 
-
     if t[1][0] == 'arg':
         alist[0].reverse()
         alist[0].append(t[1][1])
@@ -573,6 +573,8 @@ class QueryParser:
     def runquery(self, db, s, run=True, verbose=False):
         ext, q = self.parse(s)
         if is_string(ext):
+            self.parser.request.write(json.dumps(ext))
+            self.parser.request.finish()
             return defer.succeed(ext)
         elif not isinstance(q, list):
             q = [None, q]

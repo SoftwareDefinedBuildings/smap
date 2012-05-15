@@ -33,29 +33,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import time
 import re
-import json
 import uuid
 import errno
 import cPickle as pickle
 import ConfigParser
 import traceback as trace
 
-from zope.interface import implements
-from twisted.internet.task import cooperate
 from twisted.internet import task, reactor, threads, defer
 from twisted.python.lockfile import FilesystemLock
-from twisted.web import iweb
 from twisted.python import log
 
 import core
-
-try:
-    import cjson
-    json_encode = cjson.encode
-    json_decode = cjson.decode
-except ImportError:
-    json_encode = json.dumps
-    json_decode = json.loads
 
 is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
@@ -75,18 +63,6 @@ norm_path = lambda x: join_path(split_path(x))
 def str_path(s):
     """Make a string appropriate to be a path compnent"""
     return s.lower().replace(' ', '_').replace('/', '_')
-
-class UuidEncoder(json.JSONEncoder):
-    """The default UUID repr() isn't valid json; we just want the
-        string representation for now anyways.
-    """
-    def default(self, obj):
-        if isinstance(obj, uuid.UUID):
-            return str(obj)
-        return json.JSONEncoder.default(self, obj)
-
-def dump_json(obj, fp):
-    json.dump(obj, fp, cls=UuidEncoder)
 
 def find(f, lst):
     for o in lst:
@@ -204,39 +180,6 @@ class FixedSizeList(list):
 
     def idxtoseq(self, idx):
         return self.seqno - len(self) + idx
-
-# based on http://jcalderone.livejournal.com/55680.html
-class AsyncJSON(object):
-    implements(iweb.IBodyProducer)
-
-    def __init__(self, value):
-        self._value = value
-        self.length = iweb.UNKNOWN_LENGTH
-
-    def startProducing(self, consumer):
-        self._consumer = consumer
-        self._iterable = UuidEncoder().iterencode(self._value)
-        self._task = cooperate(self._produce())
-        d = self._task.whenDone()
-        d.addBoth(self._unregister)
-        return d
-
-    def pauseProducing(self):
-        self._task.pause()
-
-    def resumeProducing(self):
-        self._task.resume()
-
-    def stopProducing(self):
-        self._task.stop()
-
-    def _produce(self):
-        for chunk in self._iterable:
-            self._consumer.write(chunk)
-            yield None
-
-    def _unregister(self, passthrough): 
-        return passthrough
 
 def pickle_load(filename):
     """Load an object from a gzipped pickle file while holding a

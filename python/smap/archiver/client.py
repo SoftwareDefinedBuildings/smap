@@ -33,7 +33,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import urllib2
 import urllib
-import json
 import operator
 import pprint
 import time
@@ -43,6 +42,7 @@ import numpy as np
 import smap.util as util
 import tscache
 from smap import util
+import smap.sjson as json
 from smap.core import SmapException
 
 from twisted.internet import reactor
@@ -73,7 +73,7 @@ results together."""
     rv = {}
     for line in data.split('\n'):
         if len(line.strip()) == 0: continue
-        line_obj = util.json_decode(line)
+        line_obj = json.loads(line)
         if not isinstance(line_obj, list): return data
         if len(line_obj) == 0: continue
         if not isinstance(line_obj, dict): return line_obj
@@ -134,14 +134,15 @@ the result.
         fp.close()
         return rv
 
-    def tags(self, qbody, tags='*', nest=False):
+    def tags(self, qbody, tags='*', nest=False, asdict=False):
         """Look up tags associated with a specific query body"""
         print qbody
         tags = self.query('select %s where %s' % (tags, qbody))
         if not nest:
-            return map(lambda t: dict(util.buildkv('', t)), tags)
-        else:
-            return tags
+            tags = map(lambda t: dict(util.buildkv('', t)), tags)
+        if asdict:
+            tags = dict([(x['uuid'], x) for x in tags])
+        return tags
         
     def _data_uuid(self, uuid, start, end, cache):
         """Construct a list of urls we need to load for a single uuid"""
@@ -164,7 +165,7 @@ the result.
 
     @staticmethod
     def _parser(data):
-        obj = util.json_decode(data)
+        obj = json.loads(data)
         return obj[0]['uuid'], np.array(obj[0]['Readings'])
         
     def data_uuid(self, uuids, start, end, cache=True, limit=-1):
@@ -331,7 +332,7 @@ programs.  For instance::
         def lineReceived(self, line):
             self.failcount = 0
             try:
-                obj = util.json_decode(line)
+                obj = json.loads(line)
                 self.client.datacb(obj)
             except:
                 log.err()

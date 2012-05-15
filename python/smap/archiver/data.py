@@ -43,6 +43,7 @@ import psycopg2
 
 import smap.reporting as reporting
 import smap.util as util
+import smap.sjson as json
 from smap.operators import null
 import settings
 
@@ -258,7 +259,7 @@ class DataRequester:
                 int(request.args.get('endtime', [now])[0]) / 1000
                 ]
             kwargs = {
-                'limit': int(request.args.get('limit', [100000])[0])
+                'limit': int(request.args.get('limit', [1000000])[0])
                 }
         else:
             if method == 'prev':
@@ -275,7 +276,6 @@ class DataRequester:
                 
 
         # run the request in a (twisted) thread.
-        print "loading", ids
         d = threads.deferToThread(method, *args, **kwargs)
 
         # d.addCallback(self.check_data)
@@ -309,7 +309,7 @@ class DataRequester:
 
 
 def send_result((request, result)):
-    request.write(util.json_encode(result))
+    request.write(json.dumps(result))
     request.finish()
 
 def data_load_result(request, method, result, send=False, **loadargs):

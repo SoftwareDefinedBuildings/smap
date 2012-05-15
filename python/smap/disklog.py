@@ -129,10 +129,11 @@ class DiskLog:
     def pop(self):
         """Remove the head of the queue from disk"""
         readback = None
-        while self.meta['tail'] > self.meta['head']  and readback == None:
+        while self.meta['tail'] > self.meta['head'] and readback == None:
             self._pop()
             readback = self._head
-            if readback == None:
+            if readback == None and self.meta['tail'] > self.meta['head']:
+                # warn if there should have been something on disk
                 log.err("WARN: disappeared log entry:" +
                         str(self.meta['head'] - 1))
 
@@ -159,7 +160,7 @@ class DiskLog:
 
     def _age_buffers(self):
         """Remove buffers which have been on disk for longer than max_age"""
-        if self.max_age == None: return
+        if not hasattr(self, 'max_age') or self.max_age == None: return
         seqno = self.meta['head']
         now = time.time()
         for seqno in xrange(self.meta['head'], self.meta['tail'] + 1):
@@ -170,8 +171,4 @@ class DiskLog:
                 break
             if now - mtime > self.max_age.total_seconds():
                 self.pop()
-
-    def idxtoseq(self, idx):
-        pass
-
 

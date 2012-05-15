@@ -34,14 +34,14 @@ from smap.util import periodicSequentialCall
 
 class Driver(SmapDriver):
     def setup(self, opts):
-        self.add_timeseries('/sensor0', 'V')
+        self.add_timeseries('/sensor0', 'V', data_type='double')
         self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument'
             })
         self.counter = int(opts.get('StartVal', 0))
 
     def start(self):
-		# Call read every 2 seconds
+        # Call read every 2 seconds
         periodicSequentialCall(self.read).start(2)
 
     def read(self):

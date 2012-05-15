@@ -37,9 +37,10 @@ import operator
 
 from zope.interface import implements
 from twisted.internet import interfaces, reactor
-from twisted.python import failure
+from twisted.python import failure, log
 
 import smap.util as util
+import smap.sjson as json
 import smap.operators as operators
 from smap.ops import installed_ops, grouping
 from smap.archiver import data
@@ -116,7 +117,7 @@ class OperatorApplicator(object):
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
         if not len(opmeta):
-            self.consumer.write(util.json_encode([]))
+            self.consumer.write(json.dumps([]))
             self.consumer.unregisterProducer()
             self.consumer.finish()
             return 
@@ -155,6 +156,7 @@ class OperatorApplicator(object):
         start *= 1000
         end *= 1000
         last = False
+        log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
 
         if self.op.block_streaming or end >= self.data_spec['end']:
             end = self.data_spec['end']
@@ -189,7 +191,7 @@ class OperatorApplicator(object):
             'traceback': tb,
             }
 
-        self.consumer.write(util.json_encode(error))
+        self.consumer.write(json.dumps(error))
         self.consumer.unregisterProducer()
         self.consumer.finish()
         return error
@@ -200,19 +202,19 @@ class OperatorApplicator(object):
         return data
 
     def apply_operator(self, opdata, last):
-        # print "apply to", opdata
         tic = time.time()
 
         # process
         redata = self.op.process(opdata)
 
+        log.msg("writing " + str(map(len, redata)))
         # construct a return value with metadata and data merged
         redata = map(self.build_result, zip(redata, self.op.outputs))
 
-        print "processing and writing took", time.time() - tic
+        # print "processing and writing took", time.time() - tic
 
         if not self._stop:
-            self.consumer.write(util.json_encode(redata))
+            self.consumer.write(json.dumps(redata))
             self.consumer.write('\r\n')
             if last:
                 self.consumer.unregisterProducer()

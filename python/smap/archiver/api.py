@@ -43,6 +43,7 @@ from twisted.web.resource import NoResource
 from twisted.spread import pb
 
 import smap.util as util
+import smap.sjson as json
 from smap.server import setResponseCode
 from smap.core import SmapException
 from data import escape_string, data_load_result, makeErrback
@@ -276,7 +277,7 @@ class Api(resource.Resource):
         """
         if not 'format' in request.args or 'json' in  request.args['format']:
             request.setHeader('Content-type', 'application/json')
-            request.write(util.json_encode(result))
+            request.write(json.dumps(result))
             request.finish()
         elif 'format' in request.args and 'csv' in request.args['format']:
             if len(result) > 1:
@@ -302,9 +303,14 @@ class Api(resource.Resource):
     def send_reply(self, (request, result)):
         """Send a generic json reply.
         """
-        request.setHeader('Content-type', 'application/json')
-        request.write(util.json_encode(result))
-        request.finish()
+        try:
+            request.setHeader('Content-type', 'application/json')
+            request.write(json.dumps(result))
+            request.finish()
+        except Exception, e:
+            print "got except", e
+            raise
+
 
     def send_error(self, request, error):
         setResponseCode(request, error, 400)
@@ -349,11 +355,11 @@ class Api(resource.Resource):
             # and send the reply
             request.setHeader('Content-type', 'application/json')
 
-            if not query.strip().startswith('apply'):
+            #if not query.strip().startswith('apply'):
                 # apply streams the output out itself; other query
                 # types don't so we need to write it out ourself
-                d.addCallback(lambda reply: (request, reply))
-                d.addCallback(self.send_reply)
+                #d.addCallback(lambda reply: (request, reply))
+                # d.addCallback(self.send_reply)
             d.addErrback(lambda x: self.send_error(request, x))
             return server.NOT_DONE_YET
 

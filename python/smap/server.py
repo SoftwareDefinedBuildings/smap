@@ -42,8 +42,8 @@ from twisted.python import log
 from twisted.python.logfile import LogFile
 
 import uuid
-import json
 
+import sjson as json
 import util
 import core
 import loader
@@ -98,7 +98,7 @@ class InstanceResource(resource.Resource):
     def send_reply(self, request, obj):
         # the result out using AsyncJSON
         if obj != None:
-            d = util.AsyncJSON(obj).startProducing(request)
+            d = json.AsyncJSON(obj).startProducing(request)
             d.addBoth(lambda _: request.finish())
         else:
             self.send_error(request, None)
@@ -139,7 +139,7 @@ class ReportingInstanceResource(resource.Resource):
             request.setHeader('Content-type', 'application/json')
             obj = schema.filter_fields('Reporting', self.inst)
             # print schema.validate('Reporting', obj)
-            d = util.AsyncJSON(obj).startProducing(request)
+            d = json.AsyncJSON(obj).startProducing(request)
             d.addBoth(lambda _: request.finish())
         else:
             request.setResponseCode(404)
@@ -192,7 +192,7 @@ class ReportingResource(resource.Resource):
         """
         request.setHeader('Content-type', 'application/json')
         obj = {'Contents' : [x['uuid'] for x in self.reports.subscribers]}
-        d = util.AsyncJSON(obj).startProducing(request)
+        d = json.AsyncJSON(obj).startProducing(request)
         d.addBoth(lambda _: request.finish())
         return server.NOT_DONE_YET
 

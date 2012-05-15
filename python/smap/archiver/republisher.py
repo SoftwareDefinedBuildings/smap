@@ -36,6 +36,7 @@ from twisted.python import log
 from smap.core import SmapException
 from smap.server import setResponseCode
 import smap.util as util
+import smap.sjson as json
 import queryparse as qp
 
 def receive_object(request, key, public):
@@ -92,7 +93,7 @@ class ReResource(resource.Resource):
         return server.NOT_DONE_YET
 
     def republish(self, key, public, obj):
-        data = util.json_encode(obj)
+        data = json.dumps(obj)
         for client, streams in self.listeners.iteritems():
             if receive_object(client, key, public):
                 if streams == None:
@@ -109,6 +110,6 @@ class ReResource(resource.Resource):
                     # since it's expensive to construct and mostly
                     # won't happen.
                     if sum((1 for v in custom.itervalues() if 'uuid' in v)):
-                        client.write(util.json_encode(custom))
+                        client.write(json.dumps(custom))
                         client.write("\n\n")
                     

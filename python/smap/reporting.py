@@ -36,7 +36,6 @@ import time
 import traceback
 
 import util
-import json
 import copy
 import pprint
 import cStringIO as StringIO
@@ -49,6 +48,7 @@ import logging
 
 import core
 import disklog
+import sjson as json
 from contrib import client
 
 # this is the largest number of records we will store.
@@ -269,7 +269,7 @@ class ReportInstance(dict):
         agent = Agent(reactor)
         try:
             v = StringIO.StringIO()
-            util.dump_json(data, v)
+            json.dump(data, v)
             v.seek(0)
             d = agent.request('POST',
                               str(self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]),
