@@ -405,6 +405,7 @@ id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
             d.addCallback(lambda r: data_load_result(request, method, r))
+            d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)
         else:
             request.setResponseCode(404)
