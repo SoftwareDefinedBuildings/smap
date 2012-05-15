@@ -40,7 +40,6 @@ from twisted.web import iweb
 
 try:
     import simplejson as json
-    raise ImportError
 except ImportError:
     if sys.version_info < (2, 7):
         print """WARNING: using json instead of simplejson: 
