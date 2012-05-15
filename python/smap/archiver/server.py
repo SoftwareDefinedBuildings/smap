@@ -38,6 +38,7 @@ from twisted.python import log
 from smap import subscriber, reporting
 from smap.server import RootResource
 import smap.util as util
+import smap.sjson as json
 from smap.archiver import settings, data, api, republisher
 
 
@@ -64,7 +65,7 @@ class DataResource(resource.Resource):
             # send the object to the republisher
             public = subid[0][1]
             subid = subid[0][0]
-            obj = util.json_decode(request.content.read())
+            obj = json.loads(request.content.read())
             self.republisher.republish(request.prepath[-1], public, obj)
             reporting.push_metadata(obj)
             return subid, obj
