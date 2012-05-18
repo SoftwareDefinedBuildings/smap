@@ -34,7 +34,7 @@ from smap.util import periodicSequentialCall
 
 class Driver(SmapDriver):
     def setup(self, opts):
-        self.add_timeseries('/sensor0', 'V', data_type='double')
+        self.add_timeseries('/sensor0', 'V')
         self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument'
             })
