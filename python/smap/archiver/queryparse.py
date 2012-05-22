@@ -30,6 +30,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import os
 import operator
 import time
 import inspect
@@ -550,14 +551,17 @@ def p_statement_binary(t):
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
-smapql_parser = yacc.yacc(tabmodule='arq_tab.py')
+smapql_parser = yacc.yacc(tabmodule='arq_tab',
+                          outputdir=os.path.dirname(__file__),
+                          debugfile='/dev/null')
 
 def parse_opex(exp):
     global opex_parser
     try:
         opex_parser
     except NameError:
-        opex_parser = yacc.yacc(start="apply_clause", tabmodule='opex_tab.py')
+        opex_parser = yacc.yacc(start="apply_clause", 
+                                tabmodule='opex_tab.py')
     return opex_parser.parse(exp)
 
 class QueryParser:

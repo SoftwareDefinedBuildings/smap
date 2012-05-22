@@ -1,0 +1,21 @@
+Source: smap
+Maintainer: Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+Section: python
+Priority: optional
+Build-Depends: debhelper (>= 8), python-support (>= 0.8.4),
+ python-twisted (>= 11), python-zope.interface, python-avro,
+ python-ply, python-numpy, python-scipy, python-beautifulsoup,
+ python-psycopg2, python-all-dev
+Standards-Version: 3.8.4
+XS-Python-Version: current
+
+Package: python-smap
+Architecture: any
+Depends: ${misc:Depends}, ${python:Depends}, 
+ python-twisted (>= 11), python-zope.interface, python-avro,
+ python-ply, python-dateutil, python-numpy,
+ python-scipy, python-simplejson, python-pycurl
+Recommends: readingdb, readingdb-python, python-psycopg2, powerdb2
+XB-Python-Version: ${python:Versions}
+Provides: ${python:Provides}
+Description: sMAP standard library and drivers

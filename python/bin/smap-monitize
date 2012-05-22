@@ -178,3 +178,8 @@ cd %(datadir)s
         print >>fp, "check process %s pidfile %s" % (root, pidfile)
         print >>fp, "\tstart program = \"%s\" as uid %i and gid %i" % (newsh, uid, gid)
         print >>fp, "\tstop program = \"/bin/sh -c '/bin/kill $(cat %s)'\"" % pidfile
+        print >>fp, "\tgroup smap"
+        print >>fp, "\tif failed host localhost port %s protocol http" % p
+        print >>fp, "\t\tand request \"/data\""
+        print >>fp, "\t\twith timeout 20 seconds for 2 cycles"
+        print >>fp, "\tthen restart"

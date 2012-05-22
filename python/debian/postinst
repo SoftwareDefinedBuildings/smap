@@ -1,0 +1,12 @@
+#!/bin/sh
+# -*- sh -*-
+
+case "$1" in
+    configure)
+        adduser --system --no-create-home smap 2>/dev/null
+        ;;
+esac
+
+#DEBHELPER#
+#echo "---- ending postinst $@"
+exit 0

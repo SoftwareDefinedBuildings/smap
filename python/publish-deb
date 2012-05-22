@@ -1,0 +1,5 @@
+#!/bin/sh
+
+rm -rf smap/schema
+cp -rp ../schema smap
+dpkg-buildpackage -rfakeroot -uc -us -S

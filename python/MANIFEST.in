@@ -2,3 +2,6 @@ include smap/iface/modbus/*.h
 include smap/schema/*.av
 include smap/archiver/sql/*.psql
 include conf/*.ini
+include debian/*
+include monit/*
+

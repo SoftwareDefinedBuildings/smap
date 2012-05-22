@@ -29,6 +29,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from distutils.core import setup, Extension
 
+# import this to build the parser table so it will be installed
+# import smap.archiver.queryparse
+
 # build modbus extension module
 modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                           sources=map(lambda f: "smap/iface/modbus/" + f,
@@ -37,7 +40,7 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
-      version="2.0.258",
+      version="2.0.299",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
@@ -50,10 +53,10 @@ setup(name="Smap",
         "smap.contrib",
         "smap.ops",
 
+	"twisted.plugins",
+
         # smap archiver components
         "smap.archiver",
-
-        "twisted", "twisted.plugins",
 
         # interfaces for talking to different backends
         "smap.iface", "smap.iface.http", "smap.iface.modbus",
@@ -67,13 +70,18 @@ setup(name="Smap",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
 
-        "smap.drivers.labjack", "smap.drivers.labjack.labjackpython",
+        # "smap.drivers.labjack", "smap.drivers.labjack.labjackpython",
         ],
-      requires=["avro", "twisted", "ordereddict", "ply", "psycopg2"],
+      requires=["avro", "dateutil", "twisted", "ordereddict", 
+                "ply", "psycopg2", "numpy", "scipy", "simplejson"],
       # package_dir={"smap" : "smap"},
       package_data={"smap" : ['schema/*.av', 'archiver/sql/*.psql'], 
-                    'conf': ['*.ini']},
-      ext_modules=[modbus_module],
+                    "conf": ['*.ini']},
+      data_files=[
+        ('/etc/monit/conf.d', ['monit/archiver']),
+        ('/etc/smap/', ['conf/archiver.ini']),
+        ],
+      # ext_modules=[modbus_module],
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
                'bin/smap-reporting', 'bin/smap-monitize'])

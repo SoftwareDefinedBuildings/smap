@@ -37,7 +37,7 @@ import time
 from threading import Thread
 from Queue import Queue
 
-from smap.util import json_decode
+from smap import sjson as json
 
 class ParserThread(Thread):
     """Parse the http results in parallel with getting them from the server
@@ -80,7 +80,7 @@ def mkrequest(c, spec):
     c.setopt(pycurl.WRITEFUNCTION, c.body.write)
     return c
 
-def get(getspec, nconns=5, parser=json_decode, select_timeout=1.0, verbose=True):
+def get(getspec, nconns=5, parser=json.loads, select_timeout=1.0, verbose=True):
     """get a list of urls, using a connection pool of up to nconn connections.
     apply "parser" to each of the results.
 
