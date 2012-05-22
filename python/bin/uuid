@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- python -*-
+
 """
 Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
@@ -29,8 +32,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
-#!/usr/bin/python
-# -*- python -*-
 
 import sys
 import uuid
