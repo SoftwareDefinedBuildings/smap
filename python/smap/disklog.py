@@ -169,6 +169,11 @@ class DiskLog:
                                                       snp(self.meta['head'])))
             except OSError:
                 break
-            if now - mtime > self.max_age.total_seconds():
+            if now - mtime > self._total_seconds(self.max_age):
                 self.pop()
 
+
+    @staticmethod
+    def _total_seconds(td):
+        # timedelta.total_seconds is only available in python2.7
+        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 1e6) / 1e6
