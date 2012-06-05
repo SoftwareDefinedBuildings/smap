@@ -28,6 +28,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import operator
+import numpy as np
 
 from smap.core import SmapException
 from smap.operators import Operator, ParallelSimpleOperator

@@ -105,6 +105,7 @@ sum = _op_from_compressive_op('sum', np.sum)
 nansum = _op_from_compressive_op('nansum', np.nansum)
 var = _op_from_compressive_op('var', np.var)
 std = _op_from_compressive_op('std', np.std)
+prod = _op_from_compressive_op('prod', np.prod)
 
 # ufuncs operate element-by-element on arrays
 def _op_from_ufunc(name, op, constructors=[()]):
