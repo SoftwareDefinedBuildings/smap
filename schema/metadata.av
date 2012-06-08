@@ -7,7 +7,6 @@
     {"name" : "SourceName", "type" : ["null", "string"]},
     {"name" : "Instrument", "type" : ["null", "InstrumentMetadata"]},
     {"name" : "Location", "type" : ["null", "LocationMetadata"]},
-    {"name" : "Extra", "type" : ["null", { "type" : "map", "values" : "string"} ] },
-    {"name" : "OpcDA", "type" : ["null", { "type" : "map", "values" : "string"} ] }
+    {"name" : "Extra", "type" : ["null", { "type" : "map", "values" : "string"} ] }
   ]
 }
