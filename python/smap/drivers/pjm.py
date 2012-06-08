@@ -88,8 +88,8 @@ class PJMDriver(ScraperDriver):
             lmp_name = lmp_name + " " + lmp_type
             five_min = intermed_out.pop(0)
             one_hour = intermed_out.pop(0)
-            this_lmp = {"FiveMin": float(five_min),
-                        "OneHour": float(one_hour)}
+            this_lmp = {"FiveMin": [[update_time, float(five_min)]],
+                        "OneHour": [[update_time, float(one_hour)]]}
             pjm_output["LMP"][lmp_name] = this_lmp
         for x in range(4):
             intermed_out.pop(0)
@@ -97,8 +97,8 @@ class PJMDriver(ScraperDriver):
             lmp_name = intermed_out.pop(0) + " 500 KV Bus"
             five_min = intermed_out.pop(0)
             one_hour = intermed_out.pop(0)
-            this_lmp = {"FiveMin": float(five_min),
-                        "OneHour": float(one_hour)}
+            this_lmp = {"FiveMin": [[update_time, float(five_min)]],
+                        "OneHour": [[update_time, float(one_hour)]]}
             pjm_output["LMP"][lmp_name] = this_lmp
         for x in range(5):
             intermed_out.pop(0)
@@ -107,16 +107,18 @@ class PJMDriver(ScraperDriver):
             actual = float(intermed_out.pop(0))
             warning = float(intermed_out.pop(0))
             transfer = float(intermed_out.pop(0))
-            this_int = {"Actual flow": actual, "Warning Level": warning, 
-                        "Transfer Limit": transfer}
+            this_int = {"Actual flow": [[update_time, actual]], 
+                        "Warning Level": [[update_time, warning]], 
+                        "Transfer Limit": [[update_time, transfer]]}
             pjm_output["Transfer Interface"][int_name] = this_int
         for x in range(6):
             intermed_out.pop(0)
         while "Loads are calculated from" not in intermed_out[0]:
             load_area = intermed_out.pop(0)
             load_val = float(intermed_out.pop(0))
-            pjm_output["Load"][load_area] = {'Actual': load_val}
-        return (pjm_output, update_time)
+            pjm_output["Load"][load_area] = {'Actual': 
+                                                [[update_time, load_val]]}
+        return pjm_output
 
     def parse_time(self, time_str):
         time_str = time_str.replace(" EDT", "")
@@ -125,17 +127,15 @@ class PJMDriver(ScraperDriver):
         return int(data_time)
                 
     def setup(self, opts):
-        self.lastLatest = None
+        self.lastLatests = {}
         self.update_frequency = 300
         scraped = self.scrape()
-        time = scraped[1]
-        scraped = scraped[0]
         
         for data_type in scraped.keys():
             for location in scraped[data_type].keys():
                 for valtype in scraped[data_type][location].keys():
-                    temp = self.add_timeseries("/" + data_type + "/" + location 
-                             + "/" + valtype, location + valtype,
+                    path = "/" + data_type + "/" + location + "/" + valtype
+                    temp = self.add_timeseries(path, location + valtype,
                              self.DATA_TYPES[data_type]["Unit"], data_type 
                              = "double", description =
                                 self.DATA_TYPES[data_type]["Description"])
@@ -144,6 +144,8 @@ class PJMDriver(ScraperDriver):
                                     'unt/lmpgen/lmppost.html'
                                     }, 'Extra' : { 'ISO': 'PJM'}
                                 }
+                    self.lastLatests[path] = None
+                    
                  
 
 if __name__ == '__main__':

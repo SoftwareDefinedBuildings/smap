@@ -28,52 +28,70 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+modified to use ScraperDriver by:
+@author Sagar Karandikar <skarandikar@berkeley.edu>
 """
 
 import time
 import urllib2
+import re
 
 from zope.interface import implements
 
 from smap.driver import SmapDriver
+from smap.drivers.scraper import ScraperDriver
 from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
-class CaIsoDriver(SmapDriver):
-    """Periodically scrape the feed from the CAISO site and republish
-    it as a sMAP feed.
+class CaIsoDriver(ScraperDriver):
+    """Periodically scrape data from PJM and publish it as sMAP feeds
     """
-
-    def update(self):
-        object_ = {}
-        try:
-            fh = urllib2.urlopen('http://www.caiso.com/outlook/systemstatus.csv')
-            for line in fh.readlines():
-                kv = line.strip().split(',')
-                object_[kv[0]] = kv[1]
-        except urllib2.URLError:
-            pass
-        except urllib2.HTTPError:
-            pass
-        except IOError:
-            pass
-        else:
-            thisTime = int(time.mktime(time.strptime(object_['Produced'])))
-            if self.lastProduced == None or self.lastProduced != thisTime:
-                print "Updated reading"
-                self.t.add(thisTime, int(object_['Actual Demand']))
-                self.lastProduced = thisTime
-            fh.close()
-
+    DATA_TYPES = { "Load": {"Unit": "MW", "Description": "Load"},
+                   "Generation": {"Unit": "MW", "Description": 
+                    "Generated Available Resources"}
+                 }
+    
+    def scrape(self):
+        caiso = urllib2.urlopen('http://content.caiso.com/outlook/'
+                                    'systemstatus.csv')
+        lines = caiso.readlines()
+        caiso.close()
+        caiso_output = { 'Load': {}, "Generation": {} }
+        intermed_out = []
+        for line in lines:
+            intermed_out.append(line.strip().split(","))
+        intermed_out.pop(0)
+        actualdemand = intermed_out.pop(0)
+        utime = time.mktime(time.strptime(actualdemand[2], "%d-%b-%y %H:%M:%S"))
+        utime = int(utime)
+        caiso_output["Load"] = {"Total Area": {"Actual": [[utime,
+                                                     float(actualdemand[1])]]}}
+        actualgen = intermed_out.pop(0)
+        caiso_output["Generation"] = {"Total Area": {"Actual": [[utime,
+                                                      float(actualgen[1])]]}}
+        return caiso_output
+                
     def setup(self, opts):
-        self.lastProduced = None
-        self.t = self.add_timeseries('/CA', 'caisomain', 'mWh', 
-                                     description='Total demand from the CA ISO')
-        self.t['Metadata'] = {
-            'Location' : {'State': 'CA', 'Country' : 'USA', 'Area': 'CA ISO',
-                          'Uri' : 'http://www.caiso.com/outlook/systemstatus.csv'},
-            }
+        self.lastLatests = {}
+        self.update_frequency = 300
+        scraped = self.scrape()
+        
+        for data_type in scraped.keys():
+            for location in scraped[data_type].keys():
+                for valtype in scraped[data_type][location].keys():
+                    path = "/" + data_type + "/" + location + "/" + valtype
+                    temp = self.add_timeseries(path, "CAISO" + data_type + 
+                                location + valtype,
+                             self.DATA_TYPES[data_type]["Unit"], data_type 
+                             = "double", description =
+                                self.DATA_TYPES[data_type]["Description"])
+                    temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
+                                'CA ISO', 'Uri': 'http://http://content.caiso.'
+                                    'com/outlook/systemstatus.csv'
+                                    }, 'Extra' : { 'ISO': 'CAISO'}
+                                }
+                    self.lastLatests[path] = None
+                    
+                 
 
-    def start(self):
-        periodicCallInThread(self.update).start(60 * 5)

@@ -58,13 +58,14 @@ class ScraperDriver(SmapDriver):
         to the timeseries"""
 
         """ Dict format is as follows: 
-            {"data_type": {"location1": {"value_type1": value, "value_type2":
-                                            value, ...}
-                            "location2": {"value_type1": value, ...} },
-             "data_type2": {"location1": {"value_type1": value, "value_type2":
-                                            value, ...}
-                            "location2": {"value_type1": value, ...} } }
+            {"data_type": {"location1": {"value_type1": timeseries, 
+                                         "value_type2": timeseries, ...}
+                            "location2": {"value_type1": timeseries, ...} },
+             "data_type2": {"location1": {"value_type1": timeseries, 
+                                          "value_type2": timeseries, ...}
+                            "location2": {"value_type1": timeseries, ...} } }
 
+            timeseries of format [[1, 1], [2, 2], [3, 3], etc.]
             This will create feeds with paths like:
             /PrefixFromIni/data_type/location/value_type
             For example:
@@ -83,21 +84,23 @@ class ScraperDriver(SmapDriver):
         except IOError:
             pass
         else:
-            time = scraped[1]
-            scraped = scraped[0]
             for data_type in scraped.keys():
                 for location in scraped[data_type].keys():
                     for valtype in scraped[data_type][location].keys():
-                        self.add("/" + data_type + "/" + location + "/" + 
-                                valtype, time, 
-                                scraped[data_type][location][valtype])
+                        timeseries = scraped[data_type][location][valtype]
+                        path = "/" + data_type + "/" + location + "/" + valtype
+                        for pair in timeseries:
+                            if pair[0] <= self.lastLatests[path]:
+                                continue
+                            self.add(path, pair[0], pair[1])
+                            self.lastLatests[path] = pair[0]
 
     def setup(self, opts):
         """V2NOTES: This will probably have to fetch data once to generate the
         data for each timeseries"""
         #User needs to define:
-        #lastLatest used to prevent resubmission of duplicates
-        #self.lastLatest = None
+        #lastLatests, a dict used to prevent resubmission of duplicates
+        #self.lastLatest = {}, each item is (path: None) by default
         #update_frequency of the feed, in seconds
         #self.update_frequency = 3600 
         #standard timeseries stuff
