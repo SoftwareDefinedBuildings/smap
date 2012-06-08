@@ -1,0 +1,4 @@
+check process archiver pidfile /var/run/archiver.pid
+	start program = "/usr/bin/twistd --logfile=/var/log/archiver.log --pidfile=/var/run/archiver.pid smap-archiver /etc/smap/archiver.ini"
+	stop program = "/bin/sh -c '/bin/kill $(cat /var/run/archiver.pid)'"
+
