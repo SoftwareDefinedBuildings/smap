@@ -32,136 +32,77 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import time
 import urllib2
+import re
 
 from zope.interface import implements
 
 from smap.driver import SmapDriver
-from smap.drivers.csv_scraper import CSVScraperDriver
+from smap.drivers.scraper import ScraperDriver
 from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
-class MIsoDriver(CSVScraperDriver):
-    """Periodically scrape the Wind Generation in MWh from the Midwest ISO 
-    site and republish it as a sMAP feed.
+class MIsoDriver(ScraperDriver):
+    """Periodically scrape data from MISO and publish it as sMAP feeds
     """
-
-    """Sample csv data for quick ref:
-    "TimestampGMT","DateTimeEST","HourEndingEST","Value"
-    "1338757200000","Jun  3 2012  4:00PM","17","2459.73"
-    "1338760800000","Jun  3 2012  5:00PM","18","2546.49"
-    "1338764400000","Jun  3 2012  6:00PM","19","2402.53"
-    """
-    MISO_TYPES = {'Wind': {'Uri': 'https://www.midwestiso.org/ria/'
-                           'windgenResponse.aspx?format=csv', 'Resource': 
-                           '/MISO', 'Label': 'misowind', 'Unit': 'MWh', 
-                           'Data_type': 'double', 'Description': 'Wind '
-                           'Generation from Midwest ISO', 'Metadata': {
-                                'Location' : {'Country': 'USA', 'Area': 
-                                'Midwest ISO', 'Uri': 'https://www.midwestiso.'
-                                'org/ria/windgenResponse.aspx?format=csv'
-                                }, 'Extra' : {'GenerationType': 'Wind', 'ISO':
-                                'MISO'}
-
-                                },
-                            'Update_freq': 3600
-                           }, 
-                  'Load': {'Uri': 'https://www.midwestiso.org/ria/ptpTotalLoad'
-                           '.aspx?format=csv', 'Resource': 
-                           '/MISO', 'Label': 'misoload', 'Unit': 'MW', 
-                           'Data_type': 'double', 'Description': 'Total Load '
-                           'for Midwest ISO', 'Metadata': {
-                                'Location' : {'Country': 'USA', 'Area': 
-                                'Midwest ISO', 'Uri': 'https://www.midwestiso.'
-                                'org/ria/ptpTotalLoad.aspx?format=csv'
-                                }, 'Extra' : {'ISO': 'MISO'}   
-                                },
-                            'Update_freq': 300
-                           }, 
-                  'ForecastLoad': {'Uri': 'https://www.midwestiso.org/ria/'
-                           'ptpTotalLoad.aspx?format=csv', 'Resource': 
-                           '/MISO', 'Label': 'misoforecastload', 'Unit': 'MW', 
-                           'Data_type': 'double', 'Description': 'Forecasted '
-                           'Total Load for Midwest ISO', 'Metadata': {
-                                'Location' : {'Country': 'USA', 'Area': 
-                                'Midwest ISO', 'Uri': 'https://www.midwestiso.'
-                                'org/ria/ptpTotalLoad.aspx?format=csv'
-                                }, 'Extra' : {'ISO': 'MISO'}   
-                                },
-                            'Update_freq': 3600
-                           }, 
-                  'ClearedDemand': {'Uri': 'https://www.midwestiso.org/ria/'
-                           'ptpTotalLoad.aspx?format=csv', 'Resource': 
-                           '/MISO', 'Label': 'misocleareddemand', 'Unit': 'MW', 
-                           'Data_type': 'double', 'Description': 'Cleared '
-                           'Demand for Midwest ISO', 'Metadata': {
-                                'Location' : {'Country': 'USA', 'Area': 
-                                'Midwest ISO', 'Uri': 'https://www.midwestiso.'
-                                'org/ria/ptpTotalLoad.aspx?format=csv'
-                                }, 'Extra' : {'ISO': 'MISO'}   
-                                },
-                            'Update_freq': 3600
-                           }, 
-                  'ACE': {'Uri': 'https://www.midwestiso.org/ria/aceResponse.'
-                            'aspx?format=csv', 'Resource': 
-                           '/MISO', 'Label': 'misoACE', 'Unit': 'None', 
-                           'Data_type': 'double', 'Description': 'Area Control '
-                           'Error for MISO footprint', 'Metadata': {
-                                'Location' : {'Country': 'USA', 'Area': 
-                                'Midwest ISO', 'Uri': 'https://www.midwestiso.'
-                                'org/ria/aceResponse.aspx?format=csv'
-                                }, 'Extra' : {'ISO': 'MISO'}   
-                                },
-                            'Update_freq': 30
-                           }, 
+    DATA_TYPES = { "Forecasted Load": {"Unit": "MW", "Description": "Load",
+                                            'Uri': 'https://www.midwestiso.'
+                                        'org/ria/ptpTotalLoad.aspx?format=csv'},
+                   "Wind Generation": {"Unit": "MWh", "Description": 
+                                        "Generated Available Resources", 'Uri':
+                                                    'https://www.midwestiso.'
+                                     'org/ria/windgenResponse.aspx?format=csv'},
+                    "Actual Load": {"Unit": "MW", "Description": "Load", 'Uri':
+                                                    'https://www.midwestiso.'
+                                        'org/ria/ptpTotalLoad.aspx?format=csv'},
+                    "Cleared Demand Load": {"Unit": "MW",
+                                                "Description": "/Load", 'Uri':
+                                                'https://www.midwestiso.'
+                                        'org/ria/ptpTotalLoad.aspx?format=csv'},
+                    "Actual ACE": {"Unit": "None", "Description": "Area Control"
+                                      " Error", "Uri": "https://www.midwestiso."
+                                "org/ria/aceResponse.aspx?format=csv"}
                  }
+    
     def scrape(self):
-        """this method scrapes data and returns it for use by the updater. It 
-        should be of the format: [[time, value], [time2, value2], etc.] Times 
-        should increase left to right and should be in seconds (web data seems 
-        to be in ms). This should be implemented by the subclass. Update handles 
-        ignoring duplicate data, so just return it all."""
-
-        fh = urllib2.urlopen(self.gentype_data['Uri'])
-        lines = fh.readlines()
-        fh.close()
-        if self.gentype == "Wind":
-            return self.wind_parse(lines)
-        if self.gentype == "Load":
-            return self.load_parse(lines)
-        if self.gentype == "ForecastLoad":
-            return self.forecast_load_parse(lines)
-        if self.gentype == "ClearedDemand":
-            return self.cleared_demand_parse(lines)
-        if self.gentype == "ACE":
-            return self.ace_parse(lines)
-        
-    def setup(self, opts):
-        self.gentype = opts.get('GenType')
-        self.gentype_data = self.MISO_TYPES[opts.get('GenType')]
-        gentype_data = self.gentype_data
-        self.lastLatest = None #prevents duplicate data submission
-        #update frequency in seconds
-        self.update_frequency = gentype_data['Update_freq']
-        self.t = self.add_timeseries(gentype_data['Resource'], 
-                                     gentype_data['Label'],
-                                     gentype_data['Unit'], 
-                                     data_type=gentype_data['Data_type'], 
-                                     description=gentype_data['Description'])
-        self.t['Metadata'] = gentype_data['Metadata']
-
-    def wind_parse(self, lines):
+        miso1 = urllib2.urlopen('https://www.midwestiso.'
+                                'org/ria/ptpTotalLoad.aspx?format=csv')
+        lines = miso1.readlines()
+        miso1.close()
+        miso_output = { "Load": {}, "Generation": {}, "ACE": {} }
         timeseries = []
-        lines.pop(0) #removes the first line, which contains column headings
-        for line in lines:
-            temp = line.strip().replace('"', '').split(',')
-            timeseries.append([int(temp[0])/1000, float(temp[3])])
-        return timeseries
-
-    def load_parse(self, lines):
+        temp = []
+        lines.pop(0)
+        lines.pop(0)
+        while "Medium" not in lines[0]:
+            temp.append(lines.pop(0))
+        #lines.pop()
+        for line in temp:
+            line = line.replace("\r\n", "")
+            line = line.split(",")
+            line[1] = float(line[1])
+            timeseries.append(line)
+        timeseries = self.twentyfourfixer(0, timeseries)
+        miso_output["Load"] = {"Total Area": {"Cleared Demand": timeseries}}
+        #done cleared demand
+        #start forecasted load
         timeseries = []
-        while "FiveMinTotalLoad" not in lines[0]:
-            lines.pop(0)
+        temp = []
+        lines.pop(0)
+        lines.pop(0)
+        while "FiveMin" not in lines[0]:
+            temp.append(lines.pop(0))
+        for line in temp:
+            line = line.replace("\r\n", "")
+            line = line.split(",")
+            line[1] = float(line[1])
+            timeseries.append(line)
+        timeseries = self.twentyfourfixer(0, timeseries)
+        miso_output["Load"]["Total Area"]["Forecasted"] = timeseries
+        #done forecasted load
+        #start actual load
+        timeseries = []
+        temp = []
         lines.pop(0)
         lines.pop(0)
         for line in lines:
@@ -169,75 +110,75 @@ class MIsoDriver(CSVScraperDriver):
             line = line.split(",")
             line[1] = float(line[1]) #convert MW values to floats
             timeseries.append(line)
-        current_date_str = time.strftime("%d %b %Y")
-        for pair in timeseries:
-            pair_time = current_date_str + " " + pair[0]
-            pair_time = time.strptime(pair_time, "%d %b %Y %H:%M")
-            pair_time = int(time.mktime(pair_time))
-            pair[0] = pair_time
-        return timeseries
-
-    def forecast_load_parse(self, lines):
+        timeseries = self.twentyfourfixer(1, timeseries)
+        miso_output["Load"]["Total Area"]["Actual"] = timeseries
+        #done actual load
+        #start wind generation
+        miso2 = urllib2.urlopen('https://www.midwestiso.org/ria/'
+                                            'windgenResponse.aspx?format=csv')
+        lines = miso2.readlines()
+        miso2.close()
         timeseries = []
-        while "Medium" not in lines[0]:
-            lines.pop(0)
-        lines.pop(0)
-        lines.pop(0)
-        while "FiveMin" not in lines[len(lines) - 1]:
-            lines.pop()
-        lines.pop()
+        lines.pop(0) #removes the first line, which contains column headings
         for line in lines:
-            line = line.replace("\r\n", "")
-            line = line.split(",")
-            line[1] = float(line[1])
-            timeseries.append(line)
-        current_date_str = time.strftime("%d %b %Y")
-        for pair in timeseries:
-            if pair[0] in "24":
-                pair_time = current_date_str + " 0"
-                pair_time = time.strptime(pair_time, "%d %b %Y %H")
-                pair_time = int(time.mktime(pair_time))
-                pair_time += 3600*24
-                pair[0] = pair_time
-            else:
-                pair_time = current_date_str + " " + pair[0]
-                pair_time = time.strptime(pair_time, "%d %b %Y %H")
-                pair_time = int(time.mktime(pair_time))
-                pair[0] = pair_time
-        return timeseries
-
-    def cleared_demand_parse(self, lines):
-        timeseries = []
-        lines.pop(0)
-        lines.pop(0)
-        while "Medium" not in lines[len(lines) - 1]:
-            lines.pop()
-        lines.pop()
-        for line in lines:
-            line = line.replace("\r\n", "")
-            line = line.split(",")
-            line[1] = float(line[1])
-            timeseries.append(line)
-        current_date_str = time.strftime("%d %b %Y")
-        for pair in timeseries:
-            if pair[0] in "24":
-                pair_time = current_date_str + " 0"
-                pair_time = time.strptime(pair_time, "%d %b %Y %H")
-                pair_time = int(time.mktime(pair_time))
-                pair_time += 3600*24
-                pair[0] = pair_time
-            else:
-                pair_time = current_date_str + " " + pair[0]
-                pair_time = time.strptime(pair_time, "%d %b %Y %H")
-                pair_time = int(time.mktime(pair_time))
-                pair[0] = pair_time
-        return timeseries
-
-    def ace_parse(self, lines):
+            temp = line.strip().replace('"', '').split(',')
+            timeseries.append([int(temp[0])/1000, float(temp[3])])
+        miso_output["Generation"] = {"Total Area": {"Wind": timeseries}}
+        #done wind generation
+        #start ACE
+        miso3 = urllib2.urlopen('https://www.midwestiso.org/ria/aceResponse.'
+                                                            'aspx?format=csv')
+        lines = miso3.readlines()
+        miso3.close()
         timeseries = []
         lines.pop(0) #removes the first line, which contains column headings
         for line in lines:
             temp = line.strip().replace('"', '').split(',')
             timeseries.append([int(temp[1])/1000, float(temp[2])])
+        miso_output["ACE"] = {"Total Area": {"Actual": timeseries}}
+        #done ACE
+        return miso_output
+
+    def twentyfourfixer(self, dtype, timeseries):
+        dtypes = ["%d %b %Y %H", "%d %b %Y %H:%M"]
+        current_date_str = time.strftime("%d %b %Y")
+        for pair in timeseries:
+            if pair[0] in "24":
+                pair_time = current_date_str + " 0"
+                pair_time = time.strptime(pair_time, dtypes[dtype])
+                pair_time = int(time.mktime(pair_time))
+                pair_time += 3600*24
+                pair[0] = pair_time
+            else:
+                pair_time = current_date_str + " " + pair[0]
+                pair_time = time.strptime(pair_time, dtypes[dtype])
+                pair_time = int(time.mktime(pair_time))
+                pair[0] = pair_time
         return timeseries
+
+    def setup(self, opts):
+        self.lastLatests = {}
+        self.update_frequency = 300
+        scraped = self.scrape()
+        
+        for data_type in scraped.keys():
+            for location in scraped[data_type].keys():
+                for valtype in scraped[data_type][location].keys():
+                    path = "/" + data_type + "/" + location + "/" + valtype
+                    temp = self.add_timeseries(path, "MISO" + data_type + 
+                                location + valtype,
+                             self.DATA_TYPES[valtype + " " + data_type]["Unit"], 
+                                        data_type = "double", description =
+                                                    valtype + " " + 
+                      self.DATA_TYPES[valtype + " " + data_type]["Description"] 
+                                                        + " for " + location)
+                    temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
+                         'Midwest ISO Footprint', 'Uri': self.DATA_TYPES[valtype
+                                        + " " + data_type]["Uri"]}, 'Extra' : {'ISOName': 'MISO', 
+                                    'ISOType': data_type, 'ISOSubType': location,
+                                            'ISODataType': valtype }
+                                }
+                    self.lastLatests[path] = None
+                    
+                 
 

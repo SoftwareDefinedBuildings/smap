@@ -135,14 +135,17 @@ class PJMDriver(ScraperDriver):
             for location in scraped[data_type].keys():
                 for valtype in scraped[data_type][location].keys():
                     path = "/" + data_type + "/" + location + "/" + valtype
-                    temp = self.add_timeseries(path, location + valtype,
+                    temp = self.add_timeseries(path, "PJM" + data_type + 
+                                location + valtype,
                              self.DATA_TYPES[data_type]["Unit"], data_type 
                              = "double", description =
                                 self.DATA_TYPES[data_type]["Description"])
                     temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
-                                'PJM ISO', 'Uri': 'http://www.pjm.com/pub/acco'
+                           'PJM Footprint', 'Uri': 'http://www.pjm.com/pub/acco'
                                     'unt/lmpgen/lmppost.html'
-                                    }, 'Extra' : { 'ISO': 'PJM'}
+                                    }, 'Extra' : {'ISOName': 'PJM', 
+                                    'ISOType': data_type, 'ISOSubType': location,
+                                            'ISODataType': valtype }
                                 }
                     self.lastLatests[path] = None
                     

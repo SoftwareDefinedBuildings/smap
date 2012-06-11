@@ -87,9 +87,11 @@ class CaIsoDriver(ScraperDriver):
                              = "double", description =
                                 self.DATA_TYPES[data_type]["Description"])
                     temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
-                                'CA ISO', 'Uri': 'http://http://content.caiso.'
+                            'California', 'Uri': 'http://content.caiso.'
                                     'com/outlook/systemstatus.csv'
-                                    }, 'Extra' : { 'ISO': 'CAISO'}
+                                    }, 'Extra' : {'ISOName': 'CAISO', 
+                                    'ISOType': data_type, 'ISOSubType': location,
+                                            'ISODataType': valtype }
                                 }
                     self.lastLatests[path] = None
                     
