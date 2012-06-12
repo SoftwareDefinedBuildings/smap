@@ -29,17 +29,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 @author Sagar Karandikar <skarandikar@berkeley.edu>
 """
-
-"""
-TODO:
-What if a timeseries has multiple points to be added at once?
-Keeping track of update times for different timeseries?
-"""
                                                                                 
 import time
 import urllib2
-
-from zope.interface import implements
 
 from smap.driver import SmapDriver
 from smap.util import periodicCallInThread
@@ -47,9 +39,11 @@ from smap.util import periodicCallInThread
 urllib2.install_opener(urllib2.build_opener())
 
 class ScraperDriver(SmapDriver):
-    """Periodically republish scraped data as an sMAP feed. Driver that 
-    implements this needs to define a scrape method that will be used by update
-    and a special setup method with a special attr as defined below.
+    """Periodically republish scraped data as an sMAP feed. The driver that 
+    extends this needs to define a scrape method that will be used by update
+    and a special setup method with a special attr as defined below. Examples of
+    setup methods that work automatically can be found in many of the iso
+    scrapers, like pjm.py.
     """
 
     def scrape(self):
@@ -74,7 +68,8 @@ class ScraperDriver(SmapDriver):
         return {}
 
     def update(self):
-        """V2NOTES: this will need to handle multiple timeseries"""
+        """This automatically updates/adds timeseries data, assuming that the
+        dict returned by the scrape method is formatted as above."""
         try:
             scraped = self.scrape()
         except urllib2.URLError:
@@ -96,16 +91,18 @@ class ScraperDriver(SmapDriver):
                             self.lastLatests[path] = pair[0]
 
     def setup(self, opts):
-        """V2NOTES: This will probably have to fetch data once to generate the
-        data for each timeseries"""
+        """This be done almost completely automatically using code similar to
+        that used in the ISO scrapers. See the setup method in pjm.py for an 
+        example."""
         #User needs to define:
+
         #lastLatests, a dict used to prevent resubmission of duplicates
         #self.lastLatest = {}, each item is (path: None) by default
-        #update_frequency of the feed, in seconds
+
+        #update_frequency of the feeds, in seconds
         #self.update_frequency = 3600 
-        #standard timeseries stuff
-        #self.t = self.add_timeseries(...)
-        #self.t['Metadata'] = {}
+
+        #standard timeseries add or automatic version as noted above.
         pass
     
     def start(self):

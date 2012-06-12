@@ -34,11 +34,7 @@ import time
 import urllib2
 import re
 
-from zope.interface import implements
-
-from smap.driver import SmapDriver
 from smap.drivers.scraper import ScraperDriver
-from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -53,11 +49,6 @@ class PJMDriver(ScraperDriver):
                  }
     
     def scrape(self):
-        """this method scrapes data and returns it for use by the updater. It 
-        should be of the format: [[time, value], [time2, value2], etc.] Times 
-        should increase left to right and should be in seconds (web data seems 
-        to be in ms). This should be implemented by the subclass. Update handles 
-        ignoring duplicate data, so just return it all."""
         pjm = urllib2.urlopen('http://www.pjm.com/pub/'
                               'account/lmpgen/lmppost.html')
         lines = pjm.readlines()
@@ -144,13 +135,8 @@ class PJMDriver(ScraperDriver):
                            'PJM Footprint', 'Uri': 'http://www.pjm.com/pub/acco'
                                     'unt/lmpgen/lmppost.html'
                                     }, 'Extra' : {'ISOName': 'PJM', 
-                                    'ISOType': data_type, 'ISOSubType': location,
+                                   'ISOType': data_type, 'ISOSubType': location,
                                             'ISODataType': valtype }
                                 }
+                    temp['Properties']['Timezone'] = "America/New_York"
                     self.lastLatests[path] = None
-                    
-                 
-
-if __name__ == '__main__':
-    a = PJMDriver()
-    print(a.scrape())

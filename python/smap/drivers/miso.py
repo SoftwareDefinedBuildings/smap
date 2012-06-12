@@ -32,13 +32,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import time
 import urllib2
-import re
 
-from zope.interface import implements
-
-from smap.driver import SmapDriver
 from smap.drivers.scraper import ScraperDriver
-from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -174,10 +169,11 @@ class MIsoDriver(ScraperDriver):
                                                         + " for " + location)
                     temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
                          'Midwest ISO Footprint', 'Uri': self.DATA_TYPES[valtype
-                                        + " " + data_type]["Uri"]}, 'Extra' : {'ISOName': 'MISO', 
-                                    'ISOType': data_type, 'ISOSubType': location,
+                       + " " + data_type]["Uri"]}, 'Extra' : {'ISOName': 'MISO', 
+                                   'ISOType': data_type, 'ISOSubType': location,
                                             'ISODataType': valtype }
                                 }
+                    temp['Properties']['Timezone'] = "America/New_York"
                     self.lastLatests[path] = None
                     
                  

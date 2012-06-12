@@ -34,18 +34,13 @@ modified to use ScraperDriver by:
 
 import time
 import urllib2
-import re
 
-from zope.interface import implements
-
-from smap.driver import SmapDriver
 from smap.drivers.scraper import ScraperDriver
-from smap.util import periodicCallInThread
 
 urllib2.install_opener(urllib2.build_opener())
 
 class CaIsoDriver(ScraperDriver):
-    """Periodically scrape data from PJM and publish it as sMAP feeds
+    """Periodically scrape data from CAISO and publish it as sMAP feeds
     """
     DATA_TYPES = { "Load": {"Unit": "MW", "Description": "Load"},
                    "Generation": {"Unit": "MW", "Description": 
@@ -54,7 +49,7 @@ class CaIsoDriver(ScraperDriver):
     
     def scrape(self):
         caiso = urllib2.urlopen('http://content.caiso.com/outlook/'
-                                    'systemstatus.csv')
+                                                            'systemstatus.csv')
         lines = caiso.readlines()
         caiso.close()
         caiso_output = { 'Load': {}, "Generation": {} }
@@ -90,9 +85,10 @@ class CaIsoDriver(ScraperDriver):
                             'California', 'Uri': 'http://content.caiso.'
                                     'com/outlook/systemstatus.csv'
                                     }, 'Extra' : {'ISOName': 'CAISO', 
-                                    'ISOType': data_type, 'ISOSubType': location,
+                                   'ISOType': data_type, 'ISOSubType': location,
                                             'ISODataType': valtype }
                                 }
+                    temp['Properties']['Timezone'] = "America/Los_Angeles"
                     self.lastLatests[path] = None
                     
                  

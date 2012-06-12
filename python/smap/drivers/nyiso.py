@@ -33,15 +33,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
 import urllib2
 import datetime
-import re
-
 from string import capwords
 
-from zope.interface import implements
-
-from smap.driver import SmapDriver
 from smap.drivers.scraper import ScraperDriver
-from smap.util import periodicCallInThread
 from smap.contrib import dtutil
 
 urllib2.install_opener(urllib2.build_opener())
@@ -116,7 +110,7 @@ class NYIsoDriver(ScraperDriver):
             temp = line.strip().split(",")
             temp[0] = temp[0].replace('"', '')
             temp[2] = self.match(temp[2].replace('"', ''))
-            if len(temp[len(temp)-1]) != 5:
+            if len(temp[len(temp)-1]) == 0:
                 continue
             point = [self.parse_time(temp[0], 0), float(temp[4])]
             if temp[2] in self.nyiso_out["Load"].keys():
@@ -161,7 +155,7 @@ class NYIsoDriver(ScraperDriver):
             temp = line.strip().split(",")
             temp[0] = temp[0].replace('"', '')
             temp[2] = self.match(temp[2].replace('"', ''))
-            if len(temp[len(temp)-1]) != 5:
+            if len(temp[len(temp)-1]) == 0:
                 continue
             point = [self.parse_time(temp[0], 0), float(temp[4])]
             if temp[2] in self.nyiso_out["Load"].keys():
@@ -318,6 +312,7 @@ class NYIsoDriver(ScraperDriver):
                                 'ISOType': data_type, 'ISOSubType': location,
                                             'ISODataType': valtype }
                                 }
+                    temp['Properties']['Timezone'] = "America/New_York"
                     self.lastLatests[path] = None
                     
                  
