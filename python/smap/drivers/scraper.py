@@ -99,8 +99,8 @@ class ScraperDriver(SmapDriver):
                             self.lastLatests[path] = pair[0]
 
     def setup(self, opts):
-        """This be done almost completely automatically using code similar to
-        that used in the ISO scrapers. See the setup method in pjm.py for an 
+        """This can be done almost completely automatically using code similar 
+        to that used in the ISO scrapers. See the setup method in pjm.py for an 
         example."""
         # WARNING: DO NOT put the call to self.scrape() in a try/except clause
         # here. Doing so can cause nasty things like partial timeseries setup
