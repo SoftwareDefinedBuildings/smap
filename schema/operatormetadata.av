@@ -1,0 +1,11 @@
+{
+  "name" : "OperatorMetadata",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A container class containing operator metadata",
+  "fields" : [
+    {"name" : "Expression", "type" : ["string"]},
+    {"name" : "SourceStreams", "type" : {"type" : "array", "items" : "uuid"}},
+    {"name" : "Materialized", "type" : "boolean", "default" : true}
+  ]
+}
