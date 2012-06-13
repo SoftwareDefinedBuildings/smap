@@ -30,6 +30,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import uuid
 import numpy as np
 
 from smap import operators
@@ -90,9 +91,13 @@ class SubsampleOperator(GroupByTimeOperator):
     """Utility operator which subsamples by windowing in time, and
     taking the first reading in each window.
     """
+    name = 'subsample'
     operator_name = 'subsample'
     operator_constructors = [(int, )]
     def __init__(self, inputs, period):
-        self.name = 'subsample-' + str(period)
         GroupByTimeOperator.__init__(self, inputs, first, 
-                                     chunk_length=period, snap_times=True)
+                                     chunk_length=period, 
+                                     snap_times=True) 
+        self.name = 'subsample-' + str(period)
+        for i in xrange(len(self.inputs)):
+            self.outputs[i]['uuid'] = str(uuid.uuid5(uuid.UUID(self.inputs[i]['uuid']), self.name))

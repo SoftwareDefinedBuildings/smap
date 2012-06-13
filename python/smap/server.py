@@ -75,14 +75,18 @@ class InstanceResource(resource.Resource):
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
         except Exception, e:
-            setResponseCode(request, exception, 404)
+            setResponseCode(request, exception, 500)
             request.finish()
-            return
-            
-        d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
-        d.addCallback(lambda x: self.send_reply(request, x))
-        d.addErrback(lambda x: self.send_error(request, x))
-        return server.NOT_DONE_YET
+
+        if obj == None:
+            request.setResponseCode(404)
+            return ("No such timeseries or collection: " + 
+                    util.join_path(request.postpath) + '\n')
+        else:
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+            d.addCallback(lambda x: self.send_reply(request, x))
+            d.addErrback(lambda x: self.send_error(request, x))
+            return server.NOT_DONE_YET
 
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')

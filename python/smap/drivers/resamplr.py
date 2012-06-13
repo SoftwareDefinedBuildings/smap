@@ -43,8 +43,9 @@ from twisted.python import log
 
 from smap.archiver.client import SmapClient
 from smap.operators import *
+from smap.ops.grouping import GroupByTimeOperator
+from smap.ops.ts import DatetimeOperator
 from smap.contrib import dtutil
-import smap.drivers.sumr as sumr
 import smap.operators as opr
 
 def _day_bin_equal(dt1, dt2):

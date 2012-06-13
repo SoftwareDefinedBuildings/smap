@@ -60,22 +60,27 @@ class GroupByTimeOperator(Operator):
     chunk_length: the size of the windows time is chunked into
     chunk_delay: when we call the group operator.
     """
-    name = "latest buffer operator"
+    name = 'swindow'
     operator_name = 'swindow'
     operator_constructors = [(lambda x: x,),
-                             (lambda x: x, int)]
+                             (lambda x: x, int),
+                             (lambda x: x, int, float)]
     def __init__(self, inputs, 
                  group_operator,
                  chunk_length=10,
                  chunk_delay=1,
                  snap_times=True,
-                 inclusive=(True, False)):
+                 inclusive=(True, False),
+                 skip_empty=True):
         self.bucket_op = group_operator(inputs)
-        Operator.__init__(self, inputs, outputs=self.bucket_op.outputs)
-        self.pending = [null] * len(self.outputs)
         self.chunk_length = chunk_length
         self.chunk_delay = chunk_delay
         self.snap_times = snap_times
+        self.skip_empty = skip_empty
+        self.name = "swindow(%s, chunk_length=%i, chunk_delay=%f)" % (
+            str(self.bucket_op), self.chunk_length, self.chunk_delay)
+        Operator.__init__(self, inputs, outputs=self.bucket_op.outputs)
+        self.pending = [null] * len(self.outputs)
 
     def process(self, input):
         # store the new data
@@ -98,11 +103,16 @@ class GroupByTimeOperator(Operator):
         # iterate over the groups
         for time in xrange(startts, endts, self.chunk_length):
             # print "group starting", time
+
             data = map(lambda x: x[np.where((x[:,0] >= time) & 
-                                            (x[:,0] < time + self.chunk_length))] 
-                       if len(x) else np.array([[time, np.nan]]),
+                                            (x[:,0] < time + self.chunk_length))]
+                       if len(x) else [],
                        self.pending)
+
+            # skip window if there's no data in it
+            if self.skip_empty and sum(map(len, data)) == 0: continue
             data = [x if len(x) else np.array([[time, np.nan]]) for x in data]
+
             # apply
             opresult = self.bucket_op(data)
             if max(map(len, opresult)) > 1:

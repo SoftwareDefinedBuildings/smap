@@ -51,13 +51,14 @@ class StandardizeUnitsOperator(Operator):
     units = {
         'Watts' : ('kW', 0.001),
         'W' : ('kW', 0.001),
+        'Kilowatts' : ('kW', 1.0),
         'pounds/hour' : ('lbs/hr', 1.0),
         'Lbs/hr' : ('lbs/hr', 1.0),
         'lbs/min' : ('lbs/hr', 60),
         'lbs/hour' : ('lbs/hr', 1.0),
         'Def F' : ('F', 1.0),
         }
-    name = 'standardize units'
+    name = 'units'
     required_tags = set(['uuid', 'Properties/UnitofMeasure'])
 
     def __init__(self, inputs):

@@ -66,7 +66,7 @@ class ReadingdbPool:
                                       self.shutdown)
 
     def shutdown(self):
-        print "ReadingdbPool shutting down:", len(self.pool)
+        # print "ReadingdbPool shutting down:", len(self.pool)
         map(settings.rdb.db_close, self.pool)
 
     def get(self):

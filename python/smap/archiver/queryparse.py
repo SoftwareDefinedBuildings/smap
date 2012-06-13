@@ -560,7 +560,7 @@ def parse_opex(exp):
     try:
         opex_parser
     except NameError:
-        opex_parser = yacc.yacc(start="apply_clause", 
+        opex_parser = yacc.yacc(start="operator_list", 
                                 tabmodule='opex_tab.py')
     return opex_parser.parse(exp)
 

@@ -44,7 +44,7 @@ import loader
 import server
 from smap.contrib import dtutil
 
-class SmapDriver:
+class SmapDriver(object):
     # this is actually a shim layer which presents a ISmapInstance to
     # drivers
     implements(ISmapInstance)
@@ -91,6 +91,10 @@ class SmapDriver:
     def start(self):
         pass
 
+    # override
+    def stop(self):
+        pass
+
     # ISmapInstance implementation
 
     # drivers get a pass-through version of the SmapInstance which
@@ -108,7 +112,9 @@ class SmapDriver:
         return self.__inst.get_collection(self.__join_id(id))
     def add_timeseries(self, path, *args, **kwargs):
         kwargs['namespace'] = self.namespace
-        if len(args) <= 1:
+        if ITimeseries.providedBy(args[0]) or IActuator.providedBy(args[0]):
+            key = args[0]
+        elif len(args) <= 1:
             key = path
         elif len(args) == 2:
             key = args[0]
@@ -126,6 +132,19 @@ class SmapDriver:
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
         return self.__inst.uuid(key, namespace=self.namespace)
+
+    # let drivers optimize loading a lot of points
+    def _get_loading(self):
+        return self.__inst.loading
+    def _set_loading(self, val):
+        if val:
+            print "starting load"
+            self.__inst.loading = True
+        else:
+            print "finishing load"
+            self.__inst.reports.update_subscriptions()
+            self.__inst.loading = False
+    loading = property(_get_loading, _set_loading)
 
     def load(self, startdt, enddt):
         """Default load method tries to call update with one-day chunks"""

@@ -1,3 +1,15 @@
+smap (2.0.335) oneiric; urgency=low
+
+  * Missing monit files
+
+ -- Stephen Dawson-Haggerty <stevedh@jackalope.CS.Berkeley.EDU>  Fri, 08 Jun 2012 16:51:42 -0700
+
+smap (2.0.333) oneiric; urgency=low
+
+  * Bugfix release
+
+ -- Stephen Dawson-Haggerty <stevedh@jackalope.CS.Berkeley.EDU>  Fri, 08 Jun 2012 16:29:01 -0700
+
 smap (2.0.299-3) oneiric; urgency=low
 
   * source package automatically created by stdeb 0.6.0
