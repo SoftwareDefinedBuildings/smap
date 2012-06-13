@@ -34,7 +34,6 @@ import time
 import urllib2
 import datetime
 import re
-from string import capwords
 from smap.contrib import dtutil
 
 from smap.drivers.scraper import ScraperDriver
@@ -46,22 +45,23 @@ class ErcotDriver(ScraperDriver):
     """
     DATA_TYPES = { "Total Area Load": {"Uri": 'http://www.ercot.com/content/'
                                 'cdr/html/loadForecastVsActualCurrentDay.html',
-                                "Description": "", "Unit": "MW"},
+                                "Description": "Load", "Unit": "MW"},
                    "Total Generation": {"Uri": 'http://www.ercot.com/content/'
                                         'cdr/html/scedUpDown_currentDay.html',
-                                "Description": "", "Unit": "MW"},
+                                "Description": "Generation", "Unit": "MW"},
                    "Wind Generation": {"Uri": 'http://www.ercot.com/content/'
                                             'cdr/html/CURRENT_DAYCOP_HSL.html',
-                                 "Description": "", "Unit": "MW"},
+                                 "Description": "Generation", "Unit": "MW"},
                     "Actual SPP": {"Uri": 'http://www.ercot.com/content/cdr/'
                                                         'html/real_time_spp', 
-                                    "Description": "", "Unit": "$"},
+                        "Description": "Settlement Point Price", "Unit": "$"},
                     "Actual LMP": {"Uri": 'http://www.ercot.com/content/'
                                                 'cdr/html/current_np6788',
-                                    "Description": "", "Unit": "$"},
+                                        "Description": "Locational Marginal "
+                                                    "Pricing", "Unit": "$"},
                     "Forecasted SPP": {"Uri": 'http://www.ercot.com/content/'
                                                'cdr/html/<DATE HERE>_dam_spp',
-                                    "Description": "", "Unit": "$"}
+                       "Description": "Settlement Point Price", "Unit": "$"}
                   }
 
     def scrape(self):
@@ -72,7 +72,6 @@ class ErcotDriver(ScraperDriver):
         self.SPP_get()
         self.real_LMP_get()
         self.forecast_SPP_get()
-        #print(self.ercot_out) 
         return self.ercot_out
 
     def load_get(self):
@@ -146,7 +145,6 @@ class ErcotDriver(ScraperDriver):
             lines.append(line.strip().split('\r'))
 
         columns = lines.pop(0)[2:]
-        #print columns
         for place in columns:
             self.ercot_out["SPP"][place] = { "Actual": [] }
         for line in lines:
@@ -192,14 +190,12 @@ class ErcotDriver(ScraperDriver):
     def forecast_SPP_get(self):
         texas_today = dtutil.now("America/Chicago")
         ptime = texas_today.strftime("%Y%m%d")
-        #print(int(ptime))
         url = self.DATA_TYPES["Forecasted SPP"]["Uri"].replace("<DATE HERE>",
                                                                          ptime)
         print(url)
         SPP = urllib2.urlopen(url)
         lines = SPP.readlines()
         SPP.close()
-        #print(lines)
         while 'td class="headerValue' not in lines[0]:
             lines.pop(0)
         while "</tr>" not in lines[len(lines)-1]:
@@ -207,9 +203,7 @@ class ErcotDriver(ScraperDriver):
         giantstr = ""
         for line in lines:
             giantstr += line
-        #print(repr(giantstr))
         lines = giantstr.split("</tr>\r\r\n\t\t\t\t\t\t\t<tr>")
-        #print(lines)
         intermed_out = []
         for line in lines:
             temp = line.replace("\n", "")
@@ -218,10 +212,8 @@ class ErcotDriver(ScraperDriver):
             temp = re.sub(r'\<.*?\>', '', temp)
             temp = temp.strip().split()
             intermed_out.append(temp)
-        #print(intermed_out)
         lines = intermed_out
         columns = intermed_out.pop(0)[4:]
-        #print columns
         for place in columns:
             if place not in self.ercot_out["SPP"].keys():
                 self.ercot_out["SPP"][place] = { "Forecasted": [] }
@@ -253,7 +245,6 @@ class ErcotDriver(ScraperDriver):
             point = []
             temp = lines.pop(0)
             if '00:00' in temp[1]:
-                #+1 offset
                 point.append(self.parse_time(temp[1], nextoff))
             else:
                 point.append(self.parse_time(temp[1], inoff))
@@ -269,11 +260,8 @@ class ErcotDriver(ScraperDriver):
             lines.pop(0)
         while "</map>" not in lines[len(lines)-1]:
             lines.pop()
-        #print(lines)
         lines = custom_process(lines)
         for line in lines:
-            #print(line)
-            #print(line.split("title="))
             temp = line.split("title=")[1]
             temp = temp.split(" alt=")[0]
             temp = temp.replace('"', '')
@@ -286,7 +274,6 @@ class ErcotDriver(ScraperDriver):
     def parse_time(self, time_str, dayoff):
         texas_today = dtutil.now("America/Chicago")
         texas_time = texas_today + datetime.timedelta(seconds=dayoff*86400)
-        #offsets = [texas_today, texas_tomorrow]
         ptime = texas_time.strftime("%Y%m%d") + " " + time_str
         out = time.strptime(ptime, "%Y%m%d %H:%M")
         return int(time.mktime(out))
@@ -317,7 +304,7 @@ class ErcotDriver(ScraperDriver):
                                                     valtype + " " + 
                                             self.DATA_TYPES[namer(data_type, 
                                         location, valtype)]["Description"] 
-                                                        + " for " + location)
+                                                      + " (" + location + ")")
                     temp['Metadata'] = { 'Location' : {'Country': 'USA', 'Area': 
                          'Texas', 'Uri': 
                             self.DATA_TYPES[namer(data_type, location, 
