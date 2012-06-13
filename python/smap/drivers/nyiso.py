@@ -120,9 +120,12 @@ class NYIsoDriver(ScraperDriver):
                 self.nyiso_out["Load"][temp[2]]["Actual"] = [point]
 
     def pred_load(self):
-        predload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/public/'
-                                                'csv/isolf/', 'isolf.csv', 
-                                                                    86400))
+        try:
+            predload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/'
+                                      'public/csv/isolf/', 'isolf.csv', 86400))
+        except:
+            predload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/'
+                                      'public/csv/isolf/', 'isolf.csv', 0))
         lines = predload.readlines()
         predload.close()
         col = eval("[" + lines.pop(0).replace('"Time Stamp",', "") + "]")
@@ -170,8 +173,13 @@ class NYIsoDriver(ScraperDriver):
                 self.nyiso_out["Load"][temp[2]]["Integrated Actual"] = [point]
 
     def forecast_lmp(self):
-        actload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/public/csv/'
-                                        'damlbmp/','damlbmp_zone.csv', 86400))
+        #try except to handle inconsistent next-day upload time
+        try:
+            actload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/public'
+                                    '/csv/damlbmp/','damlbmp_zone.csv', 86400))
+        except:
+            actload = urllib2.urlopen(self.urlgen('http://mis.nyiso.com/public'
+                                    '/csv/damlbmp/','damlbmp_zone.csv', 0))
         lines = actload.readlines()
         actload.close()
         temps = []

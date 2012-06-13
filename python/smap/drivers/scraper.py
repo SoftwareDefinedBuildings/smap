@@ -70,6 +70,14 @@ class ScraperDriver(SmapDriver):
     def update(self):
         """This automatically updates/adds timeseries data, assuming that the
         dict returned by the scrape method is formatted as above."""
+        # Note that the scrape method is in a try/except clause here in order to
+        # allow the driver to recover if there is an error on pageload. However,
+        # DO NOT place the call to self.scrape() in setup() inside a try/except
+        # clause. setup() should only complete successfully if all of the
+        # data is able to be loaded (since timeseries creation depends on an
+        # initial fetch of data). If errors are handled elsewhere (ie in the
+        # scrape() method), nasty things like partial setup of timeseries could
+        # occur.
         try:
             scraped = self.scrape()
         except urllib2.URLError:
@@ -94,15 +102,21 @@ class ScraperDriver(SmapDriver):
         """This be done almost completely automatically using code similar to
         that used in the ISO scrapers. See the setup method in pjm.py for an 
         example."""
-        #User needs to define:
+        # WARNING: DO NOT put the call to self.scrape() in a try/except clause
+        # here. Doing so can cause nasty things like partial timeseries setup
+        # since complete data load is essential to setup. More information is in
+        # the note in update()
+        # Effectively, you should allow all errors to propagate in this method.
 
-        #lastLatests, a dict used to prevent resubmission of duplicates
-        #self.lastLatest = {}, each item is (path: None) by default
+        # User needs to define:
 
-        #update_frequency of the feeds, in seconds
-        #self.update_frequency = 3600 
+        # lastLatests, a dict used to prevent resubmission of duplicates
+        # self.lastLatest = {}, each item is (path: None) by default
 
-        #standard timeseries add or automatic version as noted above.
+        # update_frequency of the feeds, in seconds
+        # self.update_frequency = 3600 
+
+        # standard timeseries add or automatic version as noted above.
         pass
     
     def start(self):
