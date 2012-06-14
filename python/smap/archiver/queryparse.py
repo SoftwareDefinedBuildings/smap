@@ -34,6 +34,7 @@ import os
 import operator
 import time
 import inspect
+import logging
 
 from twisted.internet import defer
 
@@ -553,7 +554,9 @@ def p_error(t):
 
 smapql_parser = yacc.yacc(tabmodule='arq_tab',
                           outputdir=os.path.dirname(__file__),
-                          debugfile='/dev/null')
+                          debugfile='/dev/null',
+                          debuglog=logging.getLogger('ply-debug'),
+                          errorlog=logging.getLogger('ply-errors'))
 
 def parse_opex(exp):
     global opex_parser
@@ -561,7 +564,10 @@ def parse_opex(exp):
         opex_parser
     except NameError:
         opex_parser = yacc.yacc(start="operator_list", 
-                                tabmodule='opex_tab.py')
+                                tabmodule='opex_tab.py',
+                                debugfile='/dev/null',
+                                debuglog=logging.getLogger('ply-debug'),
+                                errorlog=logging.getLogger('ply-errors'))
     return opex_parser.parse(exp)
 
 class QueryParser:
@@ -622,6 +628,8 @@ if __name__ == '__main__':
     from twisted.internet import reactor
     from twisted.enterprise import adbapi
     from optparse import OptionParser
+
+    logging.basicConfig()
 
     # pull out options
     usage = "usage: %prog [options] archiver-config.ini"
