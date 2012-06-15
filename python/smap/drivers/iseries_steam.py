@@ -44,8 +44,8 @@ class IseriesSteam(driver.SmapDriver):
     def setup(self, opts):
         self.host = opts.get("Host", "10.0.50.119")
         self.rate = int(opts.get("Rate", 30))
-        self.add_timeseries("/0", "ga/min")
-        self.add_timeseries("/1", "ga")
+        self.add_timeseries("/0", "ga/min", data_type='double')
+        self.add_timeseries("/1", "ga", data_type='double')
         self.set_metadata("/", {
             'Instrument/ModelName' : 'Moxa MB3170'
             })
@@ -54,24 +54,36 @@ class IseriesSteam(driver.SmapDriver):
         self.last_add = 0
         self.accum = 0
         self.last_time = None
+        self.s = None
         util.periodicSequentialCall(self.update).start(1)
 
-    def update(self, cmd="*01X01"):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def connect(self):
+        if self.s: return
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.settimeout(1)
-            s.connect((self.host, 1000))
-            s.send(cmd + "\r")
-            s.flush()
-            reply = s.recv(1024)
-            s.close()
+            self.s.settimeout(5)
+            self.s.connect((self.host, 1000))
+        except IOError:
+            log.err()
+            self.s = None
+
+    def update(self, cmd="*01X01"):
+        self.connect()
+        if not self.s:
+            return
+
+        try:
+            self.s.send(cmd + "\r")
+            reply = self.s.recv(1024)
+            self.s.close()
+            self.s = None
         except IOError, e:
             log.err()
-            return None
+            return 
         else:
             if reply.startswith(cmd[1:]):
                 val = float(reply[len(cmd) - 1:-1])
-                print val
+                log.msg("read: " + str(val))
                 if val == None:
                    time.sleep(0.5)
                    log.err("Failed to update reading")
@@ -86,7 +98,7 @@ class IseriesSteam(driver.SmapDriver):
 
         # and output a reading ever RATE seconds
         if this_time - self.last_add > self.rate:
-            self.add('/0', this_time, val)
-            self.add('/1', this_time, accum)
+            self.add('/0', this_time, float(val))
+            self.add('/1', this_time, float(self.accum))
             self.last_add = this_time
         self.last_time = (this_time, val)
