@@ -94,8 +94,8 @@ class IseriesSteam(driver.SmapDriver):
 
         # accumulate readings
         if self.last_time:
-            self.accum += (self.last_time[1] + val) * ((this_time - self.last_time[0]) / 60) * 0.5
-
+            self.accum += (self.last_time[1] + val) * ((this_time - self.last_time[0]) / 60.) * 0.5
+            
         # and output a reading ever RATE seconds
         if this_time - self.last_add > self.rate:
             self.add('/0', this_time, float(val))
