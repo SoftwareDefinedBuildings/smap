@@ -106,13 +106,11 @@ class PQube(SmapDriver):
             })
 
     def start(self):
-        print "satrtin"
         periodicSequentialCall(self.update).start(self.rate)
         
     def update(self):
         logging.debug("Updating " + self.serverloc)
         try:
-            print "loading", self.serverloc + '/Meters.htm'
             fp = urllib2.urlopen(self.serverloc + '/Meters.htm', timeout=15)
             html = fp.read()
         except IOError, e:
