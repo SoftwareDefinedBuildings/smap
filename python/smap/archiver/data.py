@@ -39,6 +39,7 @@ import numpy as np
 
 from twisted.internet import reactor, threads, defer
 from twisted.enterprise import adbapi
+from twisted.python import log
 import psycopg2
 
 import smap.reporting as reporting
@@ -66,7 +67,7 @@ class ReadingdbPool:
                                       self.shutdown)
 
     def shutdown(self):
-        # print "ReadingdbPool shutting down:", len(self.pool)
+        log.msg("ReadingdbPool shutting down:", len(self.pool))
         map(settings.rdb.db_close, self.pool)
 
     def get(self):
@@ -82,7 +83,7 @@ try:
     if hasattr(settings, "rdb"):
         rdb_pool
     else:
-        print "failed to find readingdb module"
+        log.err("failed to find readingdb module")
 except NameError:
     rdb_pool = ReadingdbPool()
 
@@ -94,7 +95,6 @@ class SmapMetadata:
         try:
             return self._add_wrapped(subid, ids, obj)
         except Exception, e:
-            print "exception in _add"
             traceback.print_exc()
             log.err()
             
@@ -108,9 +108,7 @@ class SmapMetadata:
                                                        escape_string(tn),
                                                        escape_string(tv)))
             except Exception, e:
-                print ids[uid]
-                print tn, tv
-                print e
+                log.err()
                 raise e
         ids = dict(ids)
         for path, ts in obj.iteritems():
@@ -167,7 +165,6 @@ class SmapData:
             if r != None:
                 rdb_pool.put(r)
             else:
-                traceback.print_exc()
                 raise Exception("Error creating RDB connection!")
         return True
 

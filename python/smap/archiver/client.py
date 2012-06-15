@@ -72,14 +72,18 @@ multiple lines, we need to be careful to do this right and merge the
 results together."""
     rv = {}
     for line in data.split('\n'):
-        if len(line.strip()) == 0: continue
+        if len(line.strip()) == 0: 
+            continue
         line_obj = json.loads(line)
-        if not isinstance(line_obj, list): return data
+
+        if not isinstance(line_obj, list): 
+            return data
         if len(line_obj) == 0: continue
-        if not isinstance(line_obj, dict): return line_obj
+
         for v in line_obj:
             if not 'uuid' in v:
-                raise SmapException("Invalid sMAP object: " + str(v))
+                return line_obj
+            # raise SmapException("Invalid sMAP object: " + str(v))
             id = v['uuid']
             if not id in rv:
                 rv[id] = v
@@ -136,7 +140,7 @@ the result.
 
     def tags(self, qbody, tags='*', nest=False, asdict=False):
         """Look up tags associated with a specific query body"""
-        print qbody
+        log.msg(qbody)
         tags = self.query('select %s where %s' % (tags, qbody))
         if not nest:
             tags = map(lambda t: dict(util.buildkv('', t)), tags)
@@ -243,7 +247,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
         return self.query(qbody)
         
 
-    def data(self, qbody, start, end, limit=10000):
+    def data(self, qbody, start, end, limit=10000, filter=None):
         """Load data for streams matching a particular query
 
         Uses the local time-series cache in the .cache directory.

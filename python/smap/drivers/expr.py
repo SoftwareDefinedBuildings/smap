@@ -41,10 +41,10 @@ from smap import core, util
 from smap.driver import SmapDriver
 from smap.archiver.queryparse import parse_opex
 from smap.archiver.client import SmapClient, RepublishClient
-from smap.operators import null
+from smap.operators import null, OperatorDriver
 from smap.ops.grouping import GroupByTagOperator
 
-class ExprDriver(SmapDriver):
+class ExprDriver(OperatorDriver):
     """Driver which computes an operator on a set of input streams
 
 Configuration options:
@@ -54,37 +54,30 @@ Configuration options:
     """
     def setup(self, opts):
         self.expr = opts.get('Expression')
-        self.where = opts.get('Where')
+        self.restrict = opts.get('Restrict')
         self.group = opts.get('Group', None)
-        self.backend = opts.get('Backend', 'http://new.openbms.org/backend')
         self.tz = opts.get('Timezone', core.Timeseries.DEFAULTS['Properties/Timezone'])
+        self.backend = opts.get('SourceUrl',
+                                'http://ar1.openbms.org:8079')
 
         # get the operator
         self.op = parse_opex(self.expr)
 
     def start(self):
         d = threads.deferToThread(self.load_tags)
-        d.addCallback(self.subscribe)
-
-    def stop(self):
-        try:
-            self.client.close()
-        except NameError:
-            pass
+        d.addCallback(self.add_operators)
+        d.addCallback(lambda _: OperatorDriver.start(self))
 
     def load_tags(self):
         """Load the matching tags (in a thread)"""
         c = SmapClient(self.backend)
-        return c.tags(self.where)
+        return c.tags(self.restrict)
 
-    def subscribe(self, tags):
+    def add_operators(self, tags):
         """Bind the operator to the input streams and start processing"""
-        self.client = RepublishClient(self.backend,
-                                      self.process,
-                                      restrict=self.where)
-        self.input_map = {}
+        self.operators = {}
         i = 0
-        groups = {} # set((x.get(self.group, None) for x in tags))
+        groups = {} 
         for s in tags:
             key = s.get(self.group, None)
             if not key in groups: groups[key] = []
@@ -94,9 +87,13 @@ Configuration options:
         for g, inputs in groups.iteritems():
             print "adding group", g, "(%i/%i)" % (i, len(groups))
             i += 1
-            op = self.op(inputs) # filter(lambda x: x.get(self.group, None) == g, tags))
+            op = self.op(inputs) 
             for inp in op.inputs:
-                self.input_map[inp['uuid']] = op
+                self.operators[inp['uuid']] = op
+
+            print "[" + ','.join(map(operator.itemgetter('uuid'), op.inputs)) + '] -> [' + \
+                ','.join(map(operator.itemgetter('uuid'), op.outputs)) + ']'
+            print op
 
             for stream in op.outputs:
                 ts = core.Timeseries(uuid.UUID(stream['uuid']),
@@ -112,13 +109,17 @@ Configuration options:
                 else:
                     path = '/' + str(stream['uuid'])
                 self.add_timeseries(path, ts, recurse=False)
+                self.set_metadata(path, {
+                        'Extra/SourceStream' : \
+                            ','.join(map(operator.itemgetter('uuid'), op.inputs)),
+                        'Extra/Operator' : str(op.name)
+                        })
+                
         self.loading = False
             
-        self.client.connect()
-
-    def process(self, data):
+    def _data(self, data):
         """Apply the operator to data"""
-        # print "processing", data
+        #print "processing", data
         tic = time.time()
         dirty_operators = set([])
         for v in data.itervalues():
@@ -128,8 +129,8 @@ Configuration options:
                 d[:, 0] /= 1000
             except ValueError:
                 continue
-            self.input_map[v['uuid']]._push(v['uuid'], d)
-            dirty_operators.add(self.input_map[v['uuid']])
+            self.operators[v['uuid']]._push(v['uuid'], d)
+            dirty_operators.add(self.operators[v['uuid']])
 
         toc = time.time()
         boop = time.time()

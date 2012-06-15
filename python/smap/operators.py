@@ -99,11 +99,16 @@ class Operator(object):
                 return i
         return None
 
-    def _name(self):
-        """Return a stringified name for the operator"""
-        raise NotImplementedError()
+#     @name.setter
+#     def _get_name(self):
+#         """Return a stringified name for the operator"""
+#         if self._name:
+#             raise NotImplementedError()
+#         else:
+#             return self._name
 
-    name = property(_name)
+#     @name.
+
 
     def __call__(self, input):
         return self.process(input)
@@ -158,7 +163,7 @@ class OperatorDriver(driver.SmapDriver):
     """
     load_xsec_size = 200
 
-    def add_operator(self, path, op):
+    def add_operator(self, path, op, inherit_metadata=False):
         """Add an operator to the driver
         """
         if len(op.outputs) != 1:
@@ -166,7 +171,7 @@ class OperatorDriver(driver.SmapDriver):
         # print op.outputs
         opid = op.outputs[0]['uuid']
         unit = op.outputs[0]['Properties/UnitofMeasure']
-        # print "Added", opid
+        print "Added", opid
         if not isinstance(opid, uuid.UUID):
             opid = uuid.UUID(opid)
 
@@ -179,7 +184,7 @@ class OperatorDriver(driver.SmapDriver):
                     ','.join(map(operator.itemgetter('uuid'), op.inputs)),
                 'Extra/Operator' : str(op.name)
                 })
-        if self.inherit_metadata:
+        if inherit_metadata:
             self.set_metadata(path, op.outputs[0])
 
         for source in op.inputs:
@@ -234,9 +239,7 @@ class OperatorDriver(driver.SmapDriver):
                 ts, v = int(newv[0]), op.data_type[1](newv[1])
                 self._add(addpath, ts, v)
 
-    def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False,
-              inherit_metadata=True):
-        self.inherit_metadata = inherit_metadata
+    def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
         self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 4)))
         self.source_url = opts.get('SourceUrl', 'http://ar1.openbms.org:8079')
         if not raw and restrict:

@@ -63,6 +63,7 @@ def run_query(opts, q):
                 query['private'] = ['']
 
         qurl = opts.url + '?' + urllib.urlencode(query, doseq=True)
+        print qurl
         if opts.verbose > 0:
             print >>sys.stderr, qurl
             print >>sys.stderr, q

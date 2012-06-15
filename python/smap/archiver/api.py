@@ -40,7 +40,7 @@ import csv
 from twisted.internet import reactor, threads, defer
 from twisted.web import resource, server
 from twisted.web.resource import NoResource
-from twisted.spread import pb
+from twisted.python import log
 
 import smap.util as util
 import smap.sjson as json
@@ -198,7 +198,7 @@ FROM metadata2 AS m
 WHERE m.stream_id IN """ + inner_query + """
 ORDER BY tagname ASC"""
 
-    print query
+    log.msg(query)
     d = db.runQuery(query)
     return d
 
@@ -213,7 +213,7 @@ FROM metadata2 m, stream s
 WHERE m.stream_id IN """ + inner_query + """ AND
   m.stream_id = s.id
 ORDER BY m.stream_id ASC"""
-    print query
+    log.msg(query)
     return db.runQuery(query)
 
 
@@ -223,17 +223,6 @@ class Api(resource.Resource):
     def __init__(self, db):
         self.db = db
         resource.Resource.__init__(self)
-
-        # open a connection to the query parsing server
-        self.backend_factory = pb.PBClientFactory()
-        self.backend_root = None
-#         reactor.connectTCP('localhost', 8789, self.backend_factory)
-#         d = self.backend_factory.getRootObject()
-#         d.addCallback(self._set_root)
-#         d.addErrback(lambda err: self._set_root(None))
-        
-    def _set_root(self, root):
-        self.backend_root = root
 
     def generic_extract_result(self, request, result):
         """Extract postgres results which are just wrapped with an extra
@@ -308,7 +297,7 @@ class Api(resource.Resource):
             request.write(json.dumps(result))
             request.finish()
         except Exception, e:
-            print "got except", e
+            log.err()
             raise
 
 
@@ -343,11 +332,8 @@ class Api(resource.Resource):
         parser = qp.QueryParser(request)
         query = request.content.read() 
         try: 
-            if query.strip().startswith('apply') and self.backend_root:
-                d = self.backend_root.callRemote('query', query, request.args)
-            else:
-                # run the query locally
-                d = parser.runquery(self.db, query)
+            # run the query locally
+            d = parser.runquery(self.db, query)
         except Exception, e:
             setResponseCode(request, e, 400)
             return str(e)
