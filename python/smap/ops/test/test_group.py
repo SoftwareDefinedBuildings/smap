@@ -208,6 +208,18 @@ class TestGroupByDatetime(unittest.TestCase):
         self.assertEquals(rv[0][0, 0], self.testdata[0, 0])
         self.assertEquals(rv[0][1, 0], self.testdata[12, 0])
 
+    def test_slide(self):
+        now = dtutil.strptime_tz("1 1 2000 0", "%m %d %Y %H", tzstr="America/Los_Angeles")
+        now = dtutil.dt2ts(now)
+        self.setUp(now)
+
+        op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
+                                           field='hour',
+                                           width=4,
+                                           slide=2)
+        rv = op([self.testdata])
+        self.assertEquals(np.sum(rv[0][:, 0] - self.testdata[:-2:2, 0]), 0)
+        self.assertEquals(np.sum(rv[0][:, 1] - self.testdata[:-2:2, 1]), 0)
 
 class TestMaskedDTList(unittest.TestCase):
     hours = 1000

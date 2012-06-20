@@ -76,7 +76,6 @@ class StandardizeUnitsOperator(Operator):
 
                 outputs[i]['Properties/UnitofMeasure'] = \
                     self.units[inputs[i]['Properties/UnitofMeasure']][0]
-        print self.converters
         Operator.__init__(self, inputs, outputs)
 
     def process(self, data):

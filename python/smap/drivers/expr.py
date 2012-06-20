@@ -36,6 +36,7 @@ import numpy as np
 import time
 
 from twisted.internet import threads
+from twisted.python import log
 
 from smap import core, util
 from smap.driver import SmapDriver
@@ -48,33 +49,43 @@ class ExprDriver(OperatorDriver):
     """Driver which computes an operator on a set of input streams
 
 Configuration options:
- Expression: operator expressions to compute
+ Expression(.*): operator expressions to compute
  Where: where-clause specifying the input streams
  Group: tag name indicating any grouping necessary
     """
     def setup(self, opts):
-        self.expr = opts.get('Expression')
+        OperatorDriver.setup(self, opts)
         self.restrict = opts.get('Restrict')
         self.group = opts.get('Group', None)
         self.tz = opts.get('Timezone', core.Timeseries.DEFAULTS['Properties/Timezone'])
-        self.backend = opts.get('SourceUrl',
-                                'http://ar1.openbms.org:8079')
 
-        # get the operator
-        self.op = parse_opex(self.expr)
+        # specialize the input operators
+        self.ops = []
+        for k, v in opts.iteritems():
+            if not k.startswith('Expression'): continue
+            self.ops.append(parse_opex(v))
 
     def start(self):
         d = threads.deferToThread(self.load_tags)
         d.addCallback(self.add_operators)
         d.addCallback(lambda _: OperatorDriver.start(self))
+        return d
+
+    def load(self, *args, **kwargs):
+        d = threads.deferToThread(self.load_tags)
+        d.addCallback(self.add_operators)
+        d.addCallback(lambda _: OperatorDriver.load(self, *args, **kwargs))
+        return d
 
     def load_tags(self):
         """Load the matching tags (in a thread)"""
-        c = SmapClient(self.backend)
+        c = SmapClient(self.source_url)
         return c.tags(self.restrict)
 
     def add_operators(self, tags):
-        """Bind the operator to the input streams and start processing"""
+        """Once we've figured out what the input streams are, we can
+        bind the specialized operators to the individual input
+        streams"""
         self.operators = {}
         i = 0
         groups = {} 
@@ -87,57 +98,26 @@ Configuration options:
         for g, inputs in groups.iteritems():
             print "adding group", g, "(%i/%i)" % (i, len(groups))
             i += 1
-            op = self.op(inputs) 
-            for inp in op.inputs:
-                self.operators[inp['uuid']] = op
+            for op in self.ops:
+                op_instance = op(inputs)
+                assert len(op_instance.outputs) == 1
+                try:
+                    stream = op_instance.outputs[0]
+                    if self.group:
+                    #assert len(op.outputs) == 1
+                        path = '/' + util.str_path(stream[self.group])
+                    else:
+                        path = '/' + str(stream['uuid'])
 
-            print "[" + ','.join(map(operator.itemgetter('uuid'), op.inputs)) + '] -> [' + \
-                ','.join(map(operator.itemgetter('uuid'), op.outputs)) + ']'
-            print op
+                    self.add_operator(path, op_instance)
+                except:
+                    traceback.print_exc()
 
-            for stream in op.outputs:
-                ts = core.Timeseries(uuid.UUID(stream['uuid']),
-                                     stream.get('Properties/UnitofMeasure', 'None'),
-                                     data_type=stream.get('Properties/ReadingType', 'double'),
-                                     timezone=stream.get('Properties/Timezone', self.tz),
-                                     description=stream.get('Description', None))
-                #ts.set_metadata(util.build_recursive(stream).get('Metadata', {}))
-                if self.group and not self.group in stream: continue
-                if self.group:
-                    assert len(op.outputs) == 1
-                    path = '/' + util.str_path(stream[self.group])
-                else:
-                    path = '/' + str(stream['uuid'])
-                self.add_timeseries(path, ts, recurse=False)
-                self.set_metadata(path, {
-                        'Extra/SourceStream' : \
-                            ','.join(map(operator.itemgetter('uuid'), op.inputs)),
-                        'Extra/Operator' : str(op.name)
-                        })
-                
+                try:
+                    log.msg("[" + ','.join(map(operator.itemgetter('uuid'), op_instance.inputs)) + 
+                            '] -> [' +  
+                            ','.join(map(operator.itemgetter('uuid'), op_instance.outputs)) + ']')
+                except:
+                    pass
+
         self.loading = False
-            
-    def _data(self, data):
-        """Apply the operator to data"""
-        #print "processing", data
-        tic = time.time()
-        dirty_operators = set([])
-        for v in data.itervalues():
-            if not 'uuid' in v or not 'Readings' in v: continue
-            try:
-                d = np.array(v['Readings'])
-                d[:, 0] /= 1000
-            except ValueError:
-                continue
-            self.operators[v['uuid']]._push(v['uuid'], d)
-            dirty_operators.add(self.operators[v['uuid']])
-
-        toc = time.time()
-        boop = time.time()
-        for op in dirty_operators:
-            for dat, stream in itertools.izip(op._process(), op.outputs):
-                streamid = uuid.UUID(stream['uuid'])
-                for row in dat.tolist():
-                    self.add(streamid, row[0], row[1])
-        done = time.time()
-        #print "prep", toc - tic, "proc", boop - toc, "add", done - boop

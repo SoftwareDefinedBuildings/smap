@@ -162,13 +162,13 @@ class GroupByDatetimeField(Operator):
     def __init__(self, inputs, group_operator, **kwargs):
         field = kwargs.get('field', 'day') 
         width = int(kwargs.get("width", 1))
-        increment = int(kwargs.get("increment", width))
+        slide = int(kwargs.get("slide", width))
         inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
         snap_times = bool(kwargs.get("snap_times", True))
         if not field in self.DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
-        if not increment <= width:
-            raise core.SmapException("window: Cannot increment more than the window width!")
+        if not slide <= width:
+            raise core.SmapException("window: Cannot slide more than the window width!")
 
         self.inclusive = make_inclusive(inclusive)
         if self.inclusive[0] == False:
@@ -178,10 +178,10 @@ class GroupByDatetimeField(Operator):
         self.ops = map(lambda x: group_operator([x]), inputs)
         # self.ops = [[op([x]) for op in ops] for x in inputs]
         self.comparator = self.make_bin_comparator(field, width)
-        self.snapper = self.make_bin_snapper(field, increment)
+        self.snapper = self.make_bin_snapper(field, slide)
         self.snap_times = snap_times
         self.bin_width = datetime.timedelta(**{field + 's': width})
-        self.bin_increment = datetime.timedelta(**{field + 's': increment})
+        self.bin_slide = datetime.timedelta(**{field + 's': slide})
         self.name = "window(%s, field=%s, width=%i, inclusive=%s, snap_times=%s)" % ( \
             str(self.ops[0]), field, width, str(inclusive), str(snap_times))
         Operator.__init__(self, inputs, 
@@ -245,17 +245,18 @@ class GroupByDatetimeField(Operator):
         bin_start, truncate_to = self.snapper(prev_datetimes[0]), 0
         # print bin_start
         while True:
-            bin_end = bin_start + self.bin_width
+            bin_end = bin_start + self.bin_slide
 
             # perform a binary search to find the next window boundary
             bin_start_idx = bisect.bisect_left(prev_datetimes, bin_start) 
             bin_end_idx = bisect.bisect_left(prev_datetimes, bin_end)
             truncate_to = bin_start_idx
 
+            # ignore bins which aren't full
             if bin_end_idx == len(prev_datetimes): break
+            # skip empty bins
             if bin_start_idx == bin_end_idx: 
-                # skip empty bins
-                bin_start += self.bin_increment
+                bin_start += self.bin_slide
                 continue
 
             if self.comparator(bin_start, prev_datetimes[bin_end_idx]):
@@ -284,9 +285,7 @@ class GroupByDatetimeField(Operator):
                     opdata[j][:, 0] = t
             output = extend(output, opdata)
 
-            bin_start += self.bin_increment
-
-            # bin_start_idx = bin_end_idx
+            bin_start += self.bin_slide
 
         toc = time.time()
 #         print("dt processing took %0.05f: %i/%i converted" %  \

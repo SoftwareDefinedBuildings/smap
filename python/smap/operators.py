@@ -110,8 +110,8 @@ class Operator(object):
 #     @name.
 
 
-    def __call__(self, input):
-        return self.process(input)
+    def __call__(self, input, **kwargs):
+        return self.process(input, **kwargs)
 
     def reset(self):
         """Reset the internal state to discard any changes made"""
@@ -166,12 +166,10 @@ class OperatorDriver(driver.SmapDriver):
     def add_operator(self, path, op, inherit_metadata=False):
         """Add an operator to the driver
         """
-        if len(op.outputs) != 1:
+        if len(op.outputs) != 1 or not 'Properties/UnitofMeasure' in op.outputs[0]:
             raise SmapException("Can only add operators with a single output!")
-        # print op.outputs
         opid = op.outputs[0]['uuid']
         unit = op.outputs[0]['Properties/UnitofMeasure']
-        print "Added", opid
         if not isinstance(opid, uuid.UUID):
             opid = uuid.UUID(opid)
 
@@ -438,17 +436,18 @@ class ParallelSimpleOperator(Operator):
                               len(inputs),
                               **initargs)
 
-    def process(self, input):
-        return self.op(input)
+    def process(self, input, **kwargs):
+        return self.op(input, **kwargs)
 
 def parallelize(operator, n, *opargs, **initargs):
     """Parallelize an operator which performs identically on n input
     streams.
     """
     state = [initargs] * n
-    def _parallelized(inputs, *kwags):
+    def _parallelized(inputs, *args, **kwargs):
         rv = [None] * n
         for i in xrange(0, n):
+            state[i].update(kwargs)
             opdata = operator(inputs[i], *opargs, **state[i])
             if isinstance(opdata, tuple):
                 rv[i], state[i] = opdata
