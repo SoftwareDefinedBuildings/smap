@@ -56,24 +56,31 @@ class StandardizeUnitsOperator(Operator):
         'Lbs/hr' : ('lbs/hr', 1.0),
         'lbs/min' : ('lbs/hr', 60),
         'lbs/hour' : ('lbs/hr', 1.0),
-        'Def F' : ('F', 1.0),
+        'Deg F' : ('C', lambda v: ((v - 32.) * 5) / 9.),
+        'F' : ('C', lambda v: ((v - 32.) * 5) / 9.),
         }
     name = 'units'
     required_tags = set(['uuid', 'Properties/UnitofMeasure'])
 
     def __init__(self, inputs):
-        self.factors = [1.0] * len(inputs)
+        self.converters = [1.0] * len(inputs)
         outputs = copy.deepcopy(inputs)
         for i in xrange(0, len(inputs)):
             if 'Properties/UnitofMeasure' in inputs[i] and \
                     inputs[i]['Properties/UnitofMeasure'] in self.units:
-                self.factors[i] = self.units[inputs[i]['Properties/UnitofMeasure']][1]
+                if not callable(self.units[inputs[i]['Properties/UnitofMeasure']][1]):
+                    self.converters[i] = lambda v: v * \
+                        self.units[inputs[i]['Properties/UnitofMeasure']][1]
+                else:
+                    self.converters[i] = self.units[inputs[i]['Properties/UnitofMeasure']][1]
+
                 outputs[i]['Properties/UnitofMeasure'] = \
                     self.units[inputs[i]['Properties/UnitofMeasure']][0]
+        print self.converters
         Operator.__init__(self, inputs, outputs)
 
     def process(self, data):
-        return map(lambda (i, x): np.dstack((x[:, 0], x[:,1] * self.factors[i]))[0],
+        return map(lambda (i, x): np.dstack((x[:, 0], self.converters[i](x[:,1])))[0],
                    enumerate(data))
 
 
