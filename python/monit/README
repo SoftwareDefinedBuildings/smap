@@ -1,0 +1,13 @@
+Getting this to work
+1) run smap-monitize for isone.ini
+1.5) change paths where necessary
+2) overwrite the conf file in /etc/monit/conf.d/
+
+isone is the monit config file, goes in /etc/monit/conf.d/
+smap-status.py takes in 3 args, checks feed status, and returns an exit code
+testwrapper.sh is a wrapper that I guess we'll need to generate for each driver
+because monit won't let me put arguments for smap-status in the config file
+
+NOTE: this setup is purposefully controlling the wrong driver. For testing 
+purposes it is checking the feed for the MIso driver but controlling the IsoNE 
+driver (so that I can shut MIso on/off manually and see monit's repsonse)
