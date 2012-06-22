@@ -67,6 +67,9 @@ parser.add_option('-f', '--force', dest='force',
 parser.add_option('-e', '--env', dest='env',
                   default='',
                   help='comma-separated list of environment variables to preserve')
+parser.add_option('-c', '--cwd', dest='cwd',
+                  default=None,
+                  help='directory name to set as the cwd')
 opts, args = parser.parse_args()
 
 ports = set()
@@ -153,12 +156,12 @@ for conffile in args:
     newsh = os.path.abspath(os.path.join(opts.smap_d, root + ".sh"))
     with open(newsh, "w") as fp:
         fp.write("""#!/bin/sh
-cd %(datadir)s
+cd %(cwd)s
 %(env)s
 %(twistd)s --logfile=%(logfile)s  \\
             --pidfile=%(pidfile)s smap %(conf)s
 """ % {
-                'datadir' : datadir,
+                'cwd' : os.path.abspath(opts.cwd if opts.cwd else datadir),
                 'env' : build_env(opts),
                 'twistd' : opts.twistd,
                 'logfile' : logfile,
