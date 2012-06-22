@@ -1,0 +1,12 @@
+#Replicates monit's http protocol check
+
+import httplib
+
+port = 8086
+a = httplib.HTTPConnection("localhost", port)
+try:
+    a.request("GET", "/data")
+    success = True
+except:
+    success = False
+a.close()

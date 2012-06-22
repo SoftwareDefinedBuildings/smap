@@ -38,6 +38,7 @@ from twisted.internet import reactor, defer
 import exceptions
 import sys
 import operator
+import time as pytime
 
 import schema
 import util
@@ -139,16 +140,37 @@ Can be called with 1, 2, or 3 arguments.  The forms are
  type, or was called with an invalid number of arguments.
         """
         seqno = None
+        nonlogging = False
         if len(args) == 1:
             time = util.now()
             value = args[0]
         elif len(args) == 2:
             time, value = args
         elif len(args) == 3:
-            time, value, seqno = args
+            if type(args[2]) == bool:
+                time, value, nonlogging = args
+            else:
+                time, value, seqno = args
         else:
             raise SmapException("Invalid add arguments: must be (value), "
-                                "(time, value), or (tiem, value, seqno)")
+                                "(time, value), or (time, value, seqno)")
+
+        #don't log if the driver calling this is the logger itself
+        if not nonlogging:
+            nowtime = int(pytime.time())
+            curr_path = "/" + self.path.split("/")[1]
+            driver_ob_name = str(self.inst.drivers[curr_path])
+            namept1 = driver_ob_name.split(" ")[0].split(".", 2)
+            drivername = namept1[len(namept1)-1]
+            #add timeseries with this drivername
+            try:
+                self.inst.add_timeseries("/DriverStats/" + drivername, 
+                                   drivername, "Points", data_type="double")
+            except SmapException:
+                pass
+            temp = self.inst.get_timeseries("/DriverStats/" + drivername)
+            temp.add(nowtime, 1.0, True)
+
         time = int(time)
         if not self.milliseconds:
             time *= 1000
