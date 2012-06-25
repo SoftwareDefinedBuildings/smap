@@ -139,7 +139,7 @@ contain a ``uuid`` key to set the root identifier for the source.
     # we need the root to have a uuid
     inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
     inst.loading = True
-    inst.failmodes = {"datacheck": False}
+    inst.failmodes = {"datacheck": {"use": False}}
     reports = []
 
     for s in conf.sections():
@@ -167,8 +167,20 @@ contain a ``uuid`` key to set the root identifier for the source.
 
         elif s.startswith('fail'):
             if conf.has_option(s, 'datacheck'):
-                inst.failmodes["datacheck"] = eval(conf.get(s, 'datacheck'))
-                inst.failmodes["datacheckFirst"] = True
+                inst.failmodes["datacheck"]["use"] = eval(conf.get(s, 
+                                                                  'datacheck'))
+                inst.failmodes["datacheck"]["first"] = True
+                inst.failmodes["datacheck"]["time"] = 5 #default 5 minutes
+            if conf.has_option(s, 'datacheckTime'):
+                inst.failmodes["datacheck"]["time"] = eval(conf.get(s,
+                                                              'datacheckTime'))
+            if conf.has_option(s, 'datacheckUrl'):
+                inst.failmodes["datacheck"]["url"] = conf.get(s,
+                                                                'datacheckUrl')
+            else:
+                #default checking url
+                inst.failmodes["datacheck"]["url"] =
+                                                'http://localhost/backend/api/'
             continue
                 
         elif not s.startswith('/'):

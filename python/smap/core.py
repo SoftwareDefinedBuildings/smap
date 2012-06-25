@@ -346,7 +346,7 @@ sMAP reporting functionality."""
         """Causes the reporting subsystem and any drivers to be started
         """
         map(lambda x: x.start(), self.drivers.itervalues())
-        if self.failmodes["datacheck"]:
+        if self.failmodes["datacheck"]["use"]:
             periodicCallInThread(self.datachecker).start(300)
 
     def datachecker(self):
@@ -357,7 +357,9 @@ sMAP reporting functionality."""
             dr = dr.split(".")
             drivername = dr[2] + "." + dr[3].split(" ")[0]
             self.failmodes["datacheckFirst"] = datacheck(sourcename, drivername,
-                                               self.failmodes["datacheckFirst"])
+                                           self.failmodes["datacheck"]["first"],
+                                            self.failmodes["datacheck"]["time"],
+                                            self.failmodes["datacheck"]["url"])
 
     def uuid(self, key, namespace=None):
         if not namespace:

@@ -41,11 +41,11 @@ from twisted.internet import reactor
 #set json keywords
 (true, false, null) = (True, False, None)
 
-def datacheck(source, driver, first, timep=5):
+def datacheck(source, driver, first, timep, qurl):
     """This function kills the reactor when the driver's stats feed reports that
     no data is being added."""
     # baseurl needs to eventually be pulled from the ini file for the driver
-    baseurl = "http://localhost/backend/api/query?"
+    baseurl = qurl + "query?"
     query1 = 'select * where Metadata/SourceName = "' 
     query1 = query1 + source 
     query1 = query1 + '" and Path like "/DriverStats/' + driver + '%"'
@@ -55,7 +55,7 @@ def datacheck(source, driver, first, timep=5):
 
     # now check for data
     # dataurl needs to eventually be pulled from the ini file for the driver
-    dataurl = "http://localhost/backend/api/data/uuid/"
+    dataurl = qurl + "data/uuid/"
     endtime = int(time.time()*1000)
     starttime = endtime-(60000*int(timep))
     dataquery = uuid + "?starttime=" + str(starttime) + "&"
