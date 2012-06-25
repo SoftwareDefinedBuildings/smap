@@ -139,6 +139,7 @@ contain a ``uuid`` key to set the root identifier for the source.
     # we need the root to have a uuid
     inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
     inst.loading = True
+    inst.failmodes = {"datacheck": False}
     reports = []
 
     for s in conf.sections():
@@ -163,6 +164,13 @@ contain a ``uuid`` key to set the root identifier for the source.
                     reportinst[o] = conf.getint(s, o)
             reports.append(reportinst)
             continue
+
+        elif s.startswith('fail'):
+            if conf.has_option(s, 'datacheck'):
+                inst.failmodes["datacheck"] = eval(conf.get(s, 'datacheck'))
+                inst.failmodes["datacheckFirst"] = True
+            continue
+                
         elif not s.startswith('/'):
             # path sections must start with a '/'
             # other sections might be present and could be parsed by

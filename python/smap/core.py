@@ -45,6 +45,8 @@ import util
 import reporting
 import smapconf
 from interface import *
+from smap.util import periodicCallInThread
+from checkers import datacheck
 
 class SmapException(Exception):
     """Generic error"""
@@ -344,6 +346,18 @@ sMAP reporting functionality."""
         """Causes the reporting subsystem and any drivers to be started
         """
         map(lambda x: x.start(), self.drivers.itervalues())
+        if self.failmodes["datacheck"]:
+            periodicCallInThread(self.datachecker).start(300)
+
+    def datachecker(self):
+        col = self.get_collection("/")
+        sourcename = col['Metadata']['SourceName']
+        for driver in self.drivers.itervalues():
+            dr = str(driver)
+            dr = dr.split(".")
+            drivername = dr[2] + "." + dr[3].split(" ")[0]
+            self.failmodes["datacheckFirst"] = datacheck(sourcename, drivername,
+                                               self.failmodes["datacheckFirst"])
 
     def uuid(self, key, namespace=None):
         if not namespace:
