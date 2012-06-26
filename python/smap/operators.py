@@ -40,6 +40,7 @@ import itertools
 import numpy as np
 
 from twisted.internet import reactor, threads
+from twisted.python import log
 from smap import driver, util, smapconf
 from smap.core import SmapException
 from smap.archiver.client import SmapClient, RepublishClient
@@ -205,7 +206,7 @@ class OperatorDriver(driver.SmapDriver):
         process: don't actually process the operators, just add the
            pending data.
         """
-        print "_data", len(newdata)
+        # print "_data", len(newdata)
         pushlist = set([])
         for v in newdata.itervalues():
             if not 'uuid' in v: 
@@ -238,7 +239,7 @@ class OperatorDriver(driver.SmapDriver):
                 self._add(addpath, ts, v)
 
     def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
-        self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 4)))
+        self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 24)))
         self.source_url = opts.get('SourceUrl', 'http://ar1.openbms.org:8079')
         if not raw and restrict:
             self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
@@ -278,7 +279,6 @@ class OperatorDriver(driver.SmapDriver):
     def load(self, start_dt, end_dt, cache=True):
         """Load a range of time by pulling it from the database and
         pushing it through the operators"""
-        print "starting load..."
         self.load_uids = self.operators.keys()
         self.start_dt, self.end_dt = start_dt, end_dt
         self.cache = cache
@@ -296,10 +296,11 @@ class OperatorDriver(driver.SmapDriver):
         end = self.start_dt + self.load_chunk_size
         if end > self.end_dt: end = self.end_dt
 
+        log.msg("loading " + str(self.load_offset) + " " +
+                str(start) + ' - ' + str(end))
         start, end  = dtutil.dt2ts(start), \
             dtutil.dt2ts(end)
 
-        print "loading", self.load_offset, self.start_dt, '-', self.end_dt
         d = threads.deferToThread(self.arclient.data_uuid, 
                                   self.load_uids[self.load_offset:
                                                      self.load_offset + 

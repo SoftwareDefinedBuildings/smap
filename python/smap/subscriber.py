@@ -44,6 +44,7 @@ from twisted.python import log
 from twisted.web import resource, server, proxy
 
 import util
+import sjson
 import reporting 
 
 class SmapConsumer(resource.Resource):
@@ -112,7 +113,7 @@ class SmapSubscriber:
         d = agent.request('PUT',
                           self.url + '/reports/' + str(self.rpt_obj['uuid']),
                           Headers({'Content-type' : ['application/json']}),
-                          util.AsyncJSON(self.rpt_obj))
+                          sjson.AsyncJSON(self.rpt_obj))
         def eb(request):
             self.is_subscribed = False
             log.err("Subscription failed to " + self.url)

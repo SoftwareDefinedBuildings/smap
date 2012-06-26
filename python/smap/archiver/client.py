@@ -131,7 +131,7 @@ the result.
                                  urllib.urlencode(self._build_qdict()),
                                  data=q, 
                                  timeout=self.timeout)
-            rv = json.load(fp)
+            rv = parser(fp.read())
         except urllib2.HTTPError:
             log.err("Bad request running query: ""%s"" " % q)
             raise SmapException()
@@ -247,7 +247,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
         return self.query(qbody)
         
 
-    def data(self, qbody, start, end, limit=10000, filter=None):
+    def data(self, qbody, start, end, limit=10000):
         """Load data for streams matching a particular query
 
         Uses the local time-series cache in the .cache directory.
@@ -408,17 +408,3 @@ before this connecting.
 #     reactor.run()
 
 
-if __name__ == '__main__':
-    import time
-    # c = SmapClient('http://new.openbms.org/backend')
-    # c = SmapClient('http://local.cs.berkeley.edu:8079')
-    c = SmapClient('http://localhost:8079')
-#     print c.tags('Metadata/SourceName = "410 Labjacks"')
-#     print c.latest('Metadata/SourceName = "Cory Hall Dent Meters"', limit=1)
-    #c._data_uuid('018eba5e-51b6-5a8d-920f-b5a831546610', 
-    #             int(time.time()) - 3600 * 24, int(time.time()))
-    data = c.data_uuid(['018eba5e-51b6-5a8d-920f-b5a831546610'], 
-                       int(time.time()) - 3600 * 300, int(time.time()))
-    
-    # print data
-    print len(np.unique(data[0][:,0])), len(data[0][:,0])

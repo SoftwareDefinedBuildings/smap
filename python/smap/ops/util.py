@@ -37,11 +37,12 @@ import numpy as np
 import pprint
 import traceback
 import sys
+import re
 
+from smap import operators, util
 from smap.core import SmapException
 from smap.operators import Operator, ParallelSimpleOperator, CompositionOperator, mknull
 from smap.contrib import dtutil
-from smap import operators
 
 class StandardizeUnitsOperator(Operator):
     """Make some unit conversions"""
@@ -49,33 +50,41 @@ class StandardizeUnitsOperator(Operator):
     operator_constructors = [()]
 
     units = {
-        'Watts' : ('kW', 0.001),
-        'W' : ('kW', 0.001),
+        re.compile('W(atts)?') : ('kW', 0.001),
         'Kilowatts' : ('kW', 1.0),
         'pounds/hour' : ('lbs/hr', 1.0),
-        'Lbs/hr' : ('lbs/hr', 1.0),
+        re.compile('[Ll]bs/h(ou)?r') : ('lbs/hr', 1.0),
         'lbs/min' : ('lbs/hr', 60),
-        'lbs/hour' : ('lbs/hr', 1.0),
-        'Deg F' : ('C', lambda v: ((v - 32.) * 5) / 9.),
-        'F' : ('C', lambda v: ((v - 32.) * 5) / 9.),
+        re.compile('([Dd]eg F)|F') : ('C', lambda v: ((v - 32.) * 5) / 9.),
         }
     name = 'units'
     required_tags = set(['uuid', 'Properties/UnitofMeasure'])
 
-    def __init__(self, inputs):
-        self.converters = [1.0] * len(inputs)
+    @staticmethod
+    def find_conversion(unit):
+        for pat, converter in StandardizeUnitsOperator.units.iteritems():
+            if util.is_string(pat):
+                if unit == pat: return converter
+            elif pat.match(unit):
+                return converter
+        return (unit, 1)
+
+    def __init__(self, inputs, **kwargs):
+        # print kwargs
+        self.converters = [lambda x: x] * len(inputs)
         outputs = copy.deepcopy(inputs)
         for i in xrange(0, len(inputs)):
-            if 'Properties/UnitofMeasure' in inputs[i] and \
-                    inputs[i]['Properties/UnitofMeasure'] in self.units:
-                if not callable(self.units[inputs[i]['Properties/UnitofMeasure']][1]):
-                    self.converters[i] = lambda v: v * \
-                        self.units[inputs[i]['Properties/UnitofMeasure']][1]
-                else:
-                    self.converters[i] = self.units[inputs[i]['Properties/UnitofMeasure']][1]
+            if 'Properties/UnitofMeasure' in inputs[i]:
+                unit, converter = self.find_conversion(inputs[i]['Properties/UnitofMeasure'])
 
-                outputs[i]['Properties/UnitofMeasure'] = \
-                    self.units[inputs[i]['Properties/UnitofMeasure']][0]
+                # make a closure with the converter
+                def make_converter():
+                    _converter = converter
+                    if callable(_converter): return _converter
+                    else: return lambda v: v * _converter
+                        
+                self.converters[i] = make_converter()
+                outputs[i]['Properties/UnitofMeasure'] = unit
         Operator.__init__(self, inputs, outputs)
 
     def process(self, data):

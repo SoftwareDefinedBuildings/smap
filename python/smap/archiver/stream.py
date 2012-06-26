@@ -156,7 +156,7 @@ class OperatorApplicator(object):
         start *= 1000
         end *= 1000
         last = False
-        log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
+        # log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
 
         if self.op.block_streaming or end >= self.data_spec['end']:
             end = self.data_spec['end']
@@ -207,7 +207,7 @@ class OperatorApplicator(object):
         # process
         redata = self.op.process(opdata)
 
-        log.msg("writing " + str(map(len, redata)))
+        # log.msg("writing " + str(map(len, redata)))
         # construct a return value with metadata and data merged
         redata = map(self.build_result, zip(redata, self.op.outputs))
 
