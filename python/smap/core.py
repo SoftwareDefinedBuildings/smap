@@ -356,7 +356,8 @@ sMAP reporting functionality."""
             dr = str(driver)
             dr = dr.split(".")
             drivername = dr[2] + "." + dr[3].split(" ")[0]
-            self.failmodes["datacheckFirst"] = datacheck(sourcename, drivername,
+            self.failmodes["datacheck"]["first"] = datacheck(sourcename, 
+                                                            drivername,
                                            self.failmodes["datacheck"]["first"],
                                             self.failmodes["datacheck"]["time"],
                                             self.failmodes["datacheck"]["url"])
