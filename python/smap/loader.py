@@ -179,8 +179,8 @@ contain a ``uuid`` key to set the root identifier for the source.
                                                                 'datacheckUrl')
             else:
                 #default checking url
-                inst.failmodes["datacheck"]["url"] =
-                                                'http://localhost/backend/api/'
+                inst.failmodes["datacheck"]["url"] = ('http://localhost/' + 
+                                                                'backend/api/')
             continue
                 
         elif not s.startswith('/'):

@@ -45,7 +45,7 @@ import util
 import reporting
 import smapconf
 from interface import *
-from smap.util import periodicCallInThread
+#from smap.util import periodicCallInThread
 from checkers import datacheck
 
 class SmapException(Exception):
@@ -347,7 +347,7 @@ sMAP reporting functionality."""
         """
         map(lambda x: x.start(), self.drivers.itervalues())
         if self.failmodes["datacheck"]["use"]:
-            periodicCallInThread(self.datachecker).start(300)
+            util.periodicCallInThread(self.datachecker).start(300)
 
     def datachecker(self):
         col = self.get_collection("/")
