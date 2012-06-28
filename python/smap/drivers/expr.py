@@ -34,6 +34,7 @@ import operator
 import itertools
 import numpy as np
 import time
+import traceback
 
 from twisted.internet import threads
 from twisted.python import log
@@ -102,16 +103,13 @@ Configuration options:
                 op_instance = op(inputs)
                 assert len(op_instance.outputs) == 1
                 try:
-                    stream = op_instance.outputs[0]
-                    if self.group:
-                    #assert len(op.outputs) == 1
-                        path = '/' + util.str_path(stream[self.group])
-                    else:
-                        path = '/' + str(stream['uuid'])
-
+                    inp = map(operator.itemgetter('uuid'), op_instance.inputs)
+                    out = op_instance.outputs[0]
+                    path = '/' + '.'.join(map(str, sorted(inp))) + '/' + str(out['uuid'])
                     self.add_operator(path, op_instance)
                 except:
                     traceback.print_exc()
+                    raise
 
                 try:
                     log.msg("[" + ','.join(map(operator.itemgetter('uuid'), op_instance.inputs)) + 
