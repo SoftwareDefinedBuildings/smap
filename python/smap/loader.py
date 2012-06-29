@@ -43,6 +43,7 @@ import core
 import util
 import driver
 import smapconf
+import checkers
 
 class SmapLoadError(core.SmapException):
     """An error was encountered loading a config file"""
@@ -164,25 +165,25 @@ contain a ``uuid`` key to set the root identifier for the source.
                     reportinst[o] = conf.getint(s, o)
             reports.append(reportinst)
             continue
-
-        elif s.startswith('fail'):
-            if conf.has_option(s, 'datacheck'):
-                inst.failmodes["datacheck"]["use"] = eval(conf.get(s, 
-                                                                  'datacheck'))
-                inst.failmodes["datacheck"]["first"] = True
-                inst.failmodes["datacheck"]["time"] = 5 #default 5 minutes
-            if conf.has_option(s, 'datacheckTime'):
-                inst.failmodes["datacheck"]["time"] = eval(conf.get(s,
-                                                              'datacheckTime'))
-            if conf.has_option(s, 'datacheckUrl'):
-                inst.failmodes["datacheck"]["url"] = conf.get(s,
-                                                                'datacheckUrl')
-            else:
-                #default checking url
-                inst.failmodes["datacheck"]["url"] = ('http://localhost/' + 
-                                                                'backend/api/')
-            continue
-                
+        
+        #elif s.startswith('fail'):
+        #    if conf.has_option(s, 'datacheck'):
+        #        inst.failmodes["datacheck"]["use"] = eval(conf.get(s, 
+        #                                                          'datacheck'))
+        #        inst.failmodes["datacheck"]["first"] = True
+        #        inst.failmodes["datacheck"]["time"] = 5 #default 5 minutes
+        #    if conf.has_option(s, 'datacheckTime'):
+        #        inst.failmodes["datacheck"]["time"] = eval(conf.get(s,
+        #                                                      'datacheckTime'))
+        #    if conf.has_option(s, 'datacheckUrl'):
+        #        inst.failmodes["datacheck"]["url"] = conf.get(s,
+        #                                                        'datacheckUrl')
+        #    else:
+        #        #default checking url
+        #        inst.failmodes["datacheck"]["url"] = ('http://localhost/' + 
+        #                                                        'backend/api/')
+        #    continue
+              
         elif not s.startswith('/'):
             # path sections must start with a '/'
             # other sections might be present and could be parsed by
@@ -253,9 +254,19 @@ contain a ``uuid`` key to set the root identifier for the source.
             if not c:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
+            
+            # If the driver requires any checkers, hook them in here by
+            # generating them and attaching them into the instance
+            #>>>notes: get_driver does add_driver also, so str(newdrv) is the
+            #correct object to look for
+            #########################################################
+            #assume they all want the datacheck for now
+            inst.checkers.append([checkers.datacheckwrap(inst, str(newdrv), 5),
+                                                                          300])
 
             # get the driver to add its points
             newdrv.setup(dict(conf.items(s)))
+            
 
         # Metadata and Description are shared between both Collections
         # and Timeseries

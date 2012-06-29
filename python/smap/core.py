@@ -45,7 +45,6 @@ import util
 import reporting
 import smapconf
 from interface import *
-#from smap.util import periodicCallInThread
 from checkers import datacheck
 
 class SmapException(Exception):
@@ -149,29 +148,19 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         elif len(args) == 2:
             time, value = args
         elif len(args) == 3:
-            if type(args[2]) == bool:
-                time, value, nonlogging = args
-            else:
-                time, value, seqno = args
+            time, value, seqno = args
         else:
             raise SmapException("Invalid add arguments: must be (value), "
                                 "(time, value), or (time, value, seqno)")
 
-        #don't log if the driver calling this is the logger itself
-        if not nonlogging:
-            nowtime = int(pytime.time())
-            curr_path = "/" + self.path.split("/")[1]
-            driver_ob_name = str(self.inst.drivers[curr_path])
-            namept1 = driver_ob_name.split(" ")[0].split(".", 2)
-            drivername = namept1[len(namept1)-1]
-            #add timeseries with this drivername
-            try:
-                self.inst.add_timeseries("/DriverStats/" + drivername, 
-                                   drivername, "Points", data_type="double")
-            except SmapException:
-                pass
-            temp = self.inst.get_timeseries("/DriverStats/" + drivername)
-            temp.add(nowtime, 1.0, True)
+        # start logging
+        nowtime = int(pytime.time())
+        curr_path = "/" + self.path.split("/")[1]
+        driver_ob_name = str(self.inst.drivers[curr_path])
+        self.inst.statlog[driver_ob_name].logadd(nowtime) #add to driver log
+        self.inst.statlog["inst"].logadd(nowtime) #add to whole-instance log
+        # end logging
+
 
         time = int(time)
         if not self.milliseconds:
@@ -305,6 +294,32 @@ class Collection(dict):
     def render(self, request):
         return self
 
+class LoggingTimeseries(Timeseries):
+    """A timeseries with special add functionality and defaults. For internal 
+    logging purposes only. DOES NOT publish."""
+    def __init__(self, buffersize):
+        """In this init, uuid (not relevant, arbitrary default) and unit 
+        (always 'points') are specified by default"""
+        super(LoggingTimeseries, self).__init__('04e112f4-c209-11e1-912a-'
+                                '0024d7c6e0b0', 'points', buffersz=buffersize)
+
+    def logadd(self, ti):
+        """A special add to handle multiple points/s"""
+        ti = int(ti)
+        lzero = (len(self["Readings"]) == 0)
+        if lzero or ti > self["Readings"][-1][0]:
+            self["Readings"].append([ti, 1])
+        elif not lzero and ti == self["Readings"][-1][0]:
+            self["Readings"][-1][1] += 1
+        else:
+            raise Exception("What? This should be impossible")
+    
+    def getlatest(self):
+        """Get the latest point, useful for checkers"""
+        if len(self["Readings"]) == 0:
+            return [0, 0]
+        else:
+            return self["Readings"][-1]
 
 class SmapInstance:
     """A sMAP instance is a tree of :py:class:`Collections` and
@@ -320,6 +335,29 @@ sMAP reporting functionality."""
         self.OBJS_PATH = {}
         self.OBJS_UUID = {}
         self.drivers = {}
+
+        # this contains elements of the form [function, timebetweenruns] to
+        # allow loader to hook in checking functions.
+        self.checkers = []
+
+        #whole instance stats log for testing
+        self.statlog = {"inst": LoggingTimeseries(100)}
+        ##log testing
+        """
+        print('readings ' + str(self.statlog["inst"]['Readings']))
+        self.statlog["inst"].logadd(int(pytime.time()))
+        print(self.statlog["inst"]['Readings'])
+        self.statlog["inst"].logadd(int(pytime.time()))
+        print(self.statlog["inst"]['Readings'])
+        for x in range(10):
+            pytime.sleep(0.5)
+            self.statlog["inst"].logadd(int(pytime.time()))
+        print(self.statlog["inst"]['Readings'])
+        """
+        ##end log testing
+
+
+
 
         # if we're not given an explicit report file, put it in the
         # datadir or else the cwd
@@ -341,15 +379,27 @@ sMAP reporting functionality."""
     # keep a list of sensor drivers so we can find them easily
     def add_driver(self, path, driver):
         self.drivers[path] = driver
+        #create a LoggingTimeseries for each driver
+        self.statlog[str(driver)] = LoggingTimeseries(100)
 
     def start(self):
         """Causes the reporting subsystem and any drivers to be started
         """
         map(lambda x: x.start(), self.drivers.itervalues())
-        if self.failmodes["datacheck"]["use"]:
-            util.periodicCallInThread(self.datachecker).start(300)
+
+        # set all checkers that loader has hooked in to be run on the given
+        # interval
+        checkstarter = lambda func, ltime: util.periodicCallInThread(func).start(ltime)
+        for checkpair in self.checkers:
+            #wait 300 seconds to start each checker, to prevent startup lag from
+            #throwing off the checkers
+            reactor.callLater(300, checkstarter, checkpair[0], checkpair[1])
 
     def datachecker(self):
+        print(self.statlog)
+        #functions of this type need to be generated on the fly, possibly with
+        #lambdas
+        """
         col = self.get_collection("/")
         sourcename = col['Metadata']['SourceName']
         for driver in self.drivers.itervalues():
@@ -361,6 +411,7 @@ sMAP reporting functionality."""
                                            self.failmodes["datacheck"]["first"],
                                             self.failmodes["datacheck"]["time"],
                                             self.failmodes["datacheck"]["url"])
+        """
 
     def uuid(self, key, namespace=None):
         if not namespace:

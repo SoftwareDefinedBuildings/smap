@@ -176,7 +176,7 @@ cd %(datadir)s
 
     with open(mpath, "w") as fp:
         print >>fp, "check process %s pidfile %s" % (root, pidfile)
-        print >>fp, "\tstart program = \"%s\" as uid %i and gid %i" % (newsh, uid, gid)
+        print >>fp, "\tstart program = \"%s\" as uid %i and gid %i with timeout 120 seconds" % (newsh, uid, gid)
         print >>fp, "\tstop program = \"/bin/sh -c '/bin/kill $(cat %s)'\"" % pidfile
         print >>fp, "\tgroup smap"
         print >>fp, "\tif failed host localhost port %s protocol http" % p

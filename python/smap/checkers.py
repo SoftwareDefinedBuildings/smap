@@ -31,44 +31,35 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """A set of checking functions that cause an instance to terminate on different 
 failure conditions (at which point monit restarts the instance when configured
-properly)
+properly). A usable checking function has a wrapper that can generate a
+no-arg version for use in the instance.
 """
 
 import sys
-import urllib2
+#import urllib2
 import time
 from twisted.internet import reactor
 #set json keywords
-(true, false, null) = (True, False, None)
+#(true, false, null) = (True, False, None)
 
-def datacheck(source, driver, first, timep, qurl):
-    """This function kills the reactor when the driver's stats feed reports that
-    no data is being added."""
-    # baseurl needs to eventually be pulled from the ini file for the driver
-    baseurl = qurl + "query?"
-    query1 = 'select * where Metadata/SourceName = "' 
-    query1 = query1 + source 
-    query1 = query1 + '" and Path like "/DriverStats/' + driver + '%"'
-    result = eval(urllib2.urlopen(baseurl, query1).read())
-    uuid = result[0]["uuid"]
-    print("checking: " + uuid)
-
-    # now check for data
-    # dataurl needs to eventually be pulled from the ini file for the driver
-    dataurl = qurl + "data/uuid/"
-    endtime = int(time.time()*1000)
-    starttime = endtime-(60000*int(timep))
-    dataquery = uuid + "?starttime=" + str(starttime) + "&"
-    dataquery = dataquery + "endtime=" + str(endtime)
-    dq = urllib2.urlopen(dataurl + dataquery)
-    resp = eval(dq.readlines()[0])[0]
-    dq.close()
-
-    #see if at least one point in user defined time window
-    count = len(resp["Readings"])
-    if count == 0 and not first:
+def datacheck(instance, driver, timep):
+    """This function kills the reactor when the instance/driver stats feed 
+    reports that no data is being added.
+    ARGS: 
+    instance - to get points/s
+    driver - what to check for, 
+    timep - width of allowable window (allowable window is now-(timep minutes)
+    """
+    #see if at least latest point in user defined time window
+    lastpointtime = instance.statlog[driver].getlatest()[0]
+    comparetime = int(time.time()) - timep*60
+    if lastpointtime >= comparetime:
+        print("Driver Running")
+        return
+    else:
         print("Driver ERROR")
         reactor.stop()
-    elif count == 0 and first:
-        print("First driver ERROR, give it time to load")
-    return False
+
+def datacheckwrap(instance, driver, timep):
+    """A wrapper that generates a no-args version of datacheck"""
+    return lambda: datacheck(instance, driver, timep)
