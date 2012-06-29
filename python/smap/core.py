@@ -335,28 +335,11 @@ sMAP reporting functionality."""
         self.OBJS_PATH = {}
         self.OBJS_UUID = {}
         self.drivers = {}
-
         # this contains elements of the form [function, timebetweenruns] to
         # allow loader to hook in checking functions.
         self.checkers = []
-
         #whole instance stats log for testing
         self.statlog = {"inst": LoggingTimeseries(100)}
-        ##log testing
-        """
-        print('readings ' + str(self.statlog["inst"]['Readings']))
-        self.statlog["inst"].logadd(int(pytime.time()))
-        print(self.statlog["inst"]['Readings'])
-        self.statlog["inst"].logadd(int(pytime.time()))
-        print(self.statlog["inst"]['Readings'])
-        for x in range(10):
-            pytime.sleep(0.5)
-            self.statlog["inst"].logadd(int(pytime.time()))
-        print(self.statlog["inst"]['Readings'])
-        """
-        ##end log testing
-
-
 
 
         # if we're not given an explicit report file, put it in the
@@ -394,24 +377,6 @@ sMAP reporting functionality."""
             #wait 300 seconds to start each checker, to prevent startup lag from
             #throwing off the checkers
             reactor.callLater(300, checkstarter, checkpair[0], checkpair[1])
-
-    def datachecker(self):
-        print(self.statlog)
-        #functions of this type need to be generated on the fly, possibly with
-        #lambdas
-        """
-        col = self.get_collection("/")
-        sourcename = col['Metadata']['SourceName']
-        for driver in self.drivers.itervalues():
-            dr = str(driver)
-            dr = dr.split(".")
-            drivername = dr[2] + "." + dr[3].split(" ")[0]
-            self.failmodes["datacheck"]["first"] = datacheck(sourcename, 
-                                                            drivername,
-                                           self.failmodes["datacheck"]["first"],
-                                            self.failmodes["datacheck"]["time"],
-                                            self.failmodes["datacheck"]["url"])
-        """
 
     def uuid(self, key, namespace=None):
         if not namespace:

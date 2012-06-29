@@ -48,11 +48,11 @@ def datacheck(instance, driver, timep):
     ARGS: 
     instance - to get points/s
     driver - what to check for, 
-    timep - width of allowable window (allowable window is now-(timep minutes)
+    timep - width of allowable window (allowable window is now-(timep seconds)
     """
     #see if at least latest point in user defined time window
     lastpointtime = instance.statlog[driver].getlatest()[0]
-    comparetime = int(time.time()) - timep*60
+    comparetime = int(time.time()) - timep
     if lastpointtime >= comparetime:
         print("Driver Running")
         return
