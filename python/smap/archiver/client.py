@@ -40,10 +40,10 @@ from StringIO import StringIO
 
 import numpy as np
 import smap.util as util
-import tscache
 from smap import util
-import smap.sjson as json
 from smap.core import SmapException
+import smap.sjson as json
+from smap.archiver import tscache, settings
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
@@ -97,7 +97,7 @@ results together."""
 class SmapClient:
     """Blocking client class for the archiver API.
     """
-    def __init__(self, base='http://new.openbms.org/backend', 
+    def __init__(self, base=settings.DEFAULT_BACKEND,
                  key=None, private=False, timeout=50.0):
         """
 :param string base: URL of the base archiver

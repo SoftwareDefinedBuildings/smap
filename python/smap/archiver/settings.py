@@ -38,7 +38,10 @@ from twisted.python import log
 # my local hostname and port to run the twisted server on.  the
 # hostname should be something smap sources can send their data to
 MY_LOCATION = 'localhost'
+# default port to run the archiver on
 MY_PORT = 8079
+# default backend to use if none is specified 
+DEFAULT_BACKEND = 'http://localhost:8079/'
 
 # how often sMAP report instances should time out
 EXPIRE_TIME = None
@@ -83,5 +86,6 @@ def load(conffile):
     # import the readingdb module
     import_rdb()
 
+# try to load the site conf
+load('/etc/smap/archiver.ini')
 import_rdb()
-

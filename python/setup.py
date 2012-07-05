@@ -44,7 +44,7 @@ setup(name="Smap",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
-      url="http://cs.berkeley.edu/~stevedh/smap2/",
+      url="http://code.google.com/p/smap-data",
       license="BSD",
       packages=[
         # core sMAP libs and drivers
