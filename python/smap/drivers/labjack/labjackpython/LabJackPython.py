@@ -1314,8 +1314,6 @@ def _openLabJackUsingExodriver(deviceType, firstFound, pAddress, devNumber):
 
 def _openUE9OverEthernet(firstFound, pAddress, devNumber):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    s.settimeout(BROADCAST_SOCKET_TIMEOUT)
 
     sndDataBuff = [0] * 6
     sndDataBuff[0] = 0x22
@@ -1325,7 +1323,13 @@ def _openUE9OverEthernet(firstFound, pAddress, devNumber):
     outBuff = ""
     for item in sndDataBuff:
         outBuff += chr(item)
-    s.sendto(outBuff, ("255.255.255.255", 52362))
+    if not pAddress:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.settimeout(BROADCAST_SOCKET_TIMEOUT)
+        s.sendto(outBuff, ("255.255.255.255", 52362))
+    else:
+        s.settimeout(SOCKET_TIMEOUT)
+        s.sendto(outBuff, (pAddress, 52362))
 
     try:
         count = 1
