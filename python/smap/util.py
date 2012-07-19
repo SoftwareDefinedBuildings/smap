@@ -192,17 +192,14 @@ def pickle_load(filename):
     try:
         fp = open(filename, 'rb')
     except IOError:
-#         lock.unlock()
         return None
 
     try:
         return pickle.load(fp)
     except (IOError, EOFError, pickle.PickleError), e:
-        print e
         return None
     finally:
         fp.close()
-#         lock.unlock()
 
 def pickle_dump(filename, obj):
     """Pickle an object to a gzipped file while holding a filesystem
@@ -213,11 +210,13 @@ def pickle_dump(filename, obj):
 
     try:
         fp = open(filename + '.tmp', 'wb')
-        pickle.dump(obj, fp, protocol=2)
-    except (IOError, pickle.PickleError, TypeError), e:
-        print "dump failure"
-        trace.print_exc()
+    except IOError, e:
         return
+
+    try:
+        pickle.dump(obj, fp, protocol=2)
+    except pickle.PickleError, TypeError:
+        log.err()
     finally:
         os.fsync(fp)
         fp.close()
@@ -232,7 +231,6 @@ def pickle_dump(filename, obj):
         os.remove(filename)
         os.rename(filename + '.tmp', filename)
     except IOError, e:
-        trace.print_exc()
         pass
 
 def periodicCallInThread(fn, *args):

@@ -41,11 +41,19 @@ def snp(s):
 class DiskLog:
     """Class which keeps an on-disk log of records
     """
+    def _blank_meta(self):
+        self.meta = {
+                'head' : 0,
+                'tail' : 0
+                }
+
+
     def _write_meta(self):
         util.pickle_dump(os.path.join(self.dirname, 'META'), self.meta)
 
     def _read_meta(self):
         self.meta = util.pickle_load(os.path.join(self.dirname, 'META'))
+        if self.meta == None: self._blank_meta()
 
     def _write_tail(self):
         util.pickle_dump(os.path.join(self.dirname, snp(self.meta['tail'] - 1)), self._tail)
@@ -63,10 +71,7 @@ class DiskLog:
         if not os.path.isdir(dirname):            
             # create a new log
             os.makedirs(dirname)
-            self.meta = {
-                'head' : 0,
-                'tail' : 0
-                }
+            self._blank_meta()
             self._write_meta()
             self._head = self._tail = None
         else:

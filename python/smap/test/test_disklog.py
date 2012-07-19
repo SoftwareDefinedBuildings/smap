@@ -237,3 +237,44 @@ class TestDiskLog(unittest.TestCase):
             self.assertEqual(dl.head(), 20)
         finally:
             shutil.rmtree("testdir")
+
+    def test_unwritable_file(self):
+        try:
+            d = DiskLog("testdir")
+            os.chmod(os.path.abspath("testdir"), 0000)
+            d.append(1)
+            d.append(2)
+            d.append(3)
+
+            # we should drop the middle write, because we can't sync
+            # to disk.  head and tail are in memory.
+            self.assertEqual(d.head(), 1); d.pop()
+            self.assertEqual(d.head(), 3)
+            
+            del d
+        except Exception, e:
+            print e
+        finally:
+            os.chmod(os.path.abspath("testdir"), 0755)
+
+        try:
+            # the stuff in memory goes away when we reopen the disk
+            # log
+            d = DiskLog("testdir")
+            self.assertEqual(d.head(), None)
+        finally:
+            shutil.rmtree("testdir")
+            
+    def test_corrupt_meta(self):
+        try:
+            d = DiskLog("testdir")
+            d.append(1)
+            d.close()
+
+            del d
+            with open("testdir/META", "w") as fp:
+                print >>fp, "CORRUPT"
+
+            d = DiskLog("testdir")
+        finally:
+            shutil.rmtree("testdir")
