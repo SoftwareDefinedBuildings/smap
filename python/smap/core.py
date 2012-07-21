@@ -323,6 +323,10 @@ sMAP reporting functionality."""
         """
         map(lambda x: x.start(), self.drivers.itervalues())
 
+    def stop(self):
+        return defer.DeferredList(map(lambda x: defer.maybeDeferred(x.stop),
+                                      self.drivers.itervalues()))
+
     def uuid(self, key, namespace=None):
         if not namespace:
             namespace = self.root_uuid

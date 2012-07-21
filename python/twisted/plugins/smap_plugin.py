@@ -86,6 +86,7 @@ class SmapServiceMaker(object):
             reactor.suggestThreadPoolSize(int(smapconf.SERVER['SuggestThreadPool']))
 
         inst.start()
+        reactor.addSystemEventTrigger('before', 'shutdown', inst.stop)
 
         site = getSite(inst)
         service = MultiService()
