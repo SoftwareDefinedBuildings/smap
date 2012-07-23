@@ -335,12 +335,12 @@ def p_data_clause(t):
         limit = t[4]
         if limit[0] == None: limit[0] = 1
 
-    t.parser.request.args = {
+    t.parser.request.args.update({
         'starttime' : [start],
         'endtime' : [end],
         'limit' : [limit[0]],
         'streamlimit' : [limit[1]],
-        }
+        })
 
     t[0] = ("distinct(s.uuid), s.id", "true",             
             lambda streams: data.data_load_result(t.parser.request,
