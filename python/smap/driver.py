@@ -132,6 +132,10 @@ class SmapDriver(object):
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
         return self.__inst.uuid(key, namespace=self.namespace)
+    def pause_reporting(self):
+        return self.__inst.pause_reporting()
+    def unpause_reporting(self):
+        return self.__inst.unpause_reporting()
 
     # let drivers optimize loading a lot of points
     def _get_loading(self):

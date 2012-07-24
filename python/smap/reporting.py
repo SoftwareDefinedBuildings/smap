@@ -237,6 +237,7 @@ class ReportInstance(dict):
         :rvalue boolean: True if a report should be sent
         """
         now = util.now()
+        if self.get('Paused', False): return False
         return (now - self['LastSuccess'] > self['MaxPeriod']) or \
             (len(self['PendingData']) > 0 and \
                  (now - self['LastSuccess']) > self['MinPeriod'])
@@ -245,7 +246,8 @@ class ReportInstance(dict):
         """Try to make a delivery
         :rvalue: a :py:class:`Deferred` of the attempt
         """
-        if 'Busy' in self and self['Busy']:
+        if ('Busy' in self and self['Busy']) or \
+                ('Paused' in self and self['Paused']):
             return
 
         try:
@@ -425,6 +427,7 @@ class Reporting:
             self.subscribers = []
         for s in self.subscribers:
             s['Busy'] = False
+            s['Paused'] = False
 
     def save_reports(self, *args):
         """Save reports while holding the filesystem lock.
@@ -475,3 +478,11 @@ class Reporting:
         """
         return threads.blockingCallFromThread(reactor, self.inst._flush)
 
+    def pause(self):
+        for s in self.subscribers:
+            s['Paused'] = True
+
+    def unpause(self):
+        for s in self.subscribers:
+            s['Paused'] = False
+        return self._flush()

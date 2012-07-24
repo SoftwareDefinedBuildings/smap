@@ -574,6 +574,12 @@ sMAP reporting functionality."""
         o = self.lookup(path)
         o.set_metadata(metadata)
 
+    def pause_reporting(self):
+        return self.reports.pause()
+
+    def unpause_reporting(self):
+        return self.reports.unpause()
+
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()
     s = SmapInstance(ROOT_UUID)
