@@ -41,7 +41,7 @@ MY_LOCATION = 'localhost'
 # default port to run the archiver on
 MY_PORT = 8079
 # default backend to use if none is specified 
-DEFAULT_BACKEND = 'http://localhost:8079/'
+DEFAULT_BACKEND = 'http://localhost:8079/api/query'
 
 # how often sMAP report instances should time out
 EXPIRE_TIME = None

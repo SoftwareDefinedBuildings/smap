@@ -97,3 +97,6 @@ def ts2pylabts(ts, tzstr='UTC'):
 
 def ts(str, format='%x %X', tzstr='Local'):
   return dt2ts(strptime_tz(str, format, tzstr))
+
+def iso8601(ts, tzinfo=utc):
+  return str(ts.astimezone(tzinfo)).replace(' ', 'T')

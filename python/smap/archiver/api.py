@@ -36,6 +36,7 @@ import json
 import operator
 import urllib
 import csv
+import datetime
 
 from twisted.internet import reactor, threads, defer
 from twisted.web import resource, server
@@ -46,6 +47,7 @@ import smap.util as util
 import smap.sjson as json
 from smap.server import setResponseCode
 from smap.core import SmapException
+from smap.contrib import dtutil
 from data import escape_string, data_load_result, makeErrback
 import queryparse as qp
 import settings
@@ -250,7 +252,22 @@ class Api(resource.Resource):
             request.write("# ")
             request.write('\n# '.join((': '.join(x) for x in stags)))
             request.write('\n')
-        map(writer.writerow, stream['Readings'])
+
+        if 'timefmt' in request.args:
+            # potentially do timestamp stringification here.
+            # this could be a bit slow for large datasets...
+            if request.args['timefmt'][0] == 'iso8601': 
+                fmt = dtutil.iso8601
+                tz = dtutil.gettz(dict(stags).get('Properties/Timezone', 'Utc'))
+            elif True or request.args['timefmt'][0] == 'unix': 
+                fmt = lambda dt, tz: dtutil.strftime_tz(dt, '%s')
+                tz = dtutil.gettz('Utc')
+            def row_action(row):
+                row[0] = fmt(dtutil.ts2dt(row[0] / 1000), tz)
+                writer.writerow(row)
+            map(row_action, stream['Readings'])
+        else:
+            map(writer.writerow, stream['Readings'])
 
     def send_csv_reply(self, request, result, tags):
         """CSV replies are easy"""
