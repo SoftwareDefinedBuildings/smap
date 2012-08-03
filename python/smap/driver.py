@@ -76,6 +76,7 @@ class SmapDriver(object):
         self.__inst = smap_instance
         self.__attach_point = attach_point
         self.namespace = namespace
+        self.statslog = core.LoggingTimeseries(100) # 
 
     def __join_id(self, id):
         if util.is_string(id) and id.startswith('/'):
@@ -127,8 +128,10 @@ class SmapDriver(object):
     def set_metadata(self, id, *metadata):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
     def add(self, id, *args):
+        self.statslog.logadd(int(time.time()))
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
+        self.statslog.logadd(int(time.time)())
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
         return self.__inst.uuid(key, namespace=self.namespace)

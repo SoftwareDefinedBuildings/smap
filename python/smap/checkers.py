@@ -51,7 +51,7 @@ def datacheck(instance, driver, timep):
     timep - width of allowable window (allowable window is now-(timep seconds)
     """
     #see if at least latest point in user defined time window
-    lastpointtime = instance.statlog[driver].getlatest()[0]
+    lastpointtime = driver.statslog.getlatest()[0]
     comparetime = int(time.time()) - timep
     if lastpointtime >= comparetime:
         print("Driver Running")

@@ -155,10 +155,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
 
         # start logging
         nowtime = int(pytime.time())
-        curr_path = "/" + self.path.split("/")[1]
-        driver_ob_name = str(self.inst.drivers[curr_path])
-        self.inst.statlog[driver_ob_name].logadd(nowtime) #add to driver log
-        self.inst.statlog["inst"].logadd(nowtime) #add to whole-instance log
+        self.inst.statslog.logadd(nowtime) #add to whole-instance log
         # end logging
 
 
@@ -339,7 +336,7 @@ sMAP reporting functionality."""
         # allow loader to hook in checking functions.
         self.checkers = []
         #whole instance stats log for testing
-        self.statlog = {"inst": LoggingTimeseries(100)}
+        self.statslog = LoggingTimeseries(100)
 
 
         # if we're not given an explicit report file, put it in the
@@ -362,8 +359,6 @@ sMAP reporting functionality."""
     # keep a list of sensor drivers so we can find them easily
     def add_driver(self, path, driver):
         self.drivers[path] = driver
-        #create a LoggingTimeseries for each driver
-        self.statlog[str(driver)] = LoggingTimeseries(100)
 
     def start(self):
         """Causes the reporting subsystem and any drivers to be started

@@ -248,7 +248,7 @@ contain a ``uuid`` key to set the root identifier for the source.
                     checkint = int(conf.get(s, 'datacheckInterval'))
                 else:
                     checkint = 300
-                inst.checkers.append([checkers.datacheckwrap(inst, str(newdrv), 
+                inst.checkers.append([checkers.datacheckwrap(inst, newdrv, 
                                                        checkwin), checkint])
 
             # get the driver to add its points
