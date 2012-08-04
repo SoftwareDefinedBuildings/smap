@@ -41,7 +41,7 @@ import traceback as trace
 
 from twisted.internet import task, reactor, threads, defer
 from twisted.python.lockfile import FilesystemLock
-from twisted.python import log
+from twisted.python import log, failure
 
 import core
 
@@ -276,9 +276,11 @@ class PeriodicCaller:
             d = threads.deferToThread(self._go)
         else:
             d = task.deferLater(reactor, 0, self._go)
-        d.addCallbacks(self._post_run)
+        d.addBoth(self._post_run)
 
     def _post_run(self, result):
+        if isinstance(result, failure.Failure):
+            log.err("PeriodicCaller -- error: " + str(result.value))
         now = time.time()
         sleep_time = self.interval - (now - self.last)
         if sleep_time < 0:
