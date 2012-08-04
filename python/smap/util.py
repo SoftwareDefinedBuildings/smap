@@ -253,20 +253,29 @@ class PeriodicCaller:
     be undesirable, so you can use this class instead, which will wait
     for a previous invocation to complete before running the next one.
     """
-    def __init__(self, fn, args):
+    def __init__(self, fn, args, where='thread'):
         self.fn, self.args = fn, args
+        self.where = where
+        self.stopping = False
+        if not self.where in ['thread', 'reactor']:
+            raise ValueError("Invalid run mode: must be 'thread' or 'reactor'")
 
     def _go(self):
         # bad things seem to happen when we throw an exception in the
         # thread pool... let's catch that and just log it
         try:
-            self.fn(*self.args)
+            if self.where == 'thread': self.fn(*self.args)
+            else: return self.fn(*self.args)
         except:
             log.err()
         
     def _run(self):
+        if self.stopping: return
         self.last = time.time()
-        d = threads.deferToThread(self._go)
+        if self.where == 'thread':
+            d = threads.deferToThread(self._go)
+        else:
+            d = task.deferLater(reactor, 0, self._go)
         d.addCallbacks(self._post_run)
 
     def _post_run(self, result):
@@ -284,6 +293,9 @@ class PeriodicCaller:
             self._run()
         else:
             reactor.callLater(self.interval, self._post_run, None)
+
+    def stop(self):
+        self.stopping = True
 
 
 def periodicSequentialCall(fn, *args):
