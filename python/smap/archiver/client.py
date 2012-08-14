@@ -114,9 +114,12 @@ class SmapClient:
         """return a query dict to be passed with all requests"""
         rv = {}
         if self.key:
-            rv['key'] = self.key
+            if isinstance(self.key, list):
+                rv['key'] = self.key
+            else:
+                rv['key'] = [self.key]
         if self.private:
-            rv['private'] = ''
+            rv['private'] = ['']
         return rv
 
     def query(self, q):
@@ -128,7 +131,7 @@ the result.
 """
         try:
             fp = urllib2.urlopen(self.base + '/api/query?' + 
-                                 urllib.urlencode(self._build_qdict()),
+                                 urllib.urlencode(self._build_qdict(), doseq=True),
                                  data=q, 
                                  timeout=self.timeout)
             rv = parser(fp.read())
@@ -186,7 +189,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
   uuids
         """
         qdict = self._build_qdict()
-        qdict['limit'] = str(int(limit))
+        qdict['limit'] = [str(int(limit))]
         data, urls = {}, []
         start, end = start * 1000, end * 1000
         now = int((time.time() - 300) * 1000)
@@ -197,11 +200,11 @@ uuids.  Attempts to use cached data and load missing data in parallel.
 
             # these are the regions of missing data
             for region in data[u][0]:
-                qdict['starttime'] = str(region[0][0])
-                qdict['endtime'] = str(region[0][1])
+                qdict['starttime'] = [str(region[0][0])]
+                qdict['endtime'] = [str(region[0][1])]
                 dlurl = str(self.base + '/api/data/uuid/' + u + '?' +
-                            urllib.urlencode(qdict))
-                if qdict['starttime'] != qdict['endtime']:
+                            urllib.urlencode(qdict), doseq=True)
+                if qdict['starttime'][0] != qdict['endtime'][0]:
                     region.append(dlurl)
                     urls.append(dlurl)
                 else:
@@ -406,5 +409,3 @@ before this connecting.
 #                         restrict="Metadata/SourceName ~ '^410'")
 #     c.connect()
 #     reactor.run()
-
-
