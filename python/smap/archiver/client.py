@@ -203,7 +203,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
                 qdict['starttime'] = [str(region[0][0])]
                 qdict['endtime'] = [str(region[0][1])]
                 dlurl = str(self.base + '/api/data/uuid/' + u + '?' +
-                            urllib.urlencode(qdict), doseq=True)
+                            urllib.urlencode(qdict, doseq=True))
                 if qdict['starttime'][0] != qdict['endtime'][0]:
                     region.append(dlurl)
                     urls.append(dlurl)
