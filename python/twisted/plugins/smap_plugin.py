@@ -39,7 +39,7 @@ from twisted.python import usage
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 from twisted.application import internet
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor
 from twisted.application.service import MultiService
 
 from smap import core, loader, smapconf
@@ -57,13 +57,6 @@ class Options(usage.Options):
         if not os.access(self['conf'], os.R_OK):
             print >>sys.stderr, "ERROR: no such configuration file: " + self['conf']
             sys.exit(1)
-
-def getSslContext():
-    if smapconf.SERVER["key"] == None or smapconf.SERVER["cert"] == None:
-        raise core.SmapException("Cannot create ssl context without key and certificate files")
-    
-    return ssl.DefaultOpenSSLContextFactory(os.path.expanduser(smapconf.SERVER["key"]), 
-                                            os.path.expanduser(smapconf.SERVER["cert"]))
 
 class SmapServiceMaker(object):
     implements(IServiceMaker, IPlugin)
@@ -97,7 +90,7 @@ class SmapServiceMaker(object):
         if 'sslport' in smapconf.SERVER:
             service.addService(internet.SSLServer(int(smapconf.SERVER['sslport']), 
                                                   site, 
-                                                  getSslContext()))
+                                                  smapconf.getSslContext()))
         return service
 
 serviceMaker = SmapServiceMaker()
