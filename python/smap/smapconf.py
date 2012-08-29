@@ -52,7 +52,7 @@ else:
         return True
 
     def getSslContext(verify_clients=False, verify_callback=verifyCallback):
-        if not 'key' in SERVER or not 'cert' in SERVER["cert"]:
+        if not 'key' in SERVER or not 'cert' in SERVER:
             raise ValueError("Cannot create ssl context without key and certificate files")
     
         ctx_factory = ssl.DefaultOpenSSLContextFactory(os.path.expanduser(SERVER["key"]), 
@@ -62,6 +62,7 @@ else:
             ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                            verify_callback)
         if 'ca' in SERVER:
+            print "verifying with CA", os.path.expanduser(SERVER['ca'])
             ctx.load_verify_locations(os.path.expanduser(SERVER["ca"]))
 
         return ctx_factory
