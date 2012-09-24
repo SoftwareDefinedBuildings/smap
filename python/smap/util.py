@@ -123,6 +123,22 @@ def flatten(lst):
         rv.extend(l)
     return rv
 
+"""Push all metadata down to the leaves and remove the collections
+"""
+def push_metadata(rpt):
+    for k, v in rpt.iteritems():
+        sp = util.split_path(k)
+        if 'Readings' in v:
+            for i in xrange(0, len(sp)):
+                if util.join_path(sp[:i]) in rpt:
+                    upobj = rpt[util.join_path(sp[:i])]
+                    if 'Contents' in upobj:
+                        del upobj['Contents']
+                    v.update(util.dict_merge(upobj, v))
+    for k, v in rpt.items():
+        if not 'Readings' in v:
+            del rpt[k]
+
 class FixedSizeList(list):
     """
     A class for keeping a circular buffer with a maximum size.
@@ -268,6 +284,7 @@ class PeriodicCaller:
             else: return self.fn(*self.args)
         except:
             log.err()
+            return defer.succeed(False)
         
     def _run(self):
         if self.stopping: return

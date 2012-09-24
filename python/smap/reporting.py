@@ -39,6 +39,7 @@ import util
 import copy
 import pprint
 import cStringIO as StringIO
+import urlparse
 
 from twisted.internet import reactor, task, defer, threads
 from twisted.web.client import Agent
@@ -50,6 +51,14 @@ import core
 import disklog
 import sjson as json
 from contrib import client
+from smap.formatters import get_formatter
+
+try:
+    from twisted.internet.ssl import ClientContextFactory
+    from OpenSSL import SSL
+except:
+    log.err("Failed to import ssl... only HTTP delivery will be available")
+    
 
 # this is the largest number of records we will store.
 BUFSIZE_LIMIT = 100000
@@ -94,22 +103,36 @@ def reporting_map(rpt, col_cb, ts_cb):
         else:
             ts_cb(p, v)
 
-"""Push all metadata down to the leaves and remove the collections
-"""
 
-def push_metadata(rpt):
-    for k, v in rpt.iteritems():
-        sp = util.split_path(k)
-        if 'Readings' in v:
-            for i in xrange(0, len(sp)):
-                if util.join_path(sp[:i]) in rpt:
-                    upobj = rpt[util.join_path(sp[:i])]
-                    if 'Contents' in upobj:
-                        del upobj['Contents']
-                    v.update(util.dict_merge(upobj, v))
-    for k, v in rpt.items():
-        if not 'Readings' in v:
-            del rpt[k]
+class SmapClientContextFactory(ClientContextFactory):
+    """Make a client context factory for delivering data.
+    """
+    def __init__(self, report_inst):
+        self.report_inst = report_inst
+
+    @staticmethod
+    def verifyCallback(connection, x509, errnum, errdepth, okay):
+        if okay: return True
+        else: return False
+
+    def getContext(self, hostname, port): 
+        self.method = SSL.SSLv23_METHOD
+        ctx = ClientContextFactory.getContext(self)
+
+        if 'ClientCertificateFile' in self.report_inst and \
+                'ClientPrivateKeyFile' in self.report_inst:
+            ctx.use_certificate_file(self.report_inst['ClientCertificateFile'])
+            ctx.use_privatekey_file(self.report_inst['ClientPrivateKeyFile'])
+
+        if 'CAFile' in self.report_inst:
+            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                           self.verifyCallback)
+            ctx.load_verify_locations(os.path.expanduser(self.report_inst['CAFile']))
+
+        return ctx
+
+def is_https_url(url):
+    return urlparse.urlparse(url).scheme == 'https'
 
 class DataBuffer:
     """Buffer outgoing data.
@@ -268,16 +291,20 @@ class ReportInstance(dict):
                       if 'Readings' in x])),
                 logLevel=logging.DEBUG)
         # set up an agent to push the data to the consumer
-        agent = Agent(reactor)
+
+        dest_url = self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]
+        if is_https_url(dest_url):
+            agent = Agent(reactor, SmapClientContextFactory(self))
+        else:
+            agent = Agent(reactor)
+
         try:
-            v = StringIO.StringIO()
-            json.dump(data, v)
-            v.seek(0)
+            formatter = get_formatter(self['Format'])
             d = agent.request('POST',
-                              str(self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]),
+                              dest_url,
                               Headers({'Content-type' : 
-                                       ['application/json']}),
-                              client.FileBodyProducer(v))
+                                       [formatter.content_type]}),
+                              formatter(data))
         except:
             traceback.print_exc()
             return
@@ -310,17 +337,19 @@ class ReportInstance(dict):
                                              ' returned ' + str(resp.code))
             return cbResponse
 
-        def makeDoneCb(inst):
+        def makeFailureCb(inst):
             inst_ = inst
-            def doneCb(resp):
+            def cbFail(fail):
                 inst_['Busy'] = False
                 self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
                                              len(self['ReportDeliveryLocation']))
+                log.err("Report delivery to %s failed: %s" %
+                        (dest_url, str(fail.value)))
                 return resp
-            return doneCb
+            return cbFail
 
         self['Busy'] = True
-        d.addErrback(makeDoneCb(self))
+        d.addErrback(makeFailureCb(self))
         d.addCallback(makeSuccessCb())
         return d
 
@@ -428,6 +457,8 @@ class Reporting:
         for s in self.subscribers:
             s['Busy'] = False
             s['Paused'] = False
+            if not 'Format' in s:
+                s['Format'] = 'json'
 
     def save_reports(self, *args):
         """Save reports while holding the filesystem lock.

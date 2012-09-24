@@ -45,7 +45,6 @@ from twisted.web import resource, server, proxy
 
 import util
 import sjson
-import reporting 
 
 class SmapConsumer(resource.Resource):
     def __init__(self):
@@ -54,7 +53,7 @@ class SmapConsumer(resource.Resource):
 
     def add(self, report):
         try:
-            reporting.push_metadata(report)
+            util.push_metadata(report)
         except Exception, e:
             traceback.print_exc()
         for path, val in report.iteritems():

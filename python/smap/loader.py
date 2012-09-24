@@ -153,14 +153,24 @@ contain a ``uuid`` key to set the root identifier for the source.
                 if conf.has_option(s, 'ReportDeliveryLocation%i' % i):
                     dest.append(conf.get(s, 'ReportDeliveryLocation%i' % i))
 
+            if conf.has_option(s, 'Format'):
+                format = conf.get(s, 'Format')
+            else:
+                format = 'json'
+
             reportinst = {
                 'ReportDeliveryLocation' : dest,
                 'ReportResource' : resource,
+                'Format': format,
                 'uuid' : inst.uuid(s),
                 }
             for o in ['MinPeriod', 'MaxPeriod']:
                 if conf.has_option(s, o):
                     reportinst[o] = conf.getint(s, o)
+            for o in ['ClientCertificateFile', 'ClientPrivateKeyFile', 'CAFile']:
+                if conf.has_option(s, o):
+                    reportinst[i] = os.path.expanduser(conf.get(s, o))
+
             reports.append(reportinst)
             continue
         elif not s.startswith('/'):

@@ -84,6 +84,7 @@ def load(fp):
 # based on http://jcalderone.livejournal.com/55680.html
 class AsyncJSON(object):
     implements(iweb.IBodyProducer)
+    content_type = 'application/json'
 
     def __init__(self, value):
         self._value = value
