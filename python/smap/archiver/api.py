@@ -240,7 +240,7 @@ class Api(resource.Resource):
             request.write("# uuid: %s\n" % stream['uuid'])
             request.write("# DownloadTime: " + time.ctime() + "\n")
             request.write("# ")
-            request.write('\n# '.join((': '.join(x) for x in stags)))
+            request.write('\n# '.join((': '.join(x) for x in sorted(stags.iteritems()))))
             request.write('\n')
 
         if 'timefmt' in request.args:
@@ -248,7 +248,7 @@ class Api(resource.Resource):
             # this could be a bit slow for large datasets...
             if request.args['timefmt'][0] == 'iso8601': 
                 fmt = dtutil.iso8601
-                tz = dtutil.gettz(dict(stags).get('Properties/Timezone', 'Utc'))
+                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
             elif True or request.args['timefmt'][0] == 'unix': 
                 fmt = lambda dt, tz: dtutil.strftime_tz(dt, '%s')
                 tz = dtutil.gettz('Utc')
@@ -261,10 +261,11 @@ class Api(resource.Resource):
 
     def send_csv_reply(self, request, result, tags):
         """CSV replies are easy"""
-        request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % result[0]['uuid'])
+        request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % 
+                          result[0]['uuid'])
         self.write_one_stream(request, 
                               result[0], 
-                              sorted(map(operator.itemgetter(1,2), tags[0][1])))
+                              tags[0][1][0][0])
         
         request.finish()
 
