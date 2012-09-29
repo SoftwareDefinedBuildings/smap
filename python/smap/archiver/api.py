@@ -183,7 +183,7 @@ ORDER BY tagval ASC""") % {
         # odd-numbered clasues, so we print mathing tags
         t = escape_string(tags[-1][0])
         query = """
-  SELECT metadata -> %s AS svals FROM stream
+  SELECT DISTINCT metadata -> %s AS svals FROM stream
   WHERE id IN %s AND metadata ? %s
   ORDER BY svals ASC""" % (t, inner_query, t)
     else:
@@ -203,7 +203,6 @@ def build_tag_query(db, request, tags):
     """Wraps an inner query to select all tags for streams which match
     the tags query.
     """
-    print "tag query"
     inner_query, clauses = build_inner_query(request, tags)
     query = """
 SELECT s.metadata || hstore('uuid', s.uuid)

@@ -72,7 +72,7 @@ class DataResource(resource.Resource):
         else:
             request.setResponseCode(404)
             request.finish()
-        return server.NOT_DONE_YET
+            return server.NOT_DONE_YET
 
     def getChild(self, name, request):
         return self

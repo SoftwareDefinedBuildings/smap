@@ -215,11 +215,16 @@ def p_query(t):
         if t[2] == 'where':
             # delete the whole stream, gone.  this also deletes the
             # data in the backend readingdb.
-            return
             t[0] = ext_deletor, \
-                """DELETE FROM stream s WHERE id IN %s
-                   RETURNING s.id, s.uuid
-                """ % delete_inner
+                """DELETE FROM stream WHERE id IN (
+                     SELECT s.id FROM stream s, subscription sub 
+                     WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
+                     (%(auth)s)
+                   ) RETURNING id, uuid
+                """ % { 
+                'restrict': t[3],
+                'auth': qg.build_authcheck(t.parser.request, forceprivate=True) 
+                }
         else:
             # this alters the tags but doesn't touch the data
             del_tags = ', '.join(map(escape_string, t[2]))
