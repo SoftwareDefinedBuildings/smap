@@ -75,6 +75,7 @@ class ArchiverServiceMaker(object):
                                    database=settings.DB_DB,
                                    user=settings.DB_USER,
                                    password=settings.DB_PASS,
+                                   port=settings.DB_PORT,
                                    cp_min=5, cp_max=15)
 
         if options['subscribe']:
