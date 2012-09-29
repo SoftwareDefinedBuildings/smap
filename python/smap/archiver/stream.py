@@ -87,7 +87,7 @@ class OperatorApplicator(object):
     def __init__(self, op, data_spec, consumer, group=None):
         self.op = op
         self.data_spec = data_spec
-        self.group = group
+        self.group = group.pop()
         self.requester = data.DataRequester(ndarray=True, as_smapobj=False)
         self.consumer = consumer
 
@@ -136,7 +136,7 @@ class OperatorApplicator(object):
         # build the operator
         if self.group and len(self.group):
             self.op = grouping.GroupByTagOperator(opmeta, 
-                                                  self.group[0],
+                                                  self.group,
                                                   self.op)
         else:
             self.op = self.op(opmeta)

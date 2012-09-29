@@ -157,6 +157,9 @@ names = {}
 def ext_default(x):
     return map(operator.itemgetter(0), x)
 
+def ext_non_null(x):
+    return filter(None, ext_default(x))
+
 def ext_deletor(x):
     data.del_streams(map(operator.itemgetter(0), x))
     return map(operator.itemgetter(1), x)
@@ -262,7 +265,6 @@ def p_apply_statement(t):
     else: group = None
     app = stream.OperatorApplicator(t[1], t[3].dparams,
                                     t.parser.request, group=group)
-    print tag_query
     t[0] = [app.start_processing, tag_extractor, data_extractor], [None, tag_query, data_query]
 
 
@@ -291,10 +293,10 @@ def p_selector(t):
                 | DISTINCT TAGS'''
     if t[1] == 'distinct':
         if t[2] == 'uuid':
-            t[0] = selector("DISTINCT s.uuid", ext_default)
+            t[0] = selector("DISTINCT s.uuid", ext_non_null)
         else:
             t[0] = selector("DISTINCT (s.metadata -> %s)" % escape_string(t[2]),
-                            ext_default)
+                            ext_non_null)
     else:
         t[0] = make_tag_select(t[1])
 
