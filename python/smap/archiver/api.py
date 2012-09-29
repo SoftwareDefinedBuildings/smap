@@ -343,6 +343,8 @@ class Api(resource.Resource):
             # run the query locally
             d = parser.runquery(self.db, query)
         except Exception, e:
+            log.err("Failing query: " + str(query))
+            log.err()
             setResponseCode(request, e, 400)
             return str(e)
         else:

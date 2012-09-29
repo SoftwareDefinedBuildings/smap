@@ -87,7 +87,7 @@ class OperatorApplicator(object):
     def __init__(self, op, data_spec, consumer, group=None):
         self.op = op
         self.data_spec = data_spec
-        self.group = group.pop()
+        self.group = group.pop() if group else None
         self.requester = data.DataRequester(ndarray=True, as_smapobj=False)
         self.consumer = consumer
 
