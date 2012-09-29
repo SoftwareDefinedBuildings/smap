@@ -152,40 +152,19 @@ def build_query(db, request, tags):
     distinct tagnames, tagvals, or uuids depending on what is needed.
     """
     inner_query, clauses = build_inner_query(request, tags)
-
-    if len(clauses) == 0 and len(tags) == 0:
-        # request /query: return a list of all tags
-        query = """
-SELECT DISTINCT skeys
-FROM (
-  SELECT skeys(s.metadata) FROM subscription sub, stream s
-  WHERE """ + build_authcheck(request) + """ AND
-  s.subscription_id = sub.id
-) AS skeys ORDER BY skeys ASC"""
-    elif tags[-1][0] == 'uuid':
+    if len(tags) and tags[-1][0] == 'uuid':
         # if we select uuid as the trailing tag we have to be special
-        print "HERE"
         query = """
 SELECT DISTINCT s.uuid 
 FROM stream AS s
-WHERE s.id IN """ + inner_query        
-    elif len(clauses) == 0:
-        # just one tag, no where clause, not uuid
-        query = ("""
-SELECT DISTINCT s.metadata -> %(tag)s AS tagval
-FROM stream s, subscription sub
-WHERE s.metadata ? %(tag)s AND (%(auth)s) AND s.subscription_id = sub.id
-ORDER BY tagval ASC""") % {
-            'tag': escape_string(tags[-1][0]),
-            'auth': build_authcheck(request)
-            }
-    elif tags[-1][1] == None or tags[-1][1] == '':
-        # odd-numbered clasues, so we print mathing tags
+WHERE s.id IN """ + inner_query
+    elif len(tags) and (tags[-1][1] == None or tags[-1][1] == ''):
+        # odd-numbered clasues, so we print matching values of tags
         t = escape_string(tags[-1][0])
         query = """
-  SELECT DISTINCT metadata -> %s AS svals FROM stream
-  WHERE id IN %s AND metadata ? %s
-  ORDER BY svals ASC""" % (t, inner_query, t)
+SELECT DISTINCT metadata -> %s AS svals FROM stream
+WHERE id IN %s AND metadata ? %s
+ORDER BY svals ASC""" % (t, inner_query, t)
     else:
         # otherwise we print all tags matching the restriction
         query = """
