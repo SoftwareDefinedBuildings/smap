@@ -96,7 +96,6 @@ class SmapMetadata:
     def add(self, subid, ids, obj):
         """Set the metadata for a Timeseries object
         """
-        print subid, ids, obj
         for path, ts in obj.iteritems():
             tags = ["hstore('Path', %s)" % escape_string(path)]
             for name, val in util.buildkv('', ts):
@@ -127,7 +126,7 @@ class SmapData:
             r = rdb_pool.get()
             for ts in obj.itervalues():
                 data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings']]
-                print "add", len(data), "to", ids[ts['uuid']], data[0][0]
+                # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
                     settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]
