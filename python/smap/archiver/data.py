@@ -51,6 +51,7 @@ import settings
 def makeErrback(request_):
     request = request_
     def errBack(outp):
+        print "ERRBACK:", outp
         try:
             request.setResponseCode(500)
             request.finish()
@@ -90,49 +91,22 @@ except NameError:
 class SmapMetadata:
     def __init__(self, db):
         self.db = db    
-    
-    def _add(self, subid, ids, obj):
-        try:
-            return self._add_wrapped(subid, ids, obj)
-        except Exception, e:
-            traceback.print_exc()
-            log.err()
-            
-    def _add_wrapped(self, subid, ids, obj):
-        """Update the tag set for a reading vector
-        """
-        vals = []
-        def addTag(uid, tn, tv):
-            try:
-                vals.append("add_tag(%i,%s,%s)" % (ids[uid],
-                                                       escape_string(tn),
-                                                       escape_string(tv)))
-            except Exception, e:
-                log.err()
-                raise e
-        ids = dict(ids)
-        for path, ts in obj.iteritems():
-            addTag(ts['uuid'], 'Path', path)
-            for name, val in util.buildkv('', ts):
-                if name == 'Readings' or name == 'uuid': continue
-                addTag(ts['uuid'], name, val)
-        return vals
 
-    def _do_metadata(self, inserts):
-        """Sequentially execute the metdata updates"""
-        if len(inserts) > 0:
-            query = "SELECT " + \
-                    ','.join(inserts[:100])
-            d = self.db.runQuery(query)
-            d.addCallback(lambda _: self._do_metadata(inserts[100:]))
-            return d
-
+    @defer.inlineCallbacks
     def add(self, subid, ids, obj):
         """Set the metadata for a Timeseries object
         """
-        d = threads.deferToThread(self._add, subid, ids, obj)
-        d.addCallback(self._do_metadata)
-        return d
+        print subid, ids, obj
+        for path, ts in obj.iteritems():
+            tags = ["hstore('Path', %s)" % escape_string(path)]
+            for name, val in util.buildkv('', ts):
+                if name == 'Readings' or name == 'uuid': continue
+                tags.append("hstore(%s, %s)" % (escape_string(name), 
+                                                escape_string(val)))
+            query = "UPDATE stream SET metadata = metadata || " + " || ".join(tags) + \
+                " WHERE uuid = %s" % escape_string(ts['uuid'])
+            yield self.db.runOperation(query)
+
 
 class SmapData:
     """Class to manage entering data in a readingdb instance from a
@@ -153,7 +127,7 @@ class SmapData:
             r = rdb_pool.get()
             for ts in obj.itervalues():
                 data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings']]
-                # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
+                print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
                     settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]
@@ -174,9 +148,7 @@ class SmapData:
         ids = dict(zip(map(operator.itemgetter('uuid'), obj.itervalues()), ids))
         md = SmapMetadata(self.db)
         meta_deferred = md.add(subid, ids, obj)
-
-        data_deferred = threads.deferToThread(self._add_data_real, ids, obj)
-        
+        data_deferred = threads.deferToThread(self._add_data_real, ids, obj)        
         return defer.DeferredList([meta_deferred, data_deferred], 
                                   fireOnOneErrback=True, consumeErrors=True)
 
@@ -200,7 +172,7 @@ class SmapData:
         query = "SELECT "
         for ts in obj.itervalues():
             uuids.append("add_stream(%i, %s)" % (subid,
-                                                   escape_string(ts['uuid'])))
+                                                 escape_string(ts['uuid'])))
     
         query += ','.join(uuids)
         return self._run_create(uuids, [], [[]])

@@ -50,11 +50,12 @@ EXPIRE_TIME = None
 CHECK_TIME = None
 
 # postgres setup for metadata and other tables
-DB_MOD = 'psycopg2'
+DB_MOD = 'smap.archiver.settings'
 DB_HOST = 'localhost'
 DB_DB = 'archiver'
 DB_USER = 'archiver'
 DB_PASS = 'password'
+DB_PORT = 5432
 
 # the location of the readingdb server which holds the timeseries
 READINGDB_MOD = 'readingdb'
@@ -89,3 +90,15 @@ def load(conffile):
 # try to load the site conf
 load('/etc/smap/archiver.ini')
 import_rdb()
+
+try:
+    import psycopg2
+    import psycopg2.extras
+except ImportError:
+    # make sure we don't kill people not trying to use the archiver
+    pass
+else:
+    def connect(*args, **kwargs):
+        conn = psycopg2.connect(*args, **kwargs)
+        psycopg2.extras.register_hstore(conn)
+        return conn

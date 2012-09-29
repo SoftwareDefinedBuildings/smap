@@ -125,6 +125,8 @@ def build_inner_query(request, tags):
     used in the reading db, or can be used as part of a join.  The
     query performs auth checks and will check for the tags specified.
     """
+    # the inner query builds a list of streams matching all the
+    # clauses which we can then select from
     clauses = []
     uuid_clause = "true"
     for (k, v) in tags:
@@ -133,30 +135,16 @@ def build_inner_query(request, tags):
                 uuid_clause = "s.uuid = %s" % escape_string(v)
             continue
         if v != None:
-            clauses.append("(tagname = %s AND tagval = %s)" % (escape_string(k),
-                                                                 escape_string(v)))
+            clauses.append("hstore(%s, %s)" % (escape_string(k),
+                                               escape_string(v)))
         else: break
 
-    # the inner query builds a list of streams matching all the
-    # clauses which we can then select from
+    if len(clauses) == 0: clauses = ["hstore(array[]::varchar[])"]
+    inner_query = """
+ (SELECT s.id FROM stream s, subscription sub
+  WHERE s.subscription_id = sub.id AND (%s) AND (%s) AND s.metadata @> (%s))
+""" % (build_authcheck(request), uuid_clause, ' || '.join(clauses))
 
-    # perform the auth check in the inner query to give us the
-    # most selectivity and avoid returning rows which the user
-    # can't access.
-    if len(clauses) == 0:
-        inner_query = """
-(SELECT s.id FROM stream s, subscription sub
- WHERE s.subscription_id = sub.id AND %s AND %s)""" % (
-            build_authcheck(request), uuid_clause)
-    else:
-        inner_query = ("""
-(SELECT oq.stream_id FROM
-(SELECT stream_id, count(stream_id) AS cnt
-FROM metadata2 mi, subscription sub, stream si
-WHERE (%s) AND """ + build_authcheck(request) + """ AND
-   mi.stream_id = si.id AND si.subscription_id = sub.id
-GROUP BY stream_id) AS oq
-WHERE oq.cnt = %i) AND %s""") % (' OR '.join(clauses), len(clauses), uuid_clause)
     return inner_query, clauses
 
 def build_query(db, request, tags):
@@ -166,39 +154,46 @@ def build_query(db, request, tags):
     inner_query, clauses = build_inner_query(request, tags)
 
     if len(clauses) == 0 and len(tags) == 0:
+        # request /query: return a list of all tags
         query = """
-SELECT DISTINCT tagname
-FROM metadata2 m, subscription sub, stream s
-WHERE """ + build_authcheck(request) + """ AND
-m.stream_id = s.id AND s.subscription_id = sub.id
-ORDER BY tagname ASC"""
+SELECT DISTINCT skeys
+FROM (
+  SELECT skeys(s.metadata) FROM subscription sub, stream s
+  WHERE """ + build_authcheck(request) + """ AND
+  s.subscription_id = sub.id
+) AS skeys ORDER BY skeys ASC"""
     elif tags[-1][0] == 'uuid':
+        # if we select uuid as the trailing tag we have to be special
+        print "HERE"
         query = """
 SELECT DISTINCT s.uuid 
-FROM metadata2 AS m, stream AS s
-WHERE m.stream_id IN """ + inner_query + """ AND
-m.stream_id = s.id"""
-
+FROM stream AS s
+WHERE s.id IN """ + inner_query        
     elif len(clauses) == 0:
+        # just one tag, no where clause, not uuid
         query = ("""
-SELECT DISTINCT m.tagval FROM metadata2 m, stream s, subscription sub
-WHERE m.tagname = '%s' AND """ + build_authcheck(request) + """ AND
-m.stream_id = s.id AND s.subscription_id = sub.id
-ORDER BY m.tagval ASC
-""") % (tags[-1][0])
+SELECT DISTINCT s.metadata -> %(tag)s AS tagval
+FROM stream s, subscription sub
+WHERE s.metadata ? %(tag)s AND (%(auth)s) AND s.subscription_id = sub.id
+ORDER BY tagval ASC""") % {
+            'tag': escape_string(tags[-1][0]),
+            'auth': build_authcheck(request)
+            }
     elif tags[-1][1] == None or tags[-1][1] == '':
-        query = ("""
-SELECT DISTINCT m.tagval 
-FROM metadata2 AS m
-WHERE m.stream_id IN """ + inner_query + """ AND
-m.tagname = '%s'
-ORDER BY m.tagval ASC""") % (tags[-1][0])
-    else:
+        # odd-numbered clasues, so we print mathing tags
+        t = escape_string(tags[-1][0])
         query = """
-SELECT DISTINCT tagname
-FROM metadata2 AS m
-WHERE m.stream_id IN """ + inner_query + """
-ORDER BY tagname ASC"""
+  SELECT metadata -> %s AS svals FROM stream
+  WHERE id IN %s AND metadata ? %s
+  ORDER BY svals ASC""" % (t, inner_query, t)
+    else:
+        # otherwise we print all tags matching the restriction
+        query = """
+SELECT DISTINCT skeys
+FROM (
+  SELECT skeys(metadata) FROM stream
+  WHERE id IN %s
+) AS skeys ORDER BY skeys ASC""" % inner_query
 
     log.msg(query)
     d = db.runQuery(query)
@@ -208,16 +203,15 @@ def build_tag_query(db, request, tags):
     """Wraps an inner query to select all tags for streams which match
     the tags query.
     """
+    print "tag query"
     inner_query, clauses = build_inner_query(request, tags)
     query = """
-SELECT s.uuid, m.tagname, m.tagval
-FROM metadata2 m, stream s
-WHERE m.stream_id IN """ + inner_query + """ AND
-  m.stream_id = s.id
-ORDER BY m.stream_id ASC"""
+SELECT s.metadata || hstore('uuid', s.uuid)
+FROM stream s
+WHERE s.id IN """ + inner_query + """
+ORDER BY s.id ASC"""
     log.msg(query)
     return db.runQuery(query)
-
 
 class Api(resource.Resource):
     """Provide api calls against the databases for data and tag lookups.
@@ -235,12 +229,8 @@ class Api(resource.Resource):
         """For a tag query, we want to return a nested dict so we pipe the
         result through this filter instead.
         """
-        rv = {}
-        for uid, tn, tv in result:
-            if not uid in rv: rv[uid] = {}
-            rv[uid][tn] = tv
-            rv[uid]['uuid'] = uid
-        return request, map(lambda x: util.build_recursive(x, suppress=[]), rv.values())
+        return request, map(lambda x: util.build_recursive(x[0], suppress=[]), 
+                            result)
 
     def write_one_stream(self, request, stream, stags, mime_header=False):
         """For a CSV downlod, add some hweaders and write the data to the stream

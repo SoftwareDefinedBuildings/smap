@@ -35,6 +35,7 @@ import operator
 import time
 import inspect
 import logging
+import collections
 
 from twisted.internet import defer
 
@@ -160,13 +161,11 @@ def ext_deletor(x):
     data.del_streams(map(operator.itemgetter(0), x))
     return map(operator.itemgetter(1), x)
 
-def ext_plural(x):
-    rv = {}
-    for uuid, tagname, tagval in x:
-        if not uuid in rv:
-            rv[uuid] = {'uuid' : uuid}
-        rv[uuid][tagname] = tagval
-    return map(lambda x: build_recursive(x, suppress=[]), rv.itervalues())
+def ext_plural(tags, vals):
+    return [build_recursive(dict(zip(tags, v)), suppress=[]) for v in vals]
+
+def ext_recursive(vals):
+    return [build_recursive(x[0], suppress=[]) for x in vals]
 
 TIMEZONE_PATTERNS = [
     "%m/%d/%Y",
@@ -182,19 +181,12 @@ def parse_time(ts):
             continue
     raise ValueError("Invalid time string:" + ts)
 
-def make_select_rv(t, sqlsel, wherestmt=None):
-    if wherestmt != None:
-        return sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s 
-              WHERE stream_id IN (%s) AND %s AND
-                   s.id = m.stream_id""" % \
-                               (sqlsel[0], qg.normalize(wherestmt).render(), 
-                                sqlsel[1]))
-    else:
-        return sqlsel[2], ("""SELECT %s FROM metadata2 m, stream s, subscription sub 
-              WHERE s.id = m.stream_id AND s.subscription_id = sub.id
-                 AND %s AND %s""" % 
-                           (sqlsel[0], sqlsel[1], 
-                            qg.build_authcheck(t.parser.request)))
+def make_select_rv(t, sel, wherestmt='true'):
+    return sel.extract, ("""SELECT %s FROM stream s, subscription sub
+              WHERE (%s) AND (%s) AND
+              sub.id = s.subscription_id""" % (sel.select, 
+                                               wherestmt,
+                                               qg.build_authcheck(t.parser.request)))
 
 # top-level statement dispatching
 def p_query(t):
@@ -217,45 +209,36 @@ def p_query(t):
     elif t[1] == 'delete':
         # a new delete inner statement enforces that we only delete
         # things which we have the key for.
-        delete_inner = """
-   (SELECT s.id FROM stream s, subscription sub WHERE s.id IN %s
-          AND s.subscription_id = sub.id AND %s)
-    """ % (qg.normalize(t[len(t) - 1]).render(), 
-           qg.build_authcheck(t.parser.request, forceprivate=True))
         if t[2] == 'where':
             # delete the whole stream, gone.  this also deletes the
             # data in the backend readingdb.
+            return
             t[0] = ext_deletor, \
                 """DELETE FROM stream s WHERE id IN %s
                    RETURNING s.id, s.uuid
                 """ % delete_inner
         else:
             # this alters the tags but doesn't touch the data
-            t[0] = None, \
-                ("""DELETE FROM metadata2 WHERE stream_id IN %s
-                    AND (%s)""" % (delete_inner, 
-                                   ' OR '.join(map(lambda x: "tagname = %s" % 
-                                                   escape_string(x), 
-                                                   t[2]))))
+            del_tags = ', '.join(map(escape_string, t[2]))
+            q = "UPDATE stream SET metadata = metadata - ARRAY[" + del_tags + \
+                "] WHERE id IN " + \
+                "(SELECT s.id FROM stream s, subscription sub " + \
+                "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
+                qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
+            t[0] = None, q
+
     elif t[1] == 'set':
-        #  set tags by calling the add_tag stored procedure with each
-        #  new tag; this'll insert or update the database as
-        #  appropriate
-        tag_stmt = ','.join(map(lambda (t, v): \
-                                    "add_tag(m.stream_id, %s, %s)" % 
-                                (escape_string(t), 
-                                 escape_string(v)), 
-                                t[2]))
-        # filter by the selector; adding an authcheck which only lets
-        # you operate on *your* streams.
-        t[0] = None, \
-            """SELECT %s FROM stream s, metadata2 m, subscription sub
-               WHERE stream_id IN %s AND %s AND
-                 s.id = m.stream_id AND s.subscription_id = sub.id
-            """ % \
-            (tag_stmt,
-             qg.normalize(t[4]).render(),
-             qg.build_authcheck(t.parser.request, forceprivate=True))
+        #  set tags 
+        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, %s)" % 
+                                   (escape_string(t), escape_string(v)),
+                               t[2]))
+        q = "UPDATE stream SET metadata = metadata || " + new_tags + \
+            " WHERE id IN "  + \
+            "(SELECT s.id FROM stream s, subscription sub " + \
+            "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
+            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
+        t[0] = None, q
+
     elif t[1] == 'apply':
         t[0] = t[2]
     elif t[1] == 'help':
@@ -277,23 +260,27 @@ def p_apply_statement(t):
     data_extractor = lambda x: x
     if len(t) > 7: group = t[8]
     else: group = None
-    app = stream.OperatorApplicator(t[1], t[3][3], 
+    app = stream.OperatorApplicator(t[1], t[3].dparams,
                                     t.parser.request, group=group)
+    print tag_query
     t[0] = [app.start_processing, tag_extractor, data_extractor], [None, tag_query, data_query]
 
 
-def make_tag_select(taglist):
-    select = "s.uuid, m.tagname, m.tagval"
-    if taglist  == '*':
-        restrict = 'true'
+selector = collections.namedtuple('selector', 'select extract')
+def make_tag_select(tagset):
+    if '*' in tagset:
+        return selector("s.metadata || hstore('uuid', s.uuid)", ext_recursive)
     else:
+        if 'uuid' in tagset:
+            tagset.add('Path')
         def make_clause(x):
             if x == 'uuid':
-                return "tagname = 'Path'"
+                return "(s.uuid)"
             else:
-                return "tagname = %s" % escape_string(x)
-        restrict = ('(' + " OR ".join(map(make_clause, taglist)) + ')')
-    return (select, restrict, ext_plural)
+                return "(s.metadata -> %s)" % escape_string(x)
+    tags = list(tagset)
+    select = ', '.join(map(make_clause, tags))
+    return selector(select, lambda vals: ext_plural(tags, vals))
 
 # make a tag selector: the things to select.  this is how you specify
 # what tags you want back.
@@ -303,17 +290,15 @@ def p_selector(t):
                 | DISTINCT LVALUE
                 | DISTINCT TAGS'''
     if t[1] == 'distinct':
-        if t[2] == 'tags':
-            restrict = 'true'
-            t[0] =("DISTINCT m.tagname", 'true', ext_default)
-        elif t[2] == 'uuid':
-            t[0] = ("DISTINCT s.uuid", "true", ext_default)
+        if t[2] == 'uuid':
+            t[0] = selector("DISTINCT s.uuid", ext_default)
         else:
-            t[0] = ("DISTINCT m.tagval", "tagname = %s" % 
-                     escape_string(t[2]), ext_default)
+            t[0] = selector("DISTINCT (s.metadata -> %s)" % escape_string(t[2]),
+                            ext_default)
     else:
         t[0] = make_tag_select(t[1])
 
+data_selector = collections.namedtuple("data_selector", "select extract dparams")
 # make a data selector: what data to load.
 def p_data_clause(t):
     '''data_clause : DATA IN LPAREN timeref COMMA timeref RPAREN limit
@@ -342,13 +327,13 @@ def p_data_clause(t):
         'streamlimit' : [limit[1]],
         })
 
-    t[0] = ("distinct(s.uuid), s.id", "true",             
-            lambda streams: data.data_load_result(t.parser.request,
-                                                  method,
-                                                  streams,
-                                                  ndarray=False,
-                                                  as_smapobj=True,
-                                                  send=True), {
+    t[0] = data_selector("distinct(s.uuid), s.id",
+                         lambda streams: data.data_load_result(t.parser.request,
+                                                               method,
+                                                               streams,
+                                                               ndarray=False,
+                                                               as_smapobj=True,
+                                                               send=True), {
             'start' : start,
             'end' : end,
             'method' : method,
@@ -458,9 +443,10 @@ def p_tag_list(t):
                 | LVALUE COMMA tag_list'''
                 
     if len(t) == 2:
-        t[0] = [t[1]]
+        t[0] = set([t[1]])
     else:
-        t[0] = [t[1]] + t[3]
+        t[3].add(t[1])
+        t[0] = t[3]
 
 def p_set_list(t):
     '''set_list : LVALUE EQ QSTRING
@@ -485,16 +471,6 @@ def p_statement_as_list(t):
     else:
         t[0] = t[1] + [(t[5], t[3])]
 
-def merge_clauses(klass, lstmt, rstmt) :
-    if type(lstmt) == klass and type(rstmt) == klass:
-        return klass(lstmt.clauses.union(rstmt.clauses))
-    elif type(lstmt) == klass:
-        return klass(lstmt.clauses.union(set([rstmt])))
-    elif type(rstmt) == klass:
-        return klass(rstmt.clauses.union(set([lstmt])))
-    else:
-        return klass([lstmt, rstmt])
-
 def p_statement(t):
     '''statement : statement_unary
                  | statement_binary
@@ -506,47 +482,33 @@ def p_statement(t):
     if len(t) == 2:
         t[0] = t[1]
     elif t[2] == 'and':
-        t[0] = merge_clauses(qg.AndOperator, t[1], t[3])
+        t[0] = '(%s) AND (%s)' % (t[1], t[3])
     elif t[2] == 'or':
-        t[0] = merge_clauses(qg.OrOperator, t[1], t[3])
+        t[0] = '(%s) OR (%s)' % (t[1], t[3])
     elif t[1] == 'not':
-        t[0] = qg.NotOperator([t[2]])
+        t[0] = 'NOT (%s)' % t[2]
     else:
         t[0] = t[2]
 
 def p_statement_unary(t):
     '''statement_unary : HAS LVALUE'''
     if t[1] == 'has':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, 
-                                         "tagname = %s" % escape_string(t[2])))
+        t[0] = 's.metadata ? %s' % escape_string(t[2])
 
 def p_statement_binary(t):
     '''statement_binary : LVALUE EQ QSTRING
                         | LVALUE LIKE QSTRING
                         | LVALUE TILDE QSTRING
-                        | LVALUE IN LPAREN statement RPAREN
     '''
-    if t[2] == 'in':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request,
-                                         """
-  mi1.tagname = %s AND
-  si1.uuid = mi1.tagval AND
-  si1.id IN (%s)""" % (t[1], t[4]), ti='1'))
-    elif t[1] == 'uuid':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(si.uuid = %s)" %
-                                         escape_string(t[3])))
-    elif t[2] == '=':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval = %s)" % 
-                                         (escape_string(t[1]), 
-                                          escape_string(t[3]))))
-    elif t[2] == 'like':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval LIKE %s)" % 
-                         (escape_string(t[1]), 
-                          escape_string(t[3]))))
-    elif t[2] == '~':
-        t[0] = qg.Clause(qg.build_clause(t.parser.request, "(tagname = %s AND tagval ~ E%s)" %
-                         (escape_string(t[1]), 
-                          escape_string(t[3]))))
+    if t[1] == 'uuid':
+        t[0] = 's.uuid %s %s' % (t[2], escape_string(t[3]))
+    else:
+        if t[2] == '=':
+            t[0] = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), escape_string(t[3]))
+        elif t[2] == 'like':
+            t[0] = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), escape_string(t[3]))
+        elif t[2] == '~':
+            t[0] = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), escape_string(t[3]))
 
 
 def p_error(t):
@@ -671,6 +633,7 @@ if __name__ == '__main__':
                                database=s.DB_DB,
                                user=s.DB_USER,
                                password=s.DB_PASS,
+                               port=int(s.DB_PORT),
                                cp_min=5, cp_max=15)
 
     # make a fake request to give the parser with whatever

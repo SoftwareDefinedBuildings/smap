@@ -35,9 +35,9 @@ from twisted.web import resource, server
 from twisted.web.resource import NoResource
 from twisted.python import log
 
-from smap import subscriber, reporting
+from smap import subscriber
+from smap import util
 from smap.server import RootResource
-import smap.util as util
 import smap.sjson as json
 from smap.archiver import settings, data, api, republisher
 
@@ -67,7 +67,7 @@ class DataResource(resource.Resource):
             subid = subid[0][0]
             obj = json.loads(request.content.read())
             self.republisher.republish(request.prepath[-1], public, obj)
-            reporting.push_metadata(obj)
+            util.push_metadata(obj)
             return subid, obj
         else:
             request.setResponseCode(404)
@@ -89,11 +89,13 @@ class DataResource(resource.Resource):
         d.addCallback(lambda (subid, obj): self._add_data(subid, obj))
         def add_success(x):
             if not x:
+                print x
                 request.setResponseCode(500)
             request.finish()
         def add_error(x):
             # return a 500 so the sMAP server can hold onto the data
             # until things can be fixed.
+            print x
             request.setResponseCode(500)
             request.finish()
 

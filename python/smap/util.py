@@ -43,8 +43,6 @@ from twisted.internet import task, reactor, threads, defer
 from twisted.python.lockfile import FilesystemLock
 from twisted.python import log, failure
 
-import core
-
 is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
 
@@ -127,14 +125,14 @@ def flatten(lst):
 """
 def push_metadata(rpt):
     for k, v in rpt.iteritems():
-        sp = util.split_path(k)
+        sp = split_path(k)
         if 'Readings' in v:
             for i in xrange(0, len(sp)):
-                if util.join_path(sp[:i]) in rpt:
-                    upobj = rpt[util.join_path(sp[:i])]
+                if join_path(sp[:i]) in rpt:
+                    upobj = rpt[join_path(sp[:i])]
                     if 'Contents' in upobj:
                         del upobj['Contents']
-                    v.update(util.dict_merge(upobj, v))
+                    v.update(dict_merge(upobj, v))
     for k, v in rpt.items():
         if not 'Readings' in v:
             del rpt[k]

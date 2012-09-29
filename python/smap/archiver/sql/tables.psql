@@ -1,6 +1,7 @@
 -- -*- sql -*-
 
 CREATE LANGUAGE plpgsql;
+CREATE EXTENSION hstore;
 
 -- table for list of sMAP sources we should be subscribed to
 CREATE TABLE subscription (
@@ -24,33 +25,16 @@ CREATE TABLE stream (
        id INT PRIMARY KEY,
        subscription_id INT NOT NULL,
        uuid VARCHAR(36) UNIQUE,
+       metadata HSTORE DEFAULT hstore(array[]::varchar[]),
 
        FOREIGN KEY (subscription_id) REFERENCES subscription(id)
          ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX uuid_ind ON stream(uuid);
 CREATE INDEX subscription_int ON stream(subscription_id);
+CREATE INDEX metadata_index ON stream USING GIST(metadata);
 CREATE SEQUENCE stream_id_seq;
 ALTER TABLE stream
   ALTER COLUMN id
     SET DEFAULT NEXTVAL('stream_id_seq');
-
--- table for sMAP stream metadata
-CREATE TABLE metadata2 (
-       id INT PRIMARY KEY,
-       stream_id INT,
-
-       tagname VARCHAR(64) NOT NULL,
-       tagval TEXT NOT NULL,
-
-       FOREIGN KEY (stream_id) REFERENCES stream(id)
-         ON DELETE CASCADE
-);
-CREATE INDEX stream_id_ind ON metadata2(stream_id);
-CREATE UNIQUE INDEX uuid_anchor_ind ON metadata2(stream_id, tagname);
-CREATE SEQUENCE metadata2_id_seq;
-ALTER TABLE metadata2
-  ALTER COLUMN id
-    SET DEFAULT NEXTVAL('metadata2_id_seq');
-
 
