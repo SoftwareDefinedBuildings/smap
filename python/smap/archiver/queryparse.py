@@ -511,12 +511,13 @@ def p_statement_binary(t):
         t[0] = 's.uuid %s %s' % (t[2], escape_string(t[3]))
     else:
         if t[2] == '=':
-            t[0] = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), escape_string(t[3]))
+            q = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), escape_string(t[3]))
         elif t[2] == 'like':
-            t[0] = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), escape_string(t[3]))
+            q = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), escape_string(t[3]))
         elif t[2] == '~':
-            t[0] = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), escape_string(t[3]))
+            q = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), escape_string(t[3]))
 
+        t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
 
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
@@ -557,7 +558,8 @@ class QueryParser:
             q = [None, q]
             ext = [None, ext]
 
-        if verbose: print q
+        if verbose: 
+            print q[1]
         if not run: return defer.succeed([])
         
         def eb(error):
