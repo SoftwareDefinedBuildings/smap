@@ -50,21 +50,8 @@ from smap.core import SmapException
 from smap.contrib import dtutil
 from data import escape_string, data_load_result, makeErrback
 import queryparse as qp
+from querygen import build_authcheck
 import settings
-
-def build_authcheck(request):
-    """Build an SQL WHERE clause which enforces access restrictions.
-    Will pull any credentials out of the request object passed in.
-    """
-    if not 'private' in request.args:
-        query = "(sub.public "
-    else:
-        query = "(false "
-    if 'key' in request.args:
-        query += 'OR ' + ' OR '.join(["sub.key = %s" % escape_string(x) 
-                                      for x in request.args['key']])
-    query += ")"
-    return query
 
 class ApiResource(resource.Resource):
     def __init__(self, db):
@@ -241,9 +228,13 @@ class Api(resource.Resource):
         """CSV replies are easy"""
         request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % 
                           result[0]['uuid'])
+        if 'tags' in request.args and tags[0][0]:
+            tags = tags[0][1][0][0]
+        else:
+            tags = None
         self.write_one_stream(request, 
                               result[0], 
-                              tags[0][1][0][0])
+                              tags)
         
         request.finish()
 
