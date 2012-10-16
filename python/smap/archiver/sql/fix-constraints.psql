@@ -1,5 +1,0 @@
--- make sure deletes cascade
-ALTER TABLE metadata2 DROP CONSTRAINT "metadata2_stream_id_fkey";
-ALTER TABLE metadata2 ADD CONSTRAINT "metadata2_stream_id_fkey"
-  FOREIGN KEY (stream_id) REFERENCES stream(id)
-  ON DELETE CASCADE;
