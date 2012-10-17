@@ -48,7 +48,8 @@ from smap.subscriber import subscribe
 
 class Options(usage.Options):
     optParameters = [["port", "p", None, "service port number"]]
-    optFlags = [["subscribe", "s", "subscribe to sources"]]
+    optFlags = [["subscribe", "s", "subscribe to sources"],
+                ["memdebug", "m", "print memory debugging information"]]
 
     def parseArgs(self, conf):
         self['conf'] = conf
@@ -69,6 +70,17 @@ class ArchiverServiceMaker(object):
             port = int(options['port'])
         else:
             port = int(settings.MY_PORT)
+
+        if options['memdebug']:
+            from twisted.internet import task
+            import objgraph
+            import gc
+            def stats():
+                print gc.collect()
+                print
+                print '\n'.join(map(str, objgraph.most_common_types(limit=10)))
+            task.LoopingCall(stats).start(2)
+            
 
         cp = adbapi.ConnectionPool(settings.DB_MOD, # 'MySQLdb', 
                                    host=settings.DB_HOST,
