@@ -131,7 +131,7 @@ class SmapDriver(object):
         self.statslog.logadd(int(time.time()))
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
-        self.statslog.logadd(int(time.time)())
+        self.statslog.logadd(int(time.time()))
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
         return self.__inst.uuid(key, namespace=self.namespace)
