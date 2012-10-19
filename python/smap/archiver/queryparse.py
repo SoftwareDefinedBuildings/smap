@@ -127,7 +127,7 @@ def t_LVALUE(t):
     return t
 
 def t_NUMBER(t):
-    r'([+-]?([0-9]*\.)?[0-9]+)'
+    r'([+-]?[ ]*([0-9]*\.)?[0-9]+)'
     if '.' in t.value:
         try:
             t.value = float(t.value)
@@ -359,15 +359,12 @@ def p_data_clause(t):
 # "now"
 def p_timeref(t):
     """timeref : abstime
-               | abstime '+' reltime
-               | abstime '-' reltime"""
+               | abstime reltime"""
     t[0] = t[1]
     if len(t) == 2:
         ref = t[1]
-    elif t[2] == '+':
-        ref = t[1] + t[3]
     else:
-        ref = t[1] - t[3]
+        ref = t[1] + t[2]
     t[0] = dtutil.dt2ts(ref) * 1000
 
 def p_abstime(t):
