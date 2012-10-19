@@ -50,3 +50,5 @@ def build_authcheck(request, ti='', forceprivate=False):
     query += ")"
     return query
 
+class QueryException(core.SmapException):
+    pass

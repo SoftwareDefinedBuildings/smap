@@ -33,9 +33,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import operator
 import time
+import datetime
 import inspect
 import logging
 import collections
+import re
 
 from twisted.internet import defer
 
@@ -57,20 +59,20 @@ import ply.yacc as yacc
 import copy
 
 tokens = (
-    'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT', 'STAR',
-    'LPAREN', 'RPAREN', 'COMMA', 'TAGS', 'SELECT', 'WHERE',
-    'QSTRING', 'EQ', 'NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
+    'HAS', 'AND', 'OR', 'NOT', 'LIKE', 'DISTINCT',
+    'TAGS', 'SELECT', 'WHERE',
+    'QSTRING','NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
-    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP', 'OPSEP',
+    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP',
     )
 
 precedence = (
     ('left', 'LIKE', 'TILDE', 'IN'),
     ('left', 'AND'),
     ('left', 'OR'),
-    ('right', 'EQ'),
+    ('right', '='),
     ('right', 'NOT'),
-    ('left', 'COMMA')
+    ('left', ',')
     )
 
 reserved = {
@@ -100,12 +102,16 @@ reserved = {
     'by' : 'BY',
     'help' : 'HELP',
     }
+literals = '()*,<=+-'
 
-t_LPAREN = r'\('
-t_RPAREN = r'\)'
-t_STAR = r'\*'
-t_COMMA = r','
-t_OPSEP = r'<'
+time_units = re.compile('^(d|days?|h|hours?|m|minutes?|s|seconds?)$')
+def get_timeunit(t):
+    if not time_units.match(t):
+        raise qg.QueryException("Invalid timeunit: %s" % t)
+    if t.startswith('d'): return 'days'
+    elif t.startswith('h'): return 'hours'
+    elif t.startswith('m'): return 'minutes'
+    elif t.startswith('s'): return 'seconds'
 
 def t_QSTRING(t):
     r'("[^"\\]*?(\\.[^"\\]*?)*?")|(\'[^\'\\]*?(\\.[^\'\\]*?)*?\')'    
@@ -115,13 +121,10 @@ def t_QSTRING(t):
         t.value = t.value[1:-1].replace("\\'", "'")
     return t
 
-t_EQ = r'='
-
 def t_LVALUE(t):
     r'[a-zA-Z\~\$\_][a-zA-Z0-9\/\%_\-]*'
     t.type = reserved.get(t.value, 'LVALUE')
     return t
-
 
 def t_NUMBER(t):
     r'([+-]?([0-9]*\.)?[0-9]+)'
@@ -178,8 +181,7 @@ TIMEZONE_PATTERNS = [
 def parse_time(ts):
     for pat in TIMEZONE_PATTERNS:
         try:
-            dt = dtutil.strptime_tz(ts, pat, tzstr='America/Los_Angeles')
-            return dtutil.dt2ts(dt) * 1000
+            return dtutil.strptime_tz(ts, pat, tzstr='America/Los_Angeles')
         except ValueError:
             continue
     raise ValueError("Invalid time string:" + ts)
@@ -187,13 +189,14 @@ def parse_time(ts):
 def make_select_rv(t, sel, wherestmt='true'):
     return sel.extract, ("""SELECT %s FROM stream s, subscription sub
               WHERE (%s) AND (%s) AND
-              sub.id = s.subscription_id""" % (sel.select, 
-                                               wherestmt,
-                                               qg.build_authcheck(t.parser.request)))
+              sub.id = s.subscription_id""" % 
+                         (sel.select, 
+                          wherestmt,
+                          qg.build_authcheck(t.parser.request)))
 
 # top-level statement dispatching
 def p_query(t):
-    '''query : SELECT selector WHERE statement
+    """query : SELECT selector WHERE statement
              | SELECT selector
              | SELECT data_clause WHERE statement
              | DELETE tag_list WHERE statement
@@ -202,7 +205,7 @@ def p_query(t):
              | APPLY apply_statement
              | HELP
              | HELP LVALUE
-             '''
+             """
     if t[1] == 'select': 
         if len(t) == 5:
             t[0] = make_select_rv(t, t[2], t[4])
@@ -260,7 +263,9 @@ def p_apply_statement(t):
     """apply_statement  : operator_list TO data_clause WHERE statement_as_list
                         | operator_list TO data_clause WHERE statement_as_list GROUP BY tag_list
     """
-    tag_extractor, tag_query = make_select_rv(t, make_tag_select('*'), t[5][0][1])
+    tag_extractor, tag_query = make_select_rv(t, 
+                                              make_tag_select('*'), 
+                                              t[5][0][1])
     _, data_query = make_select_rv(t, t[3], t[5][0][1])
 
     # this does not make me feel good.
@@ -270,7 +275,8 @@ def p_apply_statement(t):
     else: group = None
     app = stream.OperatorApplicator(t[1], t[3].dparams,
                                     t.parser.request, group=group)
-    t[0] = [app.start_processing, tag_extractor, data_extractor], [None, tag_query, data_query]
+    t[0] = ([app.start_processing, tag_extractor, data_extractor], 
+            [None, tag_query, data_query])
 
 
 selector = collections.namedtuple('selector', 'select extract')
@@ -292,10 +298,10 @@ def make_tag_select(tagset):
 # make a tag selector: the things to select.  this is how you specify
 # what tags you want back.
 def p_selector(t):
-    '''selector : tag_list
-                | STAR
+    """selector : tag_list
+                | '*'
                 | DISTINCT LVALUE
-                | DISTINCT TAGS'''
+                | DISTINCT TAGS"""
     if t[1] == 'distinct':
         if t[2] == 'uuid':
             t[0] = selector("DISTINCT s.uuid", ext_non_null)
@@ -305,12 +311,13 @@ def p_selector(t):
     else:
         t[0] = make_tag_select(t[1])
 
-data_selector = collections.namedtuple("data_selector", "select extract dparams")
+data_selector = collections.namedtuple("data_selector", 
+                                       "select extract dparams")
 # make a data selector: what data to load.
 def p_data_clause(t):
-    '''data_clause : DATA IN LPAREN timeref COMMA timeref RPAREN limit
+    """data_clause : DATA IN '(' timeref ',' timeref ')' limit
                    | DATA BEFORE timeref limit
-                   | DATA AFTER timeref limit'''
+                   | DATA AFTER timeref limit"""
     if t[2] == 'in':
         method = 'data'
         start, end = t[4], t[6]
@@ -326,6 +333,7 @@ def p_data_clause(t):
         start, end = t[3], 0
         limit = t[4]
         if limit[0] == None: limit[0] = 1
+    if limit[0] == -1: limit[0] = 1e7
 
     t.parser.request.args.update({
         'starttime' : [start],
@@ -350,23 +358,47 @@ def p_data_clause(t):
 # a time reference point.  can be a unix timestamp, a date string, or
 # "now"
 def p_timeref(t):
-    '''timeref : NUMBER 
+    """timeref : abstime
+               | abstime '+' reltime
+               | abstime '-' reltime"""
+    t[0] = t[1]
+    if len(t) == 2:
+        ref = t[1]
+    elif t[2] == '+':
+        ref = t[1] + t[3]
+    else:
+        ref = t[1] - t[3]
+    t[0] = dtutil.dt2ts(ref) * 1000
+
+def p_abstime(t):
+    """abstime : NUMBER 
                | QSTRING
-               | NOW'''
+               | NOW"""
     if t[1] == 'now':
-        t[0] = int(time.time()) * 1000
+        t[0] = dtutil.now()
     elif type(t[1]) == type(''):
         t[0] = parse_time(t[1])
     else:
-        t[0] = t[1]
+        t[0] = dtutil.ts2dt(t[1] / 1000)
+
+def p_reltime(t):
+    """reltime : NUMBER LVALUE
+               | NUMBER LVALUE reltime"""
+    timeunit = get_timeunit(t[2])
+    delta = datetime.timedelta(**{timeunit: t[1]})
+    if len(t) == 3:
+        t[0] = delta
+    else:
+        t[0] = t[3] + delta
+
 
 # limit the amount of data returned by number of streams and number of
 # points
 def p_limit(t):
-    '''limit : 
+    """limit : 
              | LIMIT NUMBER
              | STREAMLIMIT NUMBER
-             | LIMIT NUMBER STREAMLIMIT NUMBER'''
+             | LIMIT NUMBER STREAMLIMIT NUMBER"""
     limit, slimit = [None, 10]
     if len(t) == 1:
         pass
@@ -387,8 +419,8 @@ def p_operator_list(t):
 
 
 def p_priv_operator_list(t):
-    '''priv_operator_list   : apply_operator
-                            | apply_operator OPSEP priv_operator_list'''
+    """priv_operator_list   : apply_operator
+                            | apply_operator '<' priv_operator_list"""
     if len(t) == 2:
         t[0] = [t[1]]
     else:
@@ -397,10 +429,10 @@ def p_priv_operator_list(t):
 
 # apply operators
 def p_apply_operator(t):
-    '''apply_operator   : LVALUE LPAREN arg_list RPAREN
-                        | LPAREN apply_operator RPAREN
+    """apply_operator   : LVALUE '(' arg_list ')'
+                        | '(' apply_operator ')'
                         | LVALUE
-    '''
+    """
     if len(t) == 2:
         t[0] = stream.get_operator(t[1], empty_arg_list())
     elif len(t) == 5:
@@ -412,10 +444,10 @@ def empty_arg_list():
     return (list(), dict())
 
 def p_arg_list(t):
-    '''arg_list     : 
+    """arg_list     : 
                     | call_argument
-                    | call_argument COMMA arg_list
-                     '''
+                    | call_argument ',' arg_list
+                     """
     if len(t) == 1:
         t[0] = empty_arg_list()
         return
@@ -433,11 +465,11 @@ def p_arg_list(t):
     t[0] = alist
         
 def p_call_argument(t):
-    '''call_argument   : QSTRING
+    """call_argument   : QSTRING
                        | NUMBER
-                       | LVALUE EQ NUMBER
-                       | LVALUE EQ QSTRING
-                       | operator_list '''
+                       | LVALUE '=' NUMBER
+                       | LVALUE '=' QSTRING
+                       | operator_list """
     if len(t) == 4:
         t[0] = ('kwarg', {
             t[1] : t[3]
@@ -446,8 +478,8 @@ def p_call_argument(t):
         t[0] = ('arg', t[1])
 
 def p_tag_list(t):
-    '''tag_list : LVALUE
-                | LVALUE COMMA tag_list'''
+    """tag_list : LVALUE
+                | LVALUE ',' tag_list"""
                 
     if len(t) == 2:
         t[0] = set([t[1]])
@@ -456,8 +488,8 @@ def p_tag_list(t):
         t[0] = t[3]
 
 def p_set_list(t):
-    '''set_list : LVALUE EQ QSTRING
-                | LVALUE EQ QSTRING COMMA set_list'''
+    """set_list : LVALUE '=' QSTRING
+                | LVALUE '=' QSTRING ',' set_list"""
     if len(t) == 4:
         t[0] = [(t[1], t[3])]
     else:
@@ -466,8 +498,8 @@ def p_set_list(t):
 def p_statement_as_list(t):
     """statement_as_list   : statement
                            | statement AS LVALUE
-                           | statement_as_list COMMA statement
-                           | statement_as_list COMMA statement AS LVALUE 
+                           | statement_as_list ',' statement
+                           | statement_as_list ',' statement AS LVALUE 
                            """
     if len(t) == 2:
         t[0] = [('$1', t[1])]
@@ -479,13 +511,13 @@ def p_statement_as_list(t):
         t[0] = t[1] + [(t[5], t[3])]
 
 def p_statement(t):
-    '''statement : statement_unary
+    """statement : statement_unary
                  | statement_binary
-                 | LPAREN statement RPAREN
+                 | '(' statement ')'
                  | statement AND statement
                  | statement OR statement
                  | NOT statement
-                '''
+                """
     if len(t) == 2:
         t[0] = t[1]
     elif t[2] == 'and':
@@ -498,24 +530,27 @@ def p_statement(t):
         t[0] = t[2]
 
 def p_statement_unary(t):
-    '''statement_unary : HAS LVALUE'''
+    """statement_unary : HAS LVALUE"""
     if t[1] == 'has':
         t[0] = 's.metadata ? %s' % escape_string(t[2])
 
 def p_statement_binary(t):
-    '''statement_binary : LVALUE EQ QSTRING
+    """statement_binary : LVALUE '=' QSTRING
                         | LVALUE LIKE QSTRING
                         | LVALUE TILDE QSTRING
-    '''
+    """
     if t[1] == 'uuid':
         t[0] = 's.uuid %s %s' % (t[2], escape_string(t[3]))
     else:
         if t[2] == '=':
-            q = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), escape_string(t[3]))
+            q = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), 
+                                                  escape_string(t[3]))
         elif t[2] == 'like':
-            q = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), escape_string(t[3]))
+            q = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), 
+                                                escape_string(t[3]))
         elif t[2] == '~':
-            q = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), escape_string(t[3]))
+            q = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), 
+                                             escape_string(t[3]))
 
         t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
 
@@ -643,7 +678,7 @@ if __name__ == '__main__':
                                user=s.DB_USER,
                                password=s.DB_PASS,
                                port=int(s.DB_PORT),
-                               cp_min=5, cp_max=15)
+                               cp_min=1, cp_max=1)
 
     # make a fake request to give the parser with whatever
     # command-line options we need.
@@ -680,7 +715,6 @@ if __name__ == '__main__':
             traceback.print_exc()
             return readquery()
             
-        # print  parse_opex(s)
         d = qp.runquery(cp, s, verbose=opts.verbose, run=opts.run)
         d.addCallback(lambda v: pprint.pprint(v))
         d.addCallback(lambda x: readquery())
