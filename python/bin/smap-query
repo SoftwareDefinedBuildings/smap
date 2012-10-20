@@ -156,7 +156,7 @@ if __name__ == '__main__':
     usage = 'usage: %prog [options] querys ...'
     parser = OptionParser(usage=usage)
     parser.add_option('-u', '--url', dest='url', 
-                      default=settings.DEFAULT_BACKEND,
+                      default=settings.DEFAULT_BACKEND + '/api/query',
                       help='location of backend server')
     parser.add_option('-k', '--key', dest='key', default=None,
                       help='api keys: k1[,k2 ...]')
