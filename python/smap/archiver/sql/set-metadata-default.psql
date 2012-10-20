@@ -1,0 +1,3 @@
+-- -*- sql -*-
+
+ALTER TABLE stream ALTER COLUMN metadata SET DEFAULT hstore(array[]::varchar[]);
