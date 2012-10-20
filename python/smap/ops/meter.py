@@ -50,6 +50,9 @@ def _meter(data, reset_threshold=.1, axis=0):
 
     """
     assert axis == 0
+    # return zero if there is only zero (or one) value
+    if data.shape[0] <= 1:
+        return np.array([0])
     if len(data.shape) > 1:
         data = data[:, 0]
 

@@ -93,6 +93,7 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
             return np.dstack((data[:, 0], op(data[:, 1:], *args, **kwargs)))[0]
     _operator.__doc__ = op.__doc__
     _opclass = vector_operator_factory(name, _operator, constructors)
+    _opclass.type = 'compressive'
     return _opclass
 
 # for most operators the timestamps aren't super meaningful so doing
@@ -116,6 +117,7 @@ def _op_from_ufunc(name, op, constructors=[()]):
         return np.hstack((data[:, 0].reshape((d.shape[0], 1)), d))
     _operator.__doc__ = op.__doc__
     _opclass = vector_operator_factory(name, _operator, constructors)
+    _opclass.type = 'ufunc'
     return _opclass
 
 add = _op_from_ufunc('add', np.add, [(float,)])
@@ -130,6 +132,14 @@ ceil = _op_from_ufunc('ceil', np.ceil)
 floor = _op_from_ufunc('floor', np.floor)
 trunc = _op_from_ufunc('trunc', np.trunc)
 around = _op_from_ufunc('around', np.around)
+
+isnan = _op_from_ufunc('isnan', np.isnan)
+greater = _op_from_ufunc('greater', np.greater, [(int,),(float,),])
+greater_equal = _op_from_ufunc('greater_equal', np.greater_equal, [(int,),(float,)])
+less = _op_from_ufunc('less', np.less, [(int,),(float,)])
+less_equal = _op_from_ufunc('less_equal', np.less_equal, [(int,),(float,)])
+equal = _op_from_ufunc('equal', np.equal, [(int,),(float,)])
+not_equal = _op_from_ufunc('not_equal', np.not_equal, [(int,),(float,)])
 
 def _diff(data, axis=1):
     """Compute discrete differences in either axis"""

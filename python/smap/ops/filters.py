@@ -39,6 +39,16 @@ from smap.ops.grouping import GroupByTimeOperator
 from smap.ops.arithmetic import first
 
 def ewma(inputs, alpha=0.9, prev=None):
+    """Apply an EWMA to input data.  The EWMA is computed using the
+    recursion:
+
+T[0] = D[0]
+T[i] = alpha * T[i-1] + (1 - alpha) * D[i]
+
+D is the input data array.
+
+Arg (optional, default=0.9): alpha.
+"""
     if len(inputs) == 0:
         return null, {'alpha': alpha, 'prev': prev}
 
@@ -53,6 +63,11 @@ def ewma(inputs, alpha=0.9, prev=None):
     return inputs, {'alpha': alpha, 'prev': inputs[-1][1]}
 
 def movingavg(inputs, lag=10, hist=null):
+    """Apply a windowed moving average to input data in terms of data
+    points.
+
+Arg (optional): the width of the window; default is 10.
+"""
     inputs = np.array(inputs, dtype=float)
     data = np.vstack((hist, inputs))
 
@@ -101,3 +116,18 @@ class SubsampleOperator(GroupByTimeOperator):
         self.name = 'subsample-' + str(period)
         for i in xrange(len(self.inputs)):
             self.outputs[i]['uuid'] = str(uuid.uuid5(uuid.UUID(self.inputs[i]['uuid']), self.name))
+
+class NonZeroOperator(operators.Operator):
+    operator_name = 'nonzero'
+    operator_constructors = [(lambda x: x,)]
+
+    def __init__(self, inputs, filter):
+        self.filter = filter(inputs)
+        self.name = 'nonzero(%s)' % str(filter)
+        operators.Operator.__init__(self, inputs, operators.OP_N_TO_N)
+
+    def base_operator(self, data, takes):
+        return data[np.nonzero(np.prod(takes[:, 1:], axis=1) )]
+
+    def process(self, data):
+        return [self.base_operator(*x) for x in zip(data, self.filter(data))]

@@ -440,22 +440,26 @@ class ParallelSimpleOperator(Operator):
     def process(self, input, **kwargs):
         return self.op(input, **kwargs)
 
-def parallelize(operator, n, *opargs, **initargs):
-    """Parallelize an operator which performs identically on n input
-    streams.
-    """
-    state = [initargs] * n
-    def _parallelized(inputs, *args, **kwargs):
-        rv = [None] * n
-        for i in xrange(0, n):
-            state[i].update(kwargs)
-            opdata = operator(inputs[i], *opargs, **state[i])
+
+class parallelize(object):
+    def __init__(self, operator, n, *opargs, **initargs):
+        self.operator = operator
+        self.n = n
+        self.opargs = opargs
+        self.state = [initargs] * n
+
+    def __call__(self, inputs):
+        rv = [None] * self.n
+        print self.n, len(inputs), self.operator
+        assert self.n == len(inputs)
+        for i in xrange(0, self.n):
+            opdata = self.operator(inputs[i], *self.opargs, **self.state[i])
             if isinstance(opdata, tuple):
-                rv[i], state[i] = opdata
+                rv[i], self.state[i] = opdata
             else:
                 rv[i] = opdata
         return rv
-    return _parallelized
+
 
 class VectorOperator(Operator):
     """Base class for operators which can work on either axis.
