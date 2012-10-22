@@ -450,7 +450,6 @@ class parallelize(object):
 
     def __call__(self, inputs):
         rv = [None] * self.n
-        print self.n, len(inputs), self.operator
         assert self.n == len(inputs)
         for i in xrange(0, self.n):
             opdata = self.operator(inputs[i], *self.opargs, **self.state[i])

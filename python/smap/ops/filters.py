@@ -118,6 +118,20 @@ class SubsampleOperator(GroupByTimeOperator):
             self.outputs[i]['uuid'] = str(uuid.uuid5(uuid.UUID(self.inputs[i]['uuid']), self.name))
 
 class NonZeroOperator(operators.Operator):
+    """Operator which only returns rows from input timeseries where a condition holds:
+
+    Usage: nonzero(test_operator)
+
+    test_operator will be applied to the input data; the input data
+    will be returned wherever the condition evaluates to true
+
+    Example:
+
+    nonzero(greater(0)) 
+       find data greater than zero
+
+    """
+
     operator_name = 'nonzero'
     operator_constructors = [(lambda x: x,)]
 

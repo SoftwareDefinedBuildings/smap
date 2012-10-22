@@ -116,8 +116,8 @@ class GroupByTimeOperator(Operator):
             # apply
             opresult = self.bucket_op(data)
             if max(map(len, opresult)) > 1:
-                raise SmapException("Error! Grouping operators can not produce "
-                                    "more than one result per group!")
+                raise core.SmapException("Error! Grouping operators can not produce "
+                                         "more than one result per group!")
             if self.snap_times:
                 for x in opresult:
                     x[:, 0] = time
@@ -359,28 +359,104 @@ class GroupByTagOperator(Operator):
             rv[i] = self.operators[i](input_data)
         return util.flatten(rv)
 
-class PasteOperator(Operator):
-    """A special operator which returns a matrix (not the usual time
-    series) of data with NaNs inserted to mark missing data"""
-    name = "paste"
-    operator_name = "paste"
-    operator_constructors = [()]
-
-    def __init__(self, inputs, sort='uuid', reverse=False):
+class _OrderedOperator(Operator):
+    def __init__(self, inputs, sort=None, reverse=False):
+        # set default sort differently for the different methods
         if sort:
             keys = zip(map(operator.itemgetter(sort), inputs), range(0, len(inputs)))
             keys.sort(key=lambda x: x[0], reverse=reverse)
             self.order = map(operator.itemgetter(1), keys)
         else:
             self.order = None
-        self.name = 'paste(sort=%s, reverse=%s)' % (str(sort), str(reverse))
+        self.name = '%s(sort=%s, reverse=%s)' % (self.operator_name, 
+                                                 str(sort), 
+                                                 str(reverse))
         Operator.__init__(self, inputs)
 
     def process(self, data):
         if not self.order:
-            return [transpose_streams(join_union(data))]
+            return self._process(data)
         else:
-            return [transpose_streams(join_union(map(lambda i: data[i], 
-                                                     self.order)))]
+            return self._process(map(lambda i: data[i], 
+                                     self.order))
 
 
+
+class PasteOperator(_OrderedOperator):
+    """A special operator which returns a matrix (not the usual time
+    series) of data.
+
+ sort='uuid': specify a tag name whose value will be used to determine
+    what order the columns in the matrix will be performed in.
+ reverse=False: reverse the sorted order.
+
+    The resulting matix has the columns of inputs joined on timestamp
+    -- each row corresponds to a timestamp in one or more of the
+    inputs timeseries.  If not all streams have data at a particular
+    timestamp, a NaN value is inserted to indicate the missing data.
+    """
+    name = "paste"
+    operator_name = "paste"
+    operator_constructors = [()]
+
+    def __init__(self, inputs, sort='uuid', reverse=False):
+        return _OrderedOperator.__init__(self, inputs, sort=sort, reverse=reverse)
+
+    def _process(self, data):
+        return transpose_streams(join_union(data))
+
+
+class HstackOperator(_OrderedOperator):
+    """An operator which stacks all of the input data horizontally.
+    All input vectors must have the same length for this to work.  The
+    output timeseries has timestamps which come from the first column;
+    the order columns are concatinated in may be controled with the
+    sort and reverse keyword arguments, as with paste.
+    """
+
+    name = "hstack"
+    operator_name = "hstack"
+    operator_constructors = [()]
+
+    # set default kwargs
+    def __init__(self, inputs, sort=None, reverse=False):
+        return _OrderedOperator.__init__(self, inputs, sort=sort, reverse=reverse)
+
+    def _process(self, data):
+        lengths = set((x.shape[0] for x in data))
+        if len(lengths) != 1:
+            raise core.SmapException("paste: hstack: wrong sized inputs")
+        return [np.hstack([data[0]] + map(lambda x: x[:, 1:], data[1:]))]
+
+
+class VectorizeOperator(Operator):
+    """An operator which applies multiple operators in on the same data.
+
+    This operator multiples the number of timeseries by the number of
+    operators present -- to combine in a matrix, you should generally
+    use paste or hstack.
+
+    For instance, you could use this to compute multiple statistics about your data:
+
+    window(hstack < vectorize(min, max), field="hour")
+
+    This operator computes hourly minimum and maximum values of data
+    within the window as a single time series -- the first column will
+    contain the minimum and the second the maximum.
+    """
+    name = "vectorize"
+    operator_name = "vectorize"
+    operator_constructors = []
+
+    def __init__(self, inputs, *oplist):
+        self.ops = [op(inputs) for op in oplist]
+        self.name = "%s(%s)" % (self.operator_name, ','.join(map(str, self.ops)))
+        Operator.__init__(self, inputs, 
+                          util.flatten(map(operator.attrgetter('outputs'), 
+                                           self.ops)))
+
+    def process(self, data):
+        return util.flatten(op(data) for op in self.ops)
+
+for n in xrange(0, 10):
+    VectorizeOperator.operator_constructors.append(tuple([lambda _: _] * n))
