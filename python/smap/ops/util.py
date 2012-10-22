@@ -275,3 +275,6 @@ class MaskedDTList:
         self.lst = self.lst[i:]
         self.dts = self.dts[i:]
 
+    def __iter__(self):
+        for i in xrange(0, len(self)):
+            yield self.__getitem__(i)

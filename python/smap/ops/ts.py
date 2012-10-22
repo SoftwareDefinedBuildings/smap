@@ -31,7 +31,7 @@ import operator
 import numpy as np
 
 from smap.core import SmapException
-from smap.operators import Operator, ParallelSimpleOperator
+from smap.operators import Operator, ParallelSimpleOperator, OP_N_TO_N
 from smap.contrib import dtutil
 from smap.ops.util import MaskedDTList
 
@@ -70,20 +70,31 @@ class DatetimeOperator(ParallelSimpleOperator):
 class DayOfWeekOperator(Operator):
     """Filter data by day of the week
 
-    arg: daylist: a comma-separated list of ISO week days (1 - 7), 1 = Monday.
+    kwarg: days: a comma-separated list of ISO week days (1 - 7), 1 = Monday.  
+      Default is to filter data for during the work week (M-F).
 
-    Example: dayofweek($, "1,7") returns only data occuring on a weekday
+    Performance note: this function (at the moment) is implemented by
+      doing a full timezone conversion on each timestamp; this
+      performs rather poorly.  You are likly better off putting this
+      late in the processing pipeline, after the data size has been
+      reduced by more efficient operators.
     """
     name = 'dayofweek'
-#     operator_name = 'dayofweek'
-#     operator_constructors = [(str,)]
+    operator_name = 'dayofweek'
+    operator_constructors = [(), (str,)]
 
-    def __init__(self, inputs, days):
-        self.days = map(int, ','.split(days))
+    def __init__(self, inputs, days="1,2,3,4,5"):
+        self.days = map(int, days.split(','))
         self.tzs = map(lambda x: dtutil.gettz(x['Properties/Timezone']), inputs)
         Operator.__init__(self, inputs, OP_N_TO_N)
 
     def process(self, data):
+        rv = []
         for i, vec in enumerate(data):
-            ma = MaskedDTList(vec, self.tzs[i])
-            takeidx = []
+            ma = MaskedDTList(vec[:, 0], self.tzs[i])
+            # find the days we're interested in
+            takes = filter(None,
+                           map(lambda (i, ts): i if ts.isoweekday() in self.days else None,
+                               enumerate(ma)))
+            rv.append(vec[takes, :])
+        return rv

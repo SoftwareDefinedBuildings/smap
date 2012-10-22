@@ -487,31 +487,15 @@ class VectorOperator(Operator):
                                          map(lambda (k, v): str(k) + "=" + str(v), 
                                              initargs.iteritems())))
 
-        if self.axis == 0:
-            # if we operate in parallel then we also produce n output
-            # operators
-            outputs = OP_N_TO_N
-            self.block_streaming = True
-            self.op = parallelize(self.base_operator,
-                                  len(inputs),
-                                  *opargs,
-                                  **initargs)
-        elif self.axis == 1:
-            # if we operate on streams, we only have one operator
-            outputs = OP_N_TO_1
-            self.op = self.run_on_streams(self.base_operator, opargs, initargs)
-        else:
-            raise SmapException("Invalid operator axis: " + str(self.axis))
-
+        # if we operate in parallel then we also produce n output
+        # operators
+        outputs = OP_N_TO_N
+        self.block_streaming = True
+        self.op = parallelize(self.base_operator,
+                              len(inputs),
+                              *opargs,
+                              **initargs)
         Operator.__init__(self, inputs, outputs=outputs)
-
-    def run_on_streams(self, op, opargs, initargs):
-        state = initargs
-        def _process(inputs):
-            opdata = transpose_streams(join_union(inputs))
-            oprv = op(opdata, *opargs, **state)
-            return [oprv]
-        return _process
 
     def process(self, inputs):
         return self.op(inputs)

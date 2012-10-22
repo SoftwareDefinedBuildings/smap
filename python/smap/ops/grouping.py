@@ -316,7 +316,11 @@ class GroupByDatetimeField(Operator):
         
 
 class GroupByTagOperator(Operator):
-    """Group streams by values of a shared tag"""
+    """Group streams by values of a shared tag
+
+    Usage: tgroup(<tag name>, <operator>)
+
+    """
     operator_name = 'tgroup'
     operator_constructors = [(str, lambda x: x)]
     name = 'tgroup'
@@ -403,7 +407,7 @@ class PasteOperator(_OrderedOperator):
         return _OrderedOperator.__init__(self, inputs, sort=sort, reverse=reverse)
 
     def _process(self, data):
-        return transpose_streams(join_union(data))
+        return [transpose_streams(join_union(data))]
 
 
 class HstackOperator(_OrderedOperator):
@@ -429,6 +433,27 @@ class HstackOperator(_OrderedOperator):
         return [np.hstack([data[0]] + map(lambda x: x[:, 1:], data[1:]))]
 
 
+class ReshapeOperator(ParallelSimpleOperator):
+    name = "reflow"
+    operator_name = "reflow"
+    operator_constructors = [(int,)]
+
+    def __init__(self, inputs, height):
+        ParallelSimpleOperator.__init__(self, inputs, height=height)
+
+    @staticmethod
+    def base_operator(data, height=1, buf=null):
+        buf = np.vstack((buf, data))
+        cols = buf.shape[0] / height
+        end = buf.shape[0] - (buf.shape[0] % height)
+        return (np.column_stack((buf[:height, 0], 
+                                 np.reshape(np.transpose(buf[:end, 1:]), 
+                                            (height, cols),
+                                            order='F'))),
+                {'buf': buf[end:, :],
+                 'height': height})
+
+
 class VectorizeOperator(Operator):
     """An operator which applies multiple operators in on the same data.
 
@@ -451,6 +476,10 @@ class VectorizeOperator(Operator):
     def __init__(self, inputs, *oplist):
         self.ops = [op(inputs) for op in oplist]
         self.name = "%s(%s)" % (self.operator_name, ','.join(map(str, self.ops)))
+        self.block_streaming = reduce(operator.__or__, 
+                                      (op.block_streaming for op in self.ops), 
+                                      False)
+        print "blocking", self.block_streaming
         Operator.__init__(self, inputs, 
                           util.flatten(map(operator.attrgetter('outputs'), 
                                            self.ops)))
@@ -460,3 +489,4 @@ class VectorizeOperator(Operator):
 
 for n in xrange(0, 10):
     VectorizeOperator.operator_constructors.append(tuple([lambda _: _] * n))
+

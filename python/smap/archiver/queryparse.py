@@ -316,12 +316,14 @@ data_selector = collections.namedtuple("data_selector",
 # make a data selector: what data to load.
 def p_data_clause(t):
     """data_clause : DATA IN '(' timeref ',' timeref ')' limit
+                   | DATA IN timeref ',' timeref limit
                    | DATA BEFORE timeref limit
                    | DATA AFTER timeref limit"""
     if t[2] == 'in':
+        off = 1 if t[3] == '(' else 0
         method = 'data'
-        start, end = t[4], t[6]
-        limit = t[8]
+        start, end = t[off+3], t[off+5]
+        limit = t[2*off+6]
         if limit[0] == None: limit[0] = 10000
     elif t[2] == 'before':
         method = 'prev'
@@ -633,7 +635,7 @@ if __name__ == '__main__':
     from optparse import OptionParser
 
     logging.basicConfig()
-
+ 
     # pull out options
     usage = "usage: %prog [options] archiver-config.ini"
     parser = OptionParser(usage=usage)
@@ -681,10 +683,13 @@ if __name__ == '__main__':
     # command-line options we need.
     class Request(object):
         def write(self, data):
-            print "got data", data
+            try:
+                pprint.pprint(json.loads(data))
+            except:
+                print data
 
         def finish(self):
-            print "data done"
+            pass
 
         def registerProducer(self, a1, a2):
             pass
