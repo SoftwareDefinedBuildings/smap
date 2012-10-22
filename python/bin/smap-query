@@ -82,7 +82,8 @@ def run_query(opts, q):
         obj = client.parser(fp.read())
 
         if util.is_string(obj):
-            print obj
+            # make newlines come out right -- it's been json'ed
+            print json.loads(obj)
         elif doplot:
             plot(obj)
         else:
