@@ -61,6 +61,7 @@ def _op_from_vector_ops(name, nameop, argop, constructors=[()]):
     work on either axis."""
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
+        if np.size(data) == 0: return operators.null
         if kwargs['axis'] == 0:
             return data[argop(data[:, 1:], *args, **kwargs)]
         elif kwargs['axis'] == 1:
@@ -84,6 +85,7 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
     """
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
+        if np.size(data) == 0: return operators.null
         if kwargs['axis'] == 0:
             v = np.hstack(([timestamp(data[:, 0])], 
                            op(data[:, 1:], *args, **kwargs)))
