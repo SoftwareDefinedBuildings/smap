@@ -37,7 +37,7 @@ Optional Parameters:
 "Address" : URI to fetch data from.  The driver will GET the URL,
 and add a query parameter with the station id.
 
-"ID" [default KCABERKE7] : wunderground station id
+"ID" [default KCABERKE25] : wunderground station id
 
 "Rate" [default 60] : number of seconds between polls.
 """
@@ -59,7 +59,7 @@ class WunderGround(driver.SmapDriver):
     def setup(self, opts):
         self.url = opts.get("Address", 
                             "http://api.wunderground.com/weatherstation/WXCurrentObXML.asp")
-        self.id = opts.get("ID", "KCABERKE7")
+        self.id = opts.get("ID", "KCABERKE25")
         self.rate = int(opts.get("Rate", 60))
         self.last_time = 0
         self.metadata_done = False
