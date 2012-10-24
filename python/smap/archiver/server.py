@@ -37,10 +37,12 @@ from twisted.python import log
 
 from smap import subscriber
 from smap import util
-from smap.server import RootResource
+from smap.server import RootResource, setResponseCode
+from smap.core import SmapException
 import smap.sjson as json
 from smap.archiver import settings, data, api, republisher
 
+from smap.formatters import load_csv
 
 class DataResource(resource.Resource):
     """This resource manages the functionality of the add/ resource,
@@ -65,14 +67,18 @@ class DataResource(resource.Resource):
             # send the object to the republisher
             public = subid[0][1]
             subid = subid[0][0]
-            obj = json.loads(request.content.read())
+            if request.getHeader("Content-Type") in ["application/json", None]:
+                obj = json.loads(request.content.read())
+            elif request.getHeader("Content-Type") in ["text/csv"]:
+                obj = load_csv(request.content.read())
+            else:
+                raise SmapException("Invalid Content-Type\n", 400)
+
             self.republisher.republish(request.prepath[-1], public, obj)
             util.push_metadata(obj)
             return subid, obj
         else:
-            request.setResponseCode(404)
-            request.finish()
-            return server.NOT_DONE_YET
+            raise SmapException("Invalid key\n", 404)
 
     def getChild(self, name, request):
         return self
@@ -95,8 +101,8 @@ class DataResource(resource.Resource):
         def add_error(x):
             # return a 500 so the sMAP server can hold onto the data
             # until things can be fixed.
-            print x
-            request.setResponseCode(500)
+            setResponseCode(request, x.value, 500)
+            request.write(str(x.value))
             request.finish()
 
         # and finish the request
