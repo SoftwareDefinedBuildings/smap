@@ -102,7 +102,7 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
 # for most operators the timestamps aren't super meaningful so doing
 # something like taking the first one is sensible for column-wise
 # operator.
-percentile = _op_from_compressive_op('percentile', np.percentile, [(float,)])
+# percentile = _op_from_compressive_op('percentile', np.percentile, [(float,)])
 median = _op_from_compressive_op('median', np.median)
 mean = _op_from_compressive_op('mean', np.mean)
 sum = _op_from_compressive_op('sum', np.sum)
@@ -137,6 +137,7 @@ ceil = _op_from_ufunc('ceil', np.ceil)
 floor = _op_from_ufunc('floor', np.floor)
 trunc = _op_from_ufunc('trunc', np.trunc)
 around = _op_from_ufunc('around', np.around)
+clip = _op_from_ufunc('clip', np.clip, [(float, float)])
 
 isnan = _op_from_ufunc('isnan', np.isnan)
 greater = _op_from_ufunc('greater', np.greater, [(int,),(float,),])

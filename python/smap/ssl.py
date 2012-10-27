@@ -30,7 +30,34 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-# default configuration 
-SERVER = {
-    'port' : 8080,
-}
+try:
+    from twisted.internet import ssl
+    from twisted.python import log
+
+    from OpenSSL import SSL
+    import os
+except ImportError:
+    def getSslContext():
+        raise NotImplementedError()
+else:
+    def verifyCallback(connection, x509, errnum, errdepth, okay):
+        if not okay:
+            log.err("Invalid cert from subject: " + str(x509.get_subject()))
+            return False
+        return True
+
+    def getSslContext(opts, verify_callback=verifyCallback):
+        if not 'key' in opts or not 'cert' in opts:
+            raise ValueError("Cannot create ssl context without key and certificate files")
+    
+        ctx_factory = ssl.DefaultOpenSSLContextFactory(os.path.expanduser(opts["key"]), 
+                                                       os.path.expanduser(opts["cert"]))
+        ctx = ctx_factory.getContext()
+        if opts['verify']:
+            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                           verify_callback)
+        if 'ca' in opts:
+            print "verifying with CA", os.path.expanduser(opts['ca'])
+            ctx.load_verify_locations(os.path.expanduser(opts["ca"]))
+
+        return ctx_factory

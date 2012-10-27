@@ -31,65 +31,39 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import sys
-import ConfigParser
+import os
+from configobj import ConfigObj
+from validate import Validator
 
 from twisted.python import log
 
-# my local hostname and port to run the twisted server on.  the
-# hostname should be something smap sources can send their data to
-MY_LOCATION = 'localhost'
-# default port to run the archiver on
-MY_PORT = 8079
-# default backend to use if none is specified 
-DEFAULT_BACKEND = 'http://localhost:8079/api/query'
-
-# how often sMAP report instances should time out
-EXPIRE_TIME = None
-# how often we should check that we are still subscribed to all the
-# sMAP sources.
-CHECK_TIME = None
-
-# postgres setup for metadata and other tables
-DB_MOD = 'smap.archiver.settings'
-DB_HOST = 'localhost'
-DB_DB = 'archiver'
-DB_USER = 'archiver'
-DB_PASS = 'password'
-DB_PORT = 5432
-
-# the location of the readingdb server which holds the timeseries
-READINGDB_MOD = 'readingdb'
-READINGDB_HOST = DB_HOST
-READINGDB_PORT = 4243
-
-def import_rdb():
+def import_rdb(settings):
     global rdb
     try:
-        __import__(READINGDB_MOD)
-        rdb = sys.modules[READINGDB_MOD]
+        __import__(settings['readingdb']['module'])
+        rdb = sys.modules[settings['readingdb']['module']]
         try:
-            rdb.db_setup(READINGDB_HOST, int(READINGDB_PORT))
+            rdb.db_setup(settings['readingdb']['host'],
+                         settings['readingdb']['port'])
         except AttributeError:
             pass
     except ImportError:
         pass
 
-def munge_key(k):
-    return k.upper().replace(" ", "_")
-
 def load(conffile):
-    conf = ConfigParser.ConfigParser('')
-    conf.read(conffile)
-    if conf.has_section("archiver"):
-        for k, v in conf.items("archiver"):
-            globals()[munge_key(k)] = v 
-            log.msg(k + ": " + v)
+    config = ConfigObj(conffile,
+                       configspec=os.path.join(os.path.dirname(sys.modules[__name__].__file__),
+                                               "settings.spec"),
+                       stringify=True,
+                       indent_type='  ')
+    val = Validator()
+    config.validate(val)
     # import the readingdb module
-    import_rdb()
+    import_rdb(config)
+    return config
 
 # try to load the site conf
-load('/etc/smap/archiver.ini')
-import_rdb()
+conf = load('/etc/smap/archiver.ini')
 
 try:
     import psycopg2

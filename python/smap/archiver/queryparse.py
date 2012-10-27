@@ -357,8 +357,8 @@ def p_data_clause(t):
             'chunk': None,
             'limit' : limit })
 
-# a time reference point.  can be a unix timestamp, a date string, or
-# "now"
+# an absolute time reference.  can be a unix timestamp, a date string,
+# or "now"
 def p_timeref(t):
     """timeref : abstime
                | abstime reltime"""
@@ -398,7 +398,7 @@ def p_limit(t):
              | LIMIT NUMBER
              | STREAMLIMIT NUMBER
              | LIMIT NUMBER STREAMLIMIT NUMBER"""
-    limit, slimit = [None, 10]
+    limit, slimit = [None, 1000]
     if len(t) == 1:
         pass
     elif t[1] == 'limit':
@@ -657,8 +657,7 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
-    s.load(args[0])
-    s.import_rdb()
+    s.conf = s.load(args[0])
 
     # set up readline
     HISTFILE = os.path.expanduser('~/.smap-query-history')
@@ -671,12 +670,12 @@ if __name__ == '__main__':
             pass
     atexit.register(readline.write_history_file, HISTFILE)
 
-    cp = adbapi.ConnectionPool(s.DB_MOD,
-                               host=s.DB_HOST,
-                               database=s.DB_DB,
-                               user=s.DB_USER,
-                               password=s.DB_PASS,
-                               port=int(s.DB_PORT),
+    cp = adbapi.ConnectionPool(s.conf['database']['module'],
+                               host=s.conf['database']['host'],
+                               database=s.conf['database']['db'],
+                               user=s.conf['database']['user'],
+                               password=s.conf['database']['password'],
+                               port=s.conf['database']['port'],
                                cp_min=1, cp_max=1)
 
     # make a fake request to give the parser with whatever

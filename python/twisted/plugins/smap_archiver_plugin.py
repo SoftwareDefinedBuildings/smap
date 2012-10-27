@@ -37,7 +37,7 @@ from zope.interface import implements
 
 from twisted.python import usage
 from twisted.plugin import IPlugin
-from twisted.application.service import IServiceMaker
+from twisted.application.service import IServiceMaker, MultiService
 from twisted.application import internet
 from twisted.internet import reactor, ssl
 from twisted.application.service import MultiService
@@ -45,6 +45,7 @@ from twisted.enterprise import adbapi
 
 from smap.archiver import settings
 from smap.subscriber import subscribe
+from smap.ssl import getSslContext
 
 class Options(usage.Options):
     optParameters = [["port", "p", None, "service port number"]]
@@ -60,16 +61,13 @@ class ArchiverServiceMaker(object):
     description = "A sMAP archiver"
     options = Options
 
-    def makeService(self, options):
-        # we better add 
-        reactor.suggestThreadPoolSize(30)
 
+    def makeService(self, options):
         if options['conf']:
-            settings.load(options['conf'])
-        if options['port']:
-            port = int(options['port'])
-        else:
-            port = int(settings.MY_PORT)
+            settings.conf = settings.load(options['conf'])
+
+        # we better add 
+        reactor.suggestThreadPoolSize(settings.conf['threadpool size'])
 
         if options['memdebug']:
             from twisted.internet import task
@@ -82,19 +80,31 @@ class ArchiverServiceMaker(object):
             task.LoopingCall(stats).start(2)
             
 
-        cp = adbapi.ConnectionPool(settings.DB_MOD, # 'MySQLdb', 
-                                   host=settings.DB_HOST,
-                                   database=settings.DB_DB,
-                                   user=settings.DB_USER,
-                                   password=settings.DB_PASS,
-                                   port=settings.DB_PORT,
-                                   cp_min=5, cp_max=15)
+        cp = adbapi.ConnectionPool(settings.conf['database']['module'],
+                                   host=settings.conf['database']['host'],
+                                   database=settings.conf['database']['db'],
+                                   user=settings.conf['database']['user'],
+                                   password=settings.conf['database']['password'],
+                                   port=settings.conf['database']['port'],
+                                   cp_min=5, cp_max=30)
 
         if options['subscribe']:
             subscribe(cp, settings)
 
-        site = getSite(cp)
-        service = internet.TCPServer(port, site)
+        service = MultiService()
+        for svc in settings.conf['server']:
+            scfg = settings.conf['server'][svc]
+            site = getSite(cp, resources=scfg['resources'])
+            if not len(scfg['ssl']) > 1:
+                service.addService(internet.TCPServer(scfg['port'],
+                                                      site,
+                                                      interface=scfg['interface']))
+            else:
+                service.addService(internet.SSLServer(scfg['port'],
+                                                      site,
+                                                      getSslContext(scfg['ssl']),
+                                                      interface=scfg['interface']))
+
         return service
 
 # try this; since we may be missing psycopg2 or readingdb, we may not

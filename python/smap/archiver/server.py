@@ -110,12 +110,15 @@ class DataResource(resource.Resource):
         d.addErrback(add_error)
         return server.NOT_DONE_YET
 
-def getSite(db):
+def getSite(db, resources=['add', 'api', 'republish']):
     """Get the twisted site for smap-archiver"""
-    root = RootResource(value={'Contents': ['add', 'api', 'republish']})
+    root = RootResource(value={'Contents': resources})
     repub = republisher.ReResource(db)
-    root.putChild('add', DataResource(db, repub))
-    root.putChild('api', api.Api(db))
-    root.putChild('republish', repub)
+    if 'republish' in resources:
+        root.putChild('republish', repub)
+    if 'add' in resources:
+        root.putChild('add', DataResource(db, repub))
+    if 'api' in resources:
+        root.putChild('api', api.Api(db))
     return server.Site(root)
 

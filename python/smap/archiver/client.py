@@ -43,7 +43,8 @@ import smap.util as util
 from smap import util
 from smap.core import SmapException
 import smap.sjson as json
-from smap.archiver import tscache, settings
+from smap.archiver import tscache
+from smap.archiver.settings import conf
 
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
@@ -97,7 +98,7 @@ results together."""
 class SmapClient:
     """Blocking client class for the archiver API.
     """
-    def __init__(self, base=settings.DEFAULT_BACKEND,
+    def __init__(self, base=conf['default backend'],
                  key=None, private=False, timeout=50.0):
         """
 :param string base: URL of the base archiver

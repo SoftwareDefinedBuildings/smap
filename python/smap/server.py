@@ -83,7 +83,9 @@ class InstanceResource(resource.Resource):
             return ("No such timeseries or collection: " + 
                     util.join_path(request.postpath) + '\n')
         else:
-            d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
+                                    request, 
+                                    obj)
             d.addCallback(lambda x: self.send_reply(request, x))
             d.addErrback(lambda x: self.send_error(request, x))
             return server.NOT_DONE_YET

@@ -73,8 +73,8 @@ class ReadingdbPool:
 
     def get(self):
         # print "connect", settings.READINGDB_HOST, settings.READINGDB_PORT
-        return settings.rdb.db_open(host=settings.READINGDB_HOST,
-                           port=int(settings.READINGDB_PORT))
+        return settings.rdb.db_open(host=settings.conf['readingdb']['host'],
+                           port=settings.conf['readingdb']['port'])
             
     def put(self, conn):
         # self.pool.append(conn)
@@ -227,7 +227,7 @@ class DataRequester:
                 int(request.args.get('endtime', [now])[0]) / 1000
                 ]
             kwargs = {
-                'limit': int(request.args.get('limit', [1000000])[0])
+                'limit': int(request.args.get('limit', [10000000])[0])
                 }
         else:
             if method == 'prev':
@@ -295,7 +295,7 @@ def data_load_result(request, method, result, send=False, **loadargs):
 :param loadargs: additional args for the data loader (see :py:class:`DataRequester`).
 :return: a deferred which will fire with the result of loading the requested data.
     """
-    count = int(request.args.get('streamlimit', ['10'])[0])
+    count = int(request.args.get('streamlimit', ['1000'])[0])
     if count == 0:
         count = len(result)
 
