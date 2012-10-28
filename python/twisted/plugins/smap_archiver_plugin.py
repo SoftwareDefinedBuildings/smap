@@ -43,9 +43,9 @@ from twisted.internet import reactor, ssl
 from twisted.application.service import MultiService
 from twisted.enterprise import adbapi
 
-from smap.archiver import settings
+from smap.archiver import settings, republisher
 from smap.subscriber import subscribe
-from smap.ssl import getSslContext
+from smap.ssl import SslServerContextFactory
 
 class Options(usage.Options):
     optParameters = [["port", "p", None, "service port number"]]
@@ -78,7 +78,6 @@ class ArchiverServiceMaker(object):
                 print
                 print '\n'.join(map(str, objgraph.most_common_types(limit=10)))
             task.LoopingCall(stats).start(2)
-            
 
         cp = adbapi.ConnectionPool(settings.conf['database']['module'],
                                    host=settings.conf['database']['host'],
@@ -91,10 +90,15 @@ class ArchiverServiceMaker(object):
         if options['subscribe']:
             subscribe(cp, settings)
 
+
+        # create a single republisher to send the data out on
+        repub = republisher.ReResource(cp)
         service = MultiService()
         for svc in settings.conf['server']:
             scfg = settings.conf['server'][svc]
-            site = getSite(cp, resources=scfg['resources'])
+            site = getSite(cp, 
+                           resources=scfg['resources'],
+                           repub=repub)
             if not len(scfg['ssl']) > 1:
                 service.addService(internet.TCPServer(scfg['port'],
                                                       site,
@@ -102,7 +106,7 @@ class ArchiverServiceMaker(object):
             else:
                 service.addService(internet.SSLServer(scfg['port'],
                                                       site,
-                                                      getSslContext(scfg['ssl']),
+                                                      SslServerContextFactory(scfg['ssl']),
                                                       interface=scfg['interface']))
 
         return service

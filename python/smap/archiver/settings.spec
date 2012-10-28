@@ -17,7 +17,7 @@ threadpool size = integer(default=30)
 
 [database]
 module = string(default="smap.archiver.settings")
-host = string(default="archiver")
+host = string(default="localhost")
 db = string(default="archiver")
 user = string(default="archiver")
 password = string(default="password")

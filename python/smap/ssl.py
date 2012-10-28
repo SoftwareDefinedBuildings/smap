@@ -27,18 +27,20 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
+Configure client and server SSL contexts for use in various servers
+
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-try:
-    from twisted.internet import ssl
-    from twisted.python import log
+import os
+from twisted.python import log
 
+try:
+    from twisted.internet.ssl import ClientContextFactory
+    from twisted.internet.ssl import DefaultOpenSSLContextFactory
     from OpenSSL import SSL
-    import os
 except ImportError:
-    def getSslContext():
-        raise NotImplementedError()
+    pass
 else:
     def verifyCallback(connection, x509, errnum, errdepth, okay):
         if not okay:
@@ -46,18 +48,43 @@ else:
             return False
         return True
 
-    def getSslContext(opts, verify_callback=verifyCallback):
-        if not 'key' in opts or not 'cert' in opts:
-            raise ValueError("Cannot create ssl context without key and certificate files")
-    
-        ctx_factory = ssl.DefaultOpenSSLContextFactory(os.path.expanduser(opts["key"]), 
-                                                       os.path.expanduser(opts["cert"]))
-        ctx = ctx_factory.getContext()
-        if opts['verify']:
-            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                           verify_callback)
-        if 'ca' in opts:
-            print "verifying with CA", os.path.expanduser(opts['ca'])
-            ctx.load_verify_locations(os.path.expanduser(opts["ca"]))
+    class SslServerContextFactory(DefaultOpenSSLContextFactory):
+        """A server context factory for validating client connections"""
+        def __init__(self, opts):
+            if not 'key' in opts or not 'cert' in opts:
+                raise ValueError("Cannot create ssl context without key and certificate files")
 
-        return ctx_factory
+            DefaultOpenSSLContextFactory.__init__(self, 
+                                                  os.path.expanduser(opts["key"]), 
+                                                  os.path.expanduser(opts["cert"]))
+            ctx = self.getContext()
+            if opts['verify']:
+                ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                               verifyCallback)
+            if 'ca' in opts:
+                ctx.load_verify_locations(os.path.expanduser(opts["ca"]))
+
+
+    class SslClientContextFactory(ClientContextFactory):
+        """Make a client context factory for delivering data.
+        """
+        def __init__(self, opts):
+            self.ssl_opts = opts
+
+        def getContext(self, hostname, port): 
+            self.method = SSL.SSLv23_METHOD
+            ctx = ClientContextFactory.getContext(self)
+
+            if 'cert' in self.ssl_opts and 'key' in self.ssl_opts:
+                ctx.use_certificate_file(os.path.expanduser(self.ssl_opts['cert']))
+                ctx.use_privatekey_file(os.path.expanduser(self.ssl_opts['key']))
+
+            if self.ssl_opts.get('verify', False):
+                ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                               verifyCallback)
+            if 'ca' in self.ssl_opts:
+                ctx.load_verify_locations(os.path.expanduser(self.ssl_opts['CAFile']))
+
+            return ctx
+
+

@@ -54,9 +54,8 @@ from contrib import client
 from smap.formatters import get_formatter
 
 try:
-    from twisted.internet.ssl import ClientContextFactory
-    from OpenSSL import SSL
-except:
+    from smap.ssl import SslClientContextFactory
+except ImportError:
     log.err("Failed to import ssl... only HTTP delivery will be available")
     
 
@@ -102,34 +101,6 @@ def reporting_map(rpt, col_cb, ts_cb):
             col_cb(p, v)
         else:
             ts_cb(p, v)
-
-
-class SmapClientContextFactory(ClientContextFactory):
-    """Make a client context factory for delivering data.
-    """
-    def __init__(self, report_inst):
-        self.report_inst = report_inst
-
-    @staticmethod
-    def verifyCallback(connection, x509, errnum, errdepth, okay):
-        if okay: return True
-        else: return False
-
-    def getContext(self, hostname, port): 
-        self.method = SSL.SSLv23_METHOD
-        ctx = ClientContextFactory.getContext(self)
-
-        if 'ClientCertificateFile' in self.report_inst and \
-                'ClientPrivateKeyFile' in self.report_inst:
-            ctx.use_certificate_file(self.report_inst['ClientCertificateFile'])
-            ctx.use_privatekey_file(self.report_inst['ClientPrivateKeyFile'])
-
-        if 'CAFile' in self.report_inst:
-            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                           self.verifyCallback)
-            ctx.load_verify_locations(os.path.expanduser(self.report_inst['CAFile']))
-
-        return ctx
 
 def is_https_url(url):
     return urlparse.urlparse(url).scheme == 'https'
@@ -294,7 +265,7 @@ class ReportInstance(dict):
 
         dest_url = self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]
         if is_https_url(dest_url):
-            agent = Agent(reactor, SmapClientContextFactory(self))
+            agent = Agent(reactor, SslClientContextFactory(self))
         else:
             agent = Agent(reactor)
 
