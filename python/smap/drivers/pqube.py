@@ -57,44 +57,54 @@ from smap.util import periodicSequentialCall
 
 urllib2.install_opener(urllib2.build_opener())
 
+def p(val):
+    return float(val[0])
+def kwh_mwh_parser(val):
+    if val[1].lower() == 'kwh':
+        return float(val[0])
+    else:
+        return float(val[0]) * 1000
+
 PQUBE_POINTS = [
-    ('L1-N', r'^(\d+\.\d+)', 'A', 'phase-neutral_voltage', 'V'), #ultiplier=1, divisor=1,
-    ('L2-N', r'^(\d+\.\d+)', 'B', 'phase-neutral_voltage', 'V'), #ultiplier=1, divisor=1,
-    ('L3-N', r'^(\d+\.\d+)', 'C', 'phase-neutral_voltage', 'V'), #ultiplier=1, divisor=1,
+    ('L1-N', r'^(\d+\.\d+)', 'A', 'phase-neutral_voltage', 'V', p), 
+    ('L2-N', r'^(\d+\.\d+)', 'B', 'phase-neutral_voltage', 'V', p), 
+    ('L3-N', r'^(\d+\.\d+)', 'C', 'phase-neutral_voltage', 'V', p), 
 
-    ('L1 Amp', r'^(\d+\.\d+)', 'A', 'current', 'A'), #ultiplier=1, divisor=1,
-    ('L2 Amp', r'^(\d+\.\d+)', 'B', 'current', 'A'), #ultiplier=1, divisor=1,
-    ('L3 Amp', r'^(\d+\.\d+)', 'C', 'current', 'A'), #ultiplier=1, divisor=1,
+    ('L1 Amp', r'^(\d+\.\d+)', 'A', 'current', 'A', p), 
+    ('L2 Amp', r'^(\d+\.\d+)', 'B', 'current', 'A', p), 
+    ('L3 Amp', r'^(\d+\.\d+)', 'C', 'current', 'A', p), 
 
-#     ('L1-N Voltage Fundamental', r'^(\d+\.\d+)', 'A', 'a-n fundamental voltage'),
-#     ('L1-N Voltage Fundamental', r'^(\d+\.\d+)', 'A', 'a-n fundamental phase'),
-#     ('L2-N Voltage Fundamental', r'^(\d+\.\d+)', 'B', 'a-n fundamental voltage'),
-#     ('L2-N Voltage Fundamental', r'^(\d+\.\d+)', 'B', 'a-n fundamental phase'),
-#     ('L3-N Voltage Fundamental', r'^(\d+\.\d+)', 'C', 'a-n fundamental voltage'),
-#     ('L3-N Voltage Fundamental', r'^(\d+\.\d+)', 'C', 'a-n fundamental phase'),
+#     ('L1-N Voltage Fundamental', r'^(\d+\.\d+)', 'A', 'a-n fundamental voltage', p),
+#     ('L1-N Voltage Fundamental', r'^(\d+\.\d+)', 'A', 'a-n fundamental phase', p),
+#     ('L2-N Voltage Fundamental', r'^(\d+\.\d+)', 'B', 'a-n fundamental voltage', p),
+#     ('L2-N Voltage Fundamental', r'^(\d+\.\d+)', 'B', 'a-n fundamental phase', p),
+#     ('L3-N Voltage Fundamental', r'^(\d+\.\d+)', 'C', 'a-n fundamental voltage', p),
+#     ('L3-N Voltage Fundamental', r'^(\d+\.\d+)', 'C', 'a-n fundamental phase', p),
 
-    ('Frequency', r'^(\d+\.\d+)', 'ABC', 'line_frequency', 'Hz'), #ultiplier=1, divisor=1,
-    ('Voltage THD', r'^(\d+\.\d+)', 'ABC', 'voltage_thd', 'pct'), #ultiplier=1, divisor=1,
-    ('Current TDD', r'^(\d+\.\d+)', 'ABC', 'current_tdd', 'pct'), #ultiplier=1, divisor=1,
+    ('Frequency', r'^(\d+\.\d+)', 'ABC', 'line_frequency', 'Hz', p), 
+    ('Voltage THD', r'^(\d+\.\d+)', 'ABC', 'voltage_thd', 'pct', p), 
+    ('Current TDD', r'^(\d+\.\d+)', 'ABC', 'current_tdd', 'pct', p), 
 
-    ('L1-L2', r'^(\d+\.\d+)', 'AB', 'volts', 'V'), #ultiplier=1, divisor=1,
-    ('L2-L3', r'^(\d+\.\d+)', 'BC', 'volts', 'V'), #ultiplier=1, divisor=1,
-    ('L3-L1', r'^(\d+\.\d+)', 'AC', 'volts', 'V'), #ultiplier=1, divisor=1,
+    ('L1-L2', r'^(\d+\.\d+)', 'AB', 'volts', 'V', p), 
+    ('L2-L3', r'^(\d+\.\d+)', 'BC', 'volts', 'V', p), 
+    ('L3-L1', r'^(\d+\.\d+)', 'AC', 'volts', 'V', p), 
 
-    ('Power', r'^(\d+\.\d+)', 'ABC', 'true_power', 'kW'), #ultiplier=1, divisor=1,
-    ('Apparent Power', r'^(\d+\.\d+)', 'ABC', 'apparent_power', 'kVA'), #ultiplier=1, divisor=1,
-    ('Reactive Power', r'^(\d+\.\d+)', 'ABC', 'reactive_power', 'kVAR'), #ultiplier=1, divisor=1,
-    ('True Power Factor', r'^(\d+\.\d+)', 'ABC', 'pf', 'PF'), #ultiplier=1, divisor=1,
+    ('Power', r'^(\d+\.\d+)', 'ABC', 'true_power', 'kW', p), 
+    ('Apparent Power', r'^(\d+\.\d+)', 'ABC', 'apparent_power', 'kVA', p), 
+    ('Reactive Power', r'^(\d+\.\d+)', 'ABC', 'reactive_power', 'kVAR', p), 
+    ('True Power Factor', r'^(\d+\.\d+)', 'ABC', 'pf', 'PF', p), 
 
     # meters
-    ('Energy', r'^(\d+\.\d+)', 'ABC', 'true_energy', 'kWh'), #ultiplier=1000, divisor=1,
-    ('Apparent Energy', r'^(\d+\.\d+)', 'ABC', 'apparent_energy', 'kVAh'), #ultiplier=1000, divisor=1,
+    ('Energy', r'^(\d+\.\d+)(KWh|MWh)', 'ABC', 'true_energy', 'kWh', kwh_mwh_parser),
+    ('Apparent Energy', r'^(\d+\.\d+)', 'ABC', 'apparent_energy', 'kVAh', p), 
     ]
+
+
 class PQube(SmapDriver):
     def setup(self, opts):
         self.serverloc = opts['Address']
-        self.rate = opts.get('Rate', 10)
-        for (field, regexp, phase, channel, fmt) in PQUBE_POINTS:
+        self.rate = int(opts.get('Rate', 10))
+        for (field, regexp, phase, channel, fmt, vparser) in PQUBE_POINTS:
             self.add_timeseries('/%s/%s' % (phase, channel), fmt, data_type="double")
             self.set_metadata('/%s' % phase, {
                 'Extra/Phase' : phase})
@@ -128,7 +138,7 @@ class PQube(SmapDriver):
         data_map = {}
         data_map.update(data)
 
-        for (field, regexp, phase, channel, fmt) in PQUBE_POINTS:
+        for (field, regexp, phase, channel, fmt, vparser) in PQUBE_POINTS:
             reading = data_map.get(field.lower())
             if not reading: 
                 logging.warn(field + " not found in doc")
@@ -138,5 +148,4 @@ class PQube(SmapDriver):
                 logging.warn("reading conversion failed: " + reading)
                 continue
 
-            self.add('/%s/%s' % (phase, channel), reading_time, float(match.groups(0)[0]))
-
+            self.add('/%s/%s' % (phase, channel), reading_time, vparser(match.groups(0)))
