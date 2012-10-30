@@ -45,6 +45,11 @@ from twisted.application.service import MultiService
 from smap import core, loader, smapconf
 from smap.server import getSite
 
+try:
+    from smap.ssl import SslServerContextFactory
+except ImportError:
+    pass
+
 class Options(usage.Options):
     optParameters = [["data-dir", "d", None, "directory for data"],
                      ["port", "p", None, "service port number"],
@@ -90,7 +95,7 @@ class SmapServiceMaker(object):
         if 'sslport' in smapconf.SERVER:
             service.addService(internet.SSLServer(int(smapconf.SERVER['sslport']), 
                                                   site, 
-                                                  smapconf.getSslContext()))
+                                                  SslServerContextFactory(smapconf.SERVER)))
         return service
 
 serviceMaker = SmapServiceMaker()
