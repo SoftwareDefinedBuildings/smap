@@ -6,7 +6,7 @@ threadpool size = integer(default=30)
 [server]
   [[__many__]]
   port = integer(default=8079)
-  interface = string(default="127.0.0.1")
+  interface = string(default="0.0.0.0")
   resources = list(default=list('add', 'api', 'republish'))
 
     [[[ssl]]]

@@ -42,7 +42,7 @@ try:
 except ImportError:
     pass
 else:
-    def verifyCallback(connection, x509, errnum, errdepth, okay):
+    def defaultVerifyCallback(connection, x509, errnum, errdepth, okay):
         if not okay:
             log.err("Invalid cert from subject: " + str(x509.get_subject()))
             return False
@@ -50,7 +50,7 @@ else:
 
     class SslServerContextFactory(DefaultOpenSSLContextFactory):
         """A server context factory for validating client connections"""
-        def __init__(self, opts):
+        def __init__(self, opts, verifyCallback=defaultVerifyCallback):
             if not 'key' in opts or not 'cert' in opts:
                 raise ValueError("Cannot create ssl context without key and certificate files")
 
@@ -58,7 +58,7 @@ else:
                                                   os.path.expanduser(opts["key"]), 
                                                   os.path.expanduser(opts["cert"]))
             ctx = self.getContext()
-            if opts['verify']:
+            if 'verify' in opts and opts['verify'].lower() in ['true']:
                 ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                                verifyCallback)
             if 'ca' in opts:
@@ -68,8 +68,9 @@ else:
     class SslClientContextFactory(ClientContextFactory):
         """Make a client context factory for delivering data.
         """
-        def __init__(self, opts):
+        def __init__(self, opts, verifyCallback=defaultVerifyCallback):
             self.ssl_opts = opts
+            self.verifyCallback = verifyCallback
 
         def getContext(self, hostname, port): 
             self.method = SSL.SSLv23_METHOD
@@ -79,9 +80,9 @@ else:
                 ctx.use_certificate_file(os.path.expanduser(self.ssl_opts['cert']))
                 ctx.use_privatekey_file(os.path.expanduser(self.ssl_opts['key']))
 
-            if self.ssl_opts.get('verify', False):
+            if 'verify' in opts and opts['verify'].lower() in ['true']:
                 ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                               verifyCallback)
+                               self.verifyCallback)
             if 'ca' in self.ssl_opts:
                 ctx.load_verify_locations(os.path.expanduser(self.ssl_opts['CAFile']))
 
