@@ -296,7 +296,61 @@ DB = [
         "extra" : {
             "Rate": 300
             }
+        },
+    {
+        "obviusname" : "Dent Power Scout A",
+        "sensors" : [
+            ('kW System', MAYBEFLOATPAT, 'ABC', 'power_sum', 'kW'),
+            ('kW L1', MAYBEFLOATPAT, 'A', 'energy_sum', 'kW'),
+            ('kW L2', MAYBEFLOATPAT, 'B', 'energy_sum', 'kW'),
+            ('kW L3', MAYBEFLOATPAT, 'C', 'energy_sum', 'kW'),
+            ('Volts L1 to Neutral', MAYBEFLOATPAT, 'A', 'volts', 'V'),
+            ('Volts L2 to Neutral', MAYBEFLOATPAT, 'B', 'volts', 'V'),
+            ('Volts L3 to Neutral', MAYBEFLOATPAT, 'C', 'volts', 'V'),
+            ('Volts Line to Neutral Avg', MAYBEFLOATPAT, 'ABC', 'volts', 'V'),
+            ('Volts L1 to L2', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Volts L2 to L3', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Volts L1 to L3', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Line Frequency', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('kWh System', MAYBEFLOATPAT, 'ABC', 'energy_sum', 'kWh'),
+            ('kWh L1', MAYBEFLOATPAT, 'A', 'energy_net', 'kWh'),
+            ('kWh L2', MAYBEFLOATPAT, 'B', 'energy_net', 'kWh'),
+            ('kWh L3', MAYBEFLOATPAT, 'C', 'energy_net', 'kWh'),
+            ('kVARh System', MAYBEFLOATPAT, 'ABC', 'reactive_energy', 'kVARh'),
+            ('kVARh L1', MAYBEFLOATPAT, 'A', 'reactive_energy', 'kVARh'),
+            ('kVARh L2', MAYBEFLOATPAT, 'B', 'reactive_energy', 'kVARh'),
+            ('kVARh L3', MAYBEFLOATPAT, 'C', 'reactive_energy', 'kVARh'),
+            ('kVAh System', MAYBEFLOATPAT, 'ABC', 'apparent_energy', 'kVAh'),
+            ('kVAh L1', MAYBEFLOATPAT, 'A', 'apparent_energy', 'kVAh'),
+            ('kVAh L2', MAYBEFLOATPAT, 'B', 'apparent_energy', 'kVAh'),
+            ('kVAh L3', MAYBEFLOATPAT, 'C', 'apparent_energy', 'kVAh'),
+            ('kVAR System', MAYBEFLOATPAT, 'ABC', 'reactive_power', 'kVAR'),
+            ('kVAR L1', MAYBEFLOATPAT, 'A', 'reactive_power', 'kVAR'),
+            ('kVAR L2', MAYBEFLOATPAT, 'B', 'reactive_power', 'kVAR'),
+            ('kVAR L3', MAYBEFLOATPAT, 'C', 'reactive_power', 'kVAR'),
+            ('kVA System', MAYBEFLOATPAT, 'ABC', 'apparent_power', 'kVA'),
+            ('kVA L1', MAYBEFLOATPAT, 'A', 'apparent_power', 'kVA'),
+            ('kVA L2', MAYBEFLOATPAT, 'B', 'apparent_power', 'kVA'),
+            ('kVA L3', MAYBEFLOATPAT, 'C', 'apparent_power', 'kVA'),
+            ('Amps System Avg', MAYBEFLOATPAT, 'ABC', 'current', 'A'),
+            ('Amps L1', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Amps L2', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Amps L3', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('Displacement PF System', MAYBEFLOATPAT, 'ABC', 'displacement_pf', 'dPF'),
+            ('Displacement PF L1', MAYBEFLOATPAT, 'A', 'displacement_pf', 'dPF'),
+            ('Displacement PF L2', MAYBEFLOATPAT, 'B', 'displacement_pf', 'dPF'),
+            ('Displacement PF L3', MAYBEFLOATPAT, 'C', 'displacement_pf', 'dPF'),
+            ('Apparent PF System', MAYBEFLOATPAT, 'ABC', 'apparent_pf', 'aPF'),
+            ('Apparent PF L1', MAYBEFLOATPAT, 'A', 'apparent_pf', 'aPF'),
+            ('Apparent PF L2', MAYBEFLOATPAT, 'B', 'apparent_pf', 'aPF'),
+            ('Apparent PF L3', MAYBEFLOATPAT, 'C', 'apparent_pf', 'aPF'),
+            ],
+        "meters" : [],
+        "extra" : {
+            "Rate": 300
+            }
         }
+
     ]
 
 unit_replace = [
