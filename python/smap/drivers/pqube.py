@@ -50,17 +50,19 @@ import urllib2
 import httplib
 import urlparse
 import re
-import signal
+import operator
+import struct
 
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
+from smap.iface.modbustcp.ModbusTCP import ModbusTCP
 
 urllib2.install_opener(urllib2.build_opener())
 
 def p(val):
     return float(val[0])
 def kwh_mwh_parser(val):
-    if val[1].lower() == 'kwh':
+    if val[1] == 'kwh':
         return float(val[0])
     else:
         return float(val[0]) * 1000
@@ -95,7 +97,7 @@ PQUBE_POINTS = [
     ('True Power Factor', r'^(\d+\.\d+)', 'ABC', 'pf', 'PF', p), 
 
     # meters
-    ('Energy', r'^(\d+\.\d+)(KWh|MWh)', 'ABC', 'true_energy', 'kWh', kwh_mwh_parser),
+    ('Energy', r'^(\d+\.\d+)(kwh|mwh)', 'ABC', 'true_energy', 'kWh', kwh_mwh_parser),
     ('Apparent Energy', r'^(\d+\.\d+)', 'ABC', 'apparent_energy', 'kVAh', p), 
     ]
 
@@ -124,10 +126,12 @@ class PQube(SmapDriver):
             fp = urllib2.urlopen(self.serverloc + '/Meters.htm', timeout=15)
             html = fp.read()
         except IOError, e:
-            logging.error("IOError while reading pqube: url: %s exception: %s" % (url, str(e)))
+            logging.error("IOError while reading pqube: url: %s exception: %s" % 
+                          (self.serverloc, str(e)))
             return
         except httplib.HTTPException, e:
-            logging.error("HTTP exception reading pqube: url: %s exception: %s" % (url, str(e)))
+            logging.error("HTTP exception reading pqube: url: %s exception: %s" % 
+                          (self.serverloc, str(e)))
             return
 
         reading_time = int(time.time())
@@ -149,3 +153,78 @@ class PQube(SmapDriver):
                 continue
 
             self.add('/%s/%s' % (phase, channel), reading_time, vparser(match.groups(0)))
+
+# modbus registers
+# reg number : (description, phase, channelname, units)
+PQUBE_REGISTERS = {
+    0 : (None, 'A', 'phase-earth_voltage', 'V'), 
+    2 : (None, 'B', 'phase-earth_voltage', 'V'), 
+    4 : (None, 'C', 'phase-earth_voltage', 'V'), 
+
+    8 : (None, 'A', 'phase-neutral_voltage', 'V'), 
+    10 : (None, 'B', 'phase-neutral_voltage', 'V'), 
+    12 : (None, 'C', 'phase-neutral_voltage', 'V'), 
+
+    28 : ('L1 Amp', 'A', 'current', 'A'), 
+    30 : ('L2 Amp', 'B', 'current', 'A'), 
+    32 : ('L3 Amp', 'C', 'current', 'A'), 
+
+    26 : ('Frequency', 'ABC', 'line_frequency', 'Hz'), 
+    64 : ('Voltage THD', 'ABC', 'voltage_thd', 'pct'), 
+    66 : ('Current TDD', 'ABC', 'current_tdd', 'pct'), 
+
+    14 : ('L1-L2', 'AB', 'volts', 'V'), 
+    16 : ('L2-L3', 'BC', 'volts', 'V'), 
+    18 : ('L3-L1', 'AC', 'volts', 'V'), 
+
+    36 : ('Power', 'ABC', 'true_power', 'W'), 
+    38 : ('Apparent Power', 'ABC', 'apparent_power', 'VA'), 
+    80 : ('Reactive Power', 'ABC', 'reactive_power', 'VAR'), 
+    82 : ('True Power Factor', 'ABC', 'pf', 'PF'), 
+
+    # meters
+    60 : ('Energy', 'ABC', 'true_energy', 'Wh'),
+    62 : ('Apparent Energy', 'ABC', 'apparent_energy', 'VAh'), 
+    }
+
+class PQubeModbus(SmapDriver):
+    # max number of registers to read in one go
+    MAX_READ_RANGE = 100
+    def setup(self, opts):
+        self.host = opts.get('Address', '128.3.13.129')
+        self.port = int(opts.get('Port', 502))
+        self.rate = int(opts.get('Rate', 1))
+        self.slaveaddr = int(opts.get('SlaveAddress', 1))
+        self.base = int(opts.get('BaseRegister', 7000))
+
+        self.set_metadata('/', {
+            'Instrument/Manufacturer' : 'Power Standards Laboratory',
+            'Instrument/SamplingPeriod' : str(self.rate),
+            'Extra/Driver' : 'smap.drivers.pqube.PQube',
+            })
+
+        for desc, phase, channel, units in PQUBE_REGISTERS.itervalues():
+            self.add_timeseries('/' + phase + '/' + channel, units, 
+                                data_type='double', description=desc)
+
+    def start(self):
+        periodicSequentialCall(self.update).start(self.rate)
+
+    def update(self):
+        """Poll the Modbus/TCP device and interpret the response"""
+        try:
+            m = ModbusTCP(self.host, self.port, self.slaveaddr)
+        except Exception, e:
+            log.err("Exception polling PQube meter at (%s:%i): %s" % 
+                    (self.host, self.port, str(e)))
+                    
+        for offset in xrange(0, max(PQUBE_REGISTERS.keys()), self.MAX_READ_RANGE):
+            data = m.read(self.base + offset, self.MAX_READ_RANGE)
+            if len(data) != self.MAX_READ_RANGE * 2:
+                log.err("Wrong data length from (%s:%i)" % (self.host, self.port))
+                return
+
+            for i in xrange(0, self.MAX_READ_RANGE * 2, 4):
+                if (offset+i) / 2 in PQUBE_REGISTERS:
+                    desc, phase, channel, units = PQUBE_REGISTERS[(offset+i) / 2]
+                    self._add('/' + phase + '/' + channel, struct.unpack(">f",  data[i:i+4])[0])
