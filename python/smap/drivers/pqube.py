@@ -53,6 +53,8 @@ import re
 import operator
 import struct
 
+from twisted.python import log
+
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 from smap.iface.modbustcp.ModbusTCP import ModbusTCP
@@ -191,9 +193,9 @@ class PQubeModbus(SmapDriver):
     # max number of registers to read in one go
     MAX_READ_RANGE = 100
     def setup(self, opts):
-        self.host = opts.get('Address', '128.3.13.129')
+        self.host = opts.get('Address')
         self.port = int(opts.get('Port', 502))
-        self.rate = int(opts.get('Rate', 1))
+        self.rate = int(opts.get('Rate', 30))
         self.slaveaddr = int(opts.get('SlaveAddress', 1))
         self.base = int(opts.get('BaseRegister', 7000))
 
@@ -212,17 +214,19 @@ class PQubeModbus(SmapDriver):
 
     def update(self):
         """Poll the Modbus/TCP device and interpret the response"""
-        try:
-            m = ModbusTCP(self.host, self.port, self.slaveaddr)
-        except Exception, e:
-            log.err("Exception polling PQube meter at (%s:%i): %s" % 
-                    (self.host, self.port, str(e)))
+        m = ModbusTCP(self.host, self.port, self.slaveaddr)
                     
         for offset in xrange(0, max(PQUBE_REGISTERS.keys()), self.MAX_READ_RANGE):
-            data = m.read(self.base + offset, self.MAX_READ_RANGE)
-            if len(data) != self.MAX_READ_RANGE * 2:
-                log.err("Wrong data length from (%s:%i)" % (self.host, self.port))
+            try:
+                data = m.read(self.base + offset, self.MAX_READ_RANGE)
+            except Exception, e:
+                log.err("Exception polling PQube meter at (%s:%i): %s" % 
+                        (self.host, self.port, str(e)))
                 return
+            else:
+                if len(data) != self.MAX_READ_RANGE * 2:
+                    log.err("Wrong data length from (%s:%i)" % (self.host, self.port))
+                    return
 
             for i in xrange(0, self.MAX_READ_RANGE * 2, 4):
                 if (offset+i) / 2 in PQUBE_REGISTERS:
