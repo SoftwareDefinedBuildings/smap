@@ -34,6 +34,8 @@ import uuid
 import datetime
 import time
 import sys
+import urlparse
+import urllib2
 from twisted.internet import reactor, threads, defer
 from zope.interface import implements
 
@@ -178,6 +180,78 @@ class SmapDriver(object):
         d.addErrback(err)
 
         return d
+
+
+class FetchDriver(SmapDriver):
+    """Driver class implementing flexible getting from multiple URI
+    schemes.  This is a virtual class and should be subclassed by a
+    driver implementing a method named process(self, data).
+
+    Options:
+
+    Uri: required.  URI of data source.  supported schemes are http,
+        https, file, and python.  The python uri should specify a
+        python function which will load the data and return it as a
+        string; for instance, python://loaders.pge_loader schemes.
+        The http and https schemes support including a username and
+        password in the url
+    Rate: how often to check the source
+    """
+    def setup(self, opts):
+        self.uri = opts.get('Uri')      # url to load
+        self.rate = int(opts.get('Rate', 30))   # rate in seconds
+        self.timeout = int(opts.get('Timeout', 30)) # timeout for IO operations
+
+        # load known URI schemes
+        scheme = urlparse.urlparse(self.uri).scheme
+        if scheme == 'http' or scheme == 'https':
+            # load a page over http
+            self.update = self.update_http
+        elif scheme == 'file':
+            # load data from a file
+            self.update = self.update_file
+        elif scheme == 'python':
+            # load data by calling a python function
+            u = util.import_module(urlparse.urlparse(self.uri).netloc)
+            self.update = lambda: u(opts)
+        else:
+            raise ValueError("Unknown URI scheme: " + scheme)
+
+    def start(self):
+        # util.periodicCallInThread(self.update).start(self.rate)
+        self.update()
+
+    def open_url(self):
+        """Open a URL using urllib2, potentially sending HTTP authentication"""
+        mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+        url_p = urlparse.urlparse(self.uri)
+        # parse out the username and password (if present) and
+        # reconstruct a url which urllib2 will accept
+        if url_p.username and url_p.password:
+            mgr.add_password(None, url_p.hostname, url_p.username, url_p.password)
+        handler = urllib2.HTTPBasicAuthHandler(mgr)
+        opener = urllib2.build_opener(handler)
+        dest = urlparse.urlunparse((url_p.scheme, url_p.hostname, url_p.path, 
+                                    url_p.params, url_p.query, url_p.fragment))
+        try:
+            # try the open but mask errors
+            fp = opener.open(dest,
+                             timeout=self.timeout)
+            data = fp.read()
+            fp.close()
+        except:
+            log.err()
+            return None
+        else:
+            return data
+
+    def update_http(self):
+        d = threads.deferToThread(self.open_url)
+        d.addCallback(self.process)
+
+    def update_file(self):
+        with open(urlparse.urlparse(self.uri).path, "r") as fp:
+            self.process(fp.read())
 
 
 class BaseDriver(SmapDriver):
