@@ -1,0 +1,20 @@
+-- -*- sql -*-
+-- create hstore extension
+CREATE EXTENSION hstore;
+-- move old table out of the way
+ALTER TABLE stream RENAME TO stream_old;
+-- create and patch the new one
+CREATE TABLE "stream" (
+    "id" serial NOT NULL PRIMARY KEY,
+    "subscription_id" integer NOT NULL REFERENCES "subscription" ("id") DEFERRABLE INITIALLY DEFERRED,
+    "uuid" varchar(36) NOT NULL UNIQUE,
+    "metadata" hstore NOT NULL
+);
+ALTER TABLE stream ALTER COLUMN metadata SET DEFAULT hstore(array[]::varchar[]);
+
+-- create all of the streams in the new table;
+INSERT INTO stream (id, subscription_id, uuid) SELECT id, subscription_id, uuid from stream_old;
+-- import all of the metadata as a new store
+UPDATE stream u SET metadata = (SELECT hstore(array_agg(m.tagname ORDER BY m.id), array_agg(m.tagval ORDER BY m.id)) FROM metadata2 m WHERE m.stream_id = u.id);
+-- reset the stream id sequence number on the new sequence
+SELECT setval('stream_id_seq1', (SELECT max(id) FROM stream));
