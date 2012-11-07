@@ -86,5 +86,6 @@ def load_html(url, **kwargs):
     return bs(load_http(url, **kwargs))
 
 def get(urls, **kwargs):
+    parser = kwargs.pop('parser', json.loads)
     v = map(lambda x: load_http(x, **kwargs), urls)
-    return zip(urls, map(json.loads, v))
+    return zip(urls, map(parser, v))
