@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="US-ASCII" ?>
+<DAS>
+<name>001EC6000675</name>
+<serial>001EC60006B1</serial>
+<devices><device>
+<name>BSMNT_Ltg - Enercept 24 - 90A11A_CCT5</name>
+<address>24</address>
+<type>Veris H8035-0100-2, Energy-Only, Modbus, 100 Amp</type>
+<class>4</class>
+<status>Ok</status>
+<numpoints>2</numpoints>
+<records><record>
+<time zone="UTC">2012-11-07 15:54:04</time>
+<age units="seconds">10</age>
+<error text="Ok">0</error><point number="0" name="Energy Consumption" units="kWh" value="35460.12"  /> 
+<point number="1" name="Real Power" units="kW" value="0.840"  /> 
+</record></records>
+</device></devices>
+</DAS>

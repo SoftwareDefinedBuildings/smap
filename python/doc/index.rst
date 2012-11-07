@@ -23,6 +23,7 @@ profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
    install
    tutorial
    conf
+   scraping
    internals
    core
    archiver
