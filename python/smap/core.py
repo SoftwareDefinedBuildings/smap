@@ -38,12 +38,14 @@ from twisted.internet import reactor, defer
 import exceptions
 import sys
 import operator
+import time 
 
 import schema
 import util
 import reporting
 import smapconf
 from interface import *
+from checkers import datacheck
 
 class SmapException(Exception):
     """Generic error"""
@@ -148,7 +150,11 @@ Can be called with 1, 2, or 3 arguments.  The forms are
             time, value, seqno = args
         else:
             raise SmapException("Invalid add arguments: must be (value), "
-                                "(time, value), or (tiem, value, seqno)")
+                                "(time, value), or (time, value, seqno)")
+
+        # note that we got data now
+        self.inst.statslog.mark()
+
         time = int(time)
         if not self.milliseconds:
             time *= 1000
@@ -281,6 +287,15 @@ class Collection(dict):
     def render(self, request):
         return self
 
+class LoggingTimeseries(object):
+    def __init__(self):
+        self.last = None
+
+    def mark(self):
+        self.last = time.time()
+
+    def latest(self):
+        return self.last
 
 class SmapInstance:
     """A sMAP instance is a tree of :py:class:`Collections` and
@@ -296,6 +311,12 @@ sMAP reporting functionality."""
         self.OBJS_PATH = {}
         self.OBJS_UUID = {}
         self.drivers = {}
+        # this contains elements of the form [function, timebetweenruns] to
+        # allow loader to hook in checking functions.
+        self.checkers = []
+        # whole-instance stats log for testing
+        self.statslog = LoggingTimeseries()
+
 
         # if we're not given an explicit report file, put it in the
         # datadir or else the cwd
@@ -322,6 +343,14 @@ sMAP reporting functionality."""
         """Causes the reporting subsystem and any drivers to be started
         """
         map(lambda x: x.start(), self.drivers.itervalues())
+
+        # set all checkers that loader has hooked in to be run on the
+        # given interval
+        checkstarter = lambda period, checker: util.periodicCallInThread(checker).start(period)
+        for args in self.checkers:
+            # wait 300 seconds to start each checker, to prevent startup lag from
+            # throwing off the checkers
+            reactor.callLater(2, checkstarter, *args)
 
     def stop(self):
         return defer.DeferredList(map(lambda x: defer.maybeDeferred(x.stop),

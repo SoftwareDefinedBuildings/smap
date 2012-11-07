@@ -43,6 +43,7 @@ import core
 import util
 import driver
 import smapconf
+import checkers
 
 class SmapLoadError(core.SmapException):
     """An error was encountered loading a config file"""
@@ -173,6 +174,7 @@ contain a ``uuid`` key to set the root identifier for the source.
 
             reports.append(reportinst)
             continue
+                      
         elif not s.startswith('/'):
             # path sections must start with a '/'
             # other sections might be present and could be parsed by
@@ -243,9 +245,15 @@ contain a ``uuid`` key to set the root identifier for the source.
             if not c:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
+            
+            # Add config file specified checkers for the driver
+            check = checkers.get(inst, newdrv, dict(conf.items(s)))
+            if check:
+                inst.checkers.append(check)
 
             # get the driver to add its points
             newdrv.setup(dict(conf.items(s)))
+            
 
         # Metadata and Description are shared between both Collections
         # and Timeseries
