@@ -80,7 +80,7 @@ else:
                 ctx.use_certificate_file(os.path.expanduser(self.ssl_opts['cert']))
                 ctx.use_privatekey_file(os.path.expanduser(self.ssl_opts['key']))
 
-            if 'verify' in opts and opts['verify'].lower() in ['true']:
+            if 'verify' in self.ssl_opts and self.ssl_opts['verify'].lower() in ['true']:
                 ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                                self.verifyCallback)
             if 'ca' in self.ssl_opts:
