@@ -296,7 +296,7 @@ DB = [
         "extra" : {
             "Rate": 300
             }
-        },
+        }, 
     {
         "obviusname" : "Dent Power Scout A",
         "sensors" : [
@@ -349,8 +349,78 @@ DB = [
         "extra" : {
             "Rate": 300
             }
-        }
-
+        },
+    {
+        "obviusname" : "Veris Full-Data Energy Meter",
+        "sensors" : [
+            ('Real Power (kW)', MAYBEFLOATPAT, 'ABC', 'power_sum', 'kW'),
+            ('Real Power phase A', MAYBEFLOATPAT, 'A', 'energy_sum', 'kW'),
+            ('Real Power phase B', MAYBEFLOATPAT, 'B', 'energy_sum', 'kW'),
+            ('Real Power phase C', MAYBEFLOATPAT, 'C', 'energy_sum', 'kW'),
+            ('Voltage phase A-N', MAYBEFLOATPAT, 'A', 'volts', 'V'),
+            ('Voltage phase B-N', MAYBEFLOATPAT, 'B', 'volts', 'V'),
+            ('Voltage phase C-N', MAYBEFLOATPAT, 'C', 'volts', 'V'),
+            ('Voltage, Line to Neutral', MAYBEFLOATPAT, 'ABC', 'volts', 'V'),
+            ('Voltage phase A-B', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Voltage phase B-C', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Voltage phase C-A', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Energy Consumption', MAYBEFLOATPAT, 'ABC', 'energy_sum', 'kWh'),
+            ('Reactive Power', MAYBEFLOATPAT, 'ABC', 'reactive_power', 'kVAR'),
+            ('Apparent Power', MAYBEFLOATPAT, 'ABC', 'apparent_power', 'kVA'),
+            ('Current (Amps)', MAYBEFLOATPAT, 'ABC', 'current', 'A'),
+            ('Current phase A', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Current phase B', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Current phase C', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            # ('Power Factor$', MAYBEFLOATPAT, 'ABC', 'pf', 'PF'),
+            ('Power Factor phase A', MAYBEFLOATPAT, 'A', 'pf', 'PF'),
+            ('Power Factor phase B', MAYBEFLOATPAT, 'B', 'pf', 'PF'),
+            ('Power Factor phase C', MAYBEFLOATPAT, 'C', 'pf', 'PF'),
+            ],
+        "meters" : [],
+        "extra" : {
+            "Rate": 300
+            }
+        },
+    {
+        "obviusname" : "SquareD",
+        "sensors" : [
+            ('kW Total', MAYBEFLOATPAT, 'ABC', 'power_sum', 'kW'),
+            ('Line Frequency', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('kWh Total', MAYBEFLOATPAT, 'ABC', 'energy_sum', 'kWh'),
+            ('KVARh Total', MAYBEFLOATPAT, 'ABC', 'reactive_energy', 'kVARh'),
+            ('KVAH Total', MAYBEFLOATPAT, 'ABC', 'apparent_energy', 'kVAh'),
+            ('KVAR Total', MAYBEFLOATPAT, 'ABC', 'reactive_power', 'kVAR'),
+            ('I AVG Primary', MAYBEFLOATPAT, 'ABC', 'current', 'A'),
+            ('I1 Primary', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('I2 Primary', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('I3 Primary', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('True Power Factor Total', MAYBEFLOATPAT, 'ABC', 'pf', 'PF'),
+            ],
+        "meters" : [],
+        "extra" : {
+            "Rate": 300
+            }
+        },
+    {
+        "obviusname" : "GE Enhanced MicroVersaTrip",
+        "sensors" : [
+            ('Total_kW', MAYBEFLOATPAT, 'ABC', 'power_sum', 'kW'),
+            ('Vab', MAYBEFLOATPAT, 'AB', 'volts', 'V'),
+            ('Vbc', MAYBEFLOATPAT, 'BC', 'volts', 'V'),
+            ('Vca', MAYBEFLOATPAT, 'AC', 'volts', 'V'),
+            ('Freq', MAYBEFLOATPAT, 'ABC', 'line_frequency', 'Hz'),
+            ('Total_kVAR', MAYBEFLOATPAT, 'ABC', 'reactive_power', 'kVAR'),
+            ('Total_kVA', MAYBEFLOATPAT, 'ABC', 'apparent_power', 'kVA'),
+            ('Ia', MAYBEFLOATPAT, 'A', 'current', 'A'),
+            ('Ib', MAYBEFLOATPAT, 'B', 'current', 'A'),
+            ('Ic', MAYBEFLOATPAT, 'C', 'current', 'A'),
+            ('PF', MAYBEFLOATPAT, 'ABC', 'pf', 'PF'),
+            ],
+        "meters" : [],
+        "extra" : {
+            "Rate": 300
+            }
+        },
     ]
 
 unit_replace = [
