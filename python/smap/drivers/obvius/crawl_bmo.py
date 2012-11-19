@@ -129,8 +129,10 @@ if __name__ == '__main__':
 
 if opts.conf:
     def make_section(cmps):
-        cmps = map(lambda s: s.replace(' ', '_'), cmps)
-        return '/' + '/'.join(map(lambda s: urllib.quote(s, safe=''), cmps))
+        # cmps = map(lambda s: s.replace(' ', '_'), cmps)
+        # return '/' + '/'.join(map(lambda s: urllib.quote(s, safe=''), cmps))i
+        import random
+        return 'path' + str(random.randint(0, 100000000))
 
     conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
     conf.optionxform = str
