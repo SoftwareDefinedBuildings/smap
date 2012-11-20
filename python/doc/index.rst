@@ -24,6 +24,7 @@ profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
    tutorial
    conf
    scraping
+   actuation
    internals
    core
    archiver

@@ -124,7 +124,7 @@ class SmapDriver(object):
             args = args[1:]
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
     def add_actuator(self, path, unit, klass, **kwargs):
-        return self.add_timeseries(path, unit, klass=klass, **kwargs)
+        return self.__inst.add_actuator(self.__join_id(path), unit, klass, **kwargs)
     def add_collection(self, path, *args):
         self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):
@@ -216,7 +216,7 @@ class FetchDriver(SmapDriver):
         elif scheme == 'python':
             # load data by calling a python function
             u = util.import_module(urlparse.urlparse(self.uri).netloc)
-            self.update = lambda: u(opts)
+            self.update = lambda: self.process(u(opts))
         else:
             raise ValueError("Unknown URI scheme: " + scheme)
 
