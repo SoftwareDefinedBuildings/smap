@@ -34,7 +34,6 @@ a Dent PowerScout 18 or Dent PowerScout 3 Modbus electric meter.
 """
 
 import sys
-import logging
 import time
 import operator
 
@@ -194,7 +193,10 @@ class Dent18(SmapDriver):
 
     def update_all(self):
         for i in range(0, len(self.elt_scales)):
-            self.update(self.elt_scales[i][0], self.elt_scales[i][1], self.base_addr + i)
+            try:
+                self.update(self.elt_scales[i][0], self.elt_scales[i][1], self.base_addr + i)
+            except IOError, e:
+                print "Failed to update", self.serverloc, ":", str(e)
 
     def update(self, elt, scale, modbus_addr):
         self.modbus_addr = modbus_addr

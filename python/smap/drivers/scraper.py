@@ -34,7 +34,7 @@ import time
 import urllib2
 
 from smap.driver import SmapDriver
-from smap.util import periodicCallInThread
+from smap.util import periodicSequentialCall
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -120,4 +120,4 @@ class ScraperDriver(SmapDriver):
         pass
     
     def start(self):
-        periodicCallInThread(self.update).start(self.update_frequency)
+        periodicSequentialCall(self.update).start(self.update_frequency)

@@ -83,7 +83,7 @@ class IseriesSteam(driver.SmapDriver):
         else:
             if reply.startswith(cmd[1:]):
                 val = float(reply[len(cmd) - 1:-1])
-                log.msg("read: " + str(val))
+                # log.msg("read: " + str(val))
                 if val == None:
                    time.sleep(0.5)
                    log.err("Failed to update reading")

@@ -33,8 +33,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
 import urllib2
 import re
+import calendar
+from dateutil import parser
 
 from smap.drivers.scraper import ScraperDriver
+from smap.contrib import dtutil
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -112,10 +115,8 @@ class PJMDriver(ScraperDriver):
         return pjm_output
 
     def parse_time(self, time_str):
-        time_str = time_str.replace(" EDT", "")
-        time_str = time.strptime(time_str, "%a %b %d %H:%M:%S %Y")
-        data_time = time.mktime(time_str)
-        return int(data_time)
+        dt = parser.parse(time_str)
+        return calendar.timegm(dt.utctimetuple())
                 
     def setup(self, opts):
         self.lastLatests = {}

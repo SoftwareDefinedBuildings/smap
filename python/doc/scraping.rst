@@ -69,7 +69,7 @@ More Complicated XML Example
 ----------------------------
 
 If what you have is an XML document, you might want to use XSLT to
-pull out the readings.  :py:class:`smap.drivers.xml.XMLDriver`
+pull out the readings.  :py:class:`smap.drivers.xslt.XMLDriver`
 provides the ability to do this.  As an example, consider the data
 produced by an Obvius Aquisuite device; see an example 
 `data file <obvius-data.xml>`_.  You can transform this file into sMAP-XML using a
@@ -79,7 +79,7 @@ simple XSLT transform and generate a driver using this config file::
  uuid = 6fa21782-27b2-11e2-9a49-370ecdac5e02
 
  [/obvius]
- type = smap.drivers.xml.XMLDriver
+ type = smap.drivers.xslt.XMLDriver
  Uri = http://un:pw@aquisuite.example.com/setup/devicexml.cgi?ADDRESS=24&TYPE=DATA
  Xslt = xslt/obvius.xsl
  Timeformat = %Y-%m-%d %H:%M:%S
