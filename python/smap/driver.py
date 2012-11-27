@@ -37,6 +37,7 @@ import sys
 import urlparse
 import urllib2
 from twisted.internet import reactor, threads, defer
+from twisted.python.util import println
 from zope.interface import implements
 
 from interface import *
@@ -221,8 +222,7 @@ class FetchDriver(SmapDriver):
             raise ValueError("Unknown URI scheme: " + scheme)
 
     def start(self):
-        # util.periodicCallInThread(self.update).start(self.rate)
-        self.update()
+        util.periodicCallInThread(self.update).start(self.rate)
 
     def open_url(self):
         """Open a URL using urllib2, potentially sending HTTP authentication"""
@@ -251,6 +251,7 @@ class FetchDriver(SmapDriver):
     def update_http(self):
         d = threads.deferToThread(self.open_url)
         d.addCallback(self.process)
+        d.addErrback(println)
 
     def update_file(self):
         with open(urlparse.urlparse(self.uri).path, "r") as fp:
