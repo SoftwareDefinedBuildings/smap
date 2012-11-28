@@ -126,7 +126,10 @@ class XMLDriver(FetchDriver):
                 self.add_timeseries(path, ts)
 
         for xmlts in data.getroot().getchildren():
+            if not 'path' in xmlts.attrib:
+                continue
             # add all of the readings
+            path = xmlts.attrib['path']
             for r in xmlts.find('Readings').getchildren():
                 try:
                     rtime = self.parse_time(ts, r.find("Timestamp").text)
