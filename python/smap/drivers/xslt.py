@@ -63,6 +63,7 @@ class XMLDriver(FetchDriver):
         FetchDriver.setup(self, opts)      # set up the getter
         self.xslt = opts.get('Xslt', None) # transformation to be applied
         self.timefmt = opts.get("Timeformat", None)
+        self.timezone = opts.get("Timezone", 'UTC')
         if self.xslt:
             with open(self.xslt, "r") as fp:
                 self.xslt = etree.XSLT(etree.XML(fp.read()))
@@ -79,7 +80,8 @@ class XMLDriver(FetchDriver):
         if self.timefmt == None:
             return int(val)
         else:
-            return dtutil.dt2ts(dtutil.strptime_tz(val, self.timefmt, 'UTC'))
+            return dtutil.dt2ts(dtutil.strptime_tz(val, self.timefmt, 
+                                                   self.timezone))
 
     def make_jsonts(self, xmlts):
         """Transform a sMAP-XML Properties and Metadata section into json
@@ -99,6 +101,8 @@ class XMLDriver(FetchDriver):
                         f = ts['Metadata'].get(cat.tag, {})
                         f[field.tag] = field.text 
                         ts['Metadata'][cat.tag] = f
+        if not 'Timezone' in ts['Properties']:
+            ts['Properties']['Timezone'] = self.timezone
         return ts
 
     def process(self, data):
@@ -121,6 +125,7 @@ class XMLDriver(FetchDriver):
                 ts = core.Timeseries(ts, None)
                 self.add_timeseries(path, ts)
 
+        for xmlts in data.getroot().getchildren():
             # add all of the readings
             for r in xmlts.find('Readings').getchildren():
                 try:
