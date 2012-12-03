@@ -33,6 +33,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import os, sys
 import uuid
 import ConfigParser
+import configobj
 
 try:
     import ordereddict
@@ -127,37 +128,29 @@ contain a ``uuid`` key to set the root identifier for the source.
       raise Exception("Config file %s not found." % file)
     print "Loading config file:", found
 
-    conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
-    conf.optionxform = str
-    conf.readfp(open(found, 'r'))
+    conf = configobj.ConfigObj(found, indent_type='  ')
 
     # if there's a server section, override the default server
     # configuration with that
-    if conf.has_section('server'):
-        server_conf = dict([(k.lower(), v) for (k,v) in conf.items('server')])
-        smapconf.SERVER = util.dict_merge(smapconf.SERVER, server_conf)
+    if 'server' in conf:
+        smapconf.SERVER = util.dict_merge(smapconf.SERVER, 
+                                          dict(((k.lower(), v) for (k, v) in conf['server'].iteritems())))
 
     # we need the root to have a uuid
-    inst = core.SmapInstance(conf.get('/', 'uuid'), **instargs)
+    inst = core.SmapInstance(conf['/']['uuid'], **instargs)
     inst.loading = True
     reports = []
 
-    for s in conf.sections():
+    for s in conf:
         print "Loading section", s
         if s.startswith('report'):
-            if conf.has_option(s, 'ReportResource'):
-                resource = conf.get(s, 'ReportResource')
-            else:
-                resource = '/+'
-            dest = [conf.get(s, 'ReportDeliveryLocation')]
-            for i in xrange(0, 10):
-                if conf.has_option(s, 'ReportDeliveryLocation%i' % i):
-                    dest.append(conf.get(s, 'ReportDeliveryLocation%i' % i))
+            resource = conf[s].get('ReportResource', '/+')
+            format = conf[s].get('Format', 'json')
 
-            if conf.has_option(s, 'Format'):
-                format = conf.get(s, 'Format')
-            else:
-                format = 'json'
+            dest = [conf[s]['ReportDeliveryLocation']]
+            for i in xrange(0, 10):
+                if 'ReportDeliveryLocation%i' % i in conf[s]:
+                    dest.append(conf[s]['ReportDeliveryLocation%i' % i])
 
             reportinst = {
                 'ReportDeliveryLocation' : dest,
@@ -166,11 +159,11 @@ contain a ``uuid`` key to set the root identifier for the source.
                 'uuid' : inst.uuid(s),
                 }
             for o in ['MinPeriod', 'MaxPeriod']:
-                if conf.has_option(s, o):
-                    reportinst[o] = conf.getint(s, o)
+                if o in conf[s]:
+                    reportinst[o] = conf[s][o]
             for o in ['ClientCertificateFile', 'ClientPrivateKeyFile', 'CAFile']:
-                if conf.has_option(s, o):
-                    reportinst[i] = os.path.expanduser(conf.get(s, o))
+                if o in conf[s]:
+                    reportinst[i] = os.path.expanduser(conf[s][o])
 
             reports.append(reportinst)
             continue
@@ -188,13 +181,13 @@ contain a ``uuid`` key to set the root identifier for the source.
         s = util.norm_path(s)
 
         # build the UUID for the item
-        props = util.build_recursive(dict(conf.items(s)))
+        props = util.build_recursive(dict(conf[s].items()))
         id = None
-        if conf.has_option(s, 'uuid'):
+        if 'uuid' in conf[s]:
             key = None
-            id = uuid.UUID(conf.get(s, 'uuid'))
-        elif conf.has_option(s, 'key'):
-            key = conf.get(s, 'key')
+            id = uuid.UUID(conf[s]['uuid'])
+        elif 'key' in conf[s]:
+            key = conf[s]['key']
         else:
             # default to the path if 
             key = s
@@ -203,9 +196,9 @@ contain a ``uuid`` key to set the root identifier for the source.
             # raise SmapLoadError("Every config file section must have a uuid or a key!")
 
         # create the timeseries or collection
-        if s == '/' or \
-               (conf.has_option(s, 'type') and conf.get(s, "type") == 'Collection') or \
-               inst.get_collection(s) != None:
+        if (s == '/' or 
+            conf[s].get("type", None) == 'Collection' or 
+            inst.get_collection(s) != None):
             if s == '/':
                 c = inst.get_collection('/')
             elif inst.get_collection(s) != None:
@@ -216,14 +209,15 @@ contain a ``uuid`` key to set the root identifier for the source.
             else:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
-        elif not conf.has_option(s, 'type') or conf.get(s, "type") == "Timeseries":
+        elif conf[s].get("type", "Timeseries") == "Timeseries":
             if inst.get_timeseries(s) != None:
                 c = inst.get_timeseries(s)
             else:   
                 try:
                     props['Properties']['UnitofMeasure']
                 except KeyError:
-                    raise SmapLoadError("A Timeseries must have at least the Properites/UnitofMeasure key")
+                    raise SmapLoadError("A Timeseries must have at least "
+                                        "the Properites/UnitofMeasure key")
                 
                 # the Timeseries uses defaults if the conf file doesn't
                 # contain the right sections.
@@ -239,7 +233,7 @@ contain a ``uuid`` key to set the root identifier for the source.
                 raise SmapLoadError("A driver must have a key or uuid to generate a namespace")
             
             # load a new driver manager layer
-            newdrv = driver.SmapDriver.get_driver(inst, conf.get(s, 'type'), s, id)
+            newdrv = driver.SmapDriver.get_driver(inst, conf[s]['type'], s, id)
             # create a collection and add it at the attachment point
             c = inst.get_collection(s)
             if not c:
@@ -247,13 +241,12 @@ contain a ``uuid`` key to set the root identifier for the source.
                 inst.add_collection(s, c)
             
             # Add config file specified checkers for the driver
-            check = checkers.get(inst, newdrv, dict(conf.items(s)))
+            check = checkers.get(inst, newdrv, conf[s])
             if check:
                 inst.checkers.append(check)
 
             # get the driver to add its points
-            newdrv.setup(dict(conf.items(s)))
-            
+            newdrv.setup(conf[s])
 
         # Metadata and Description are shared between both Collections
         # and Timeseries
