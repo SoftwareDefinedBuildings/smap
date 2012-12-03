@@ -37,7 +37,7 @@ import os
 from commands import getoutput
 from pwd import getpwnam
 from optparse import OptionParser
-import ConfigParser
+from configobj import ConfigObj
 
 try:
     import ordereddict
@@ -123,19 +123,19 @@ for conffile in args:
         os.mkdir(datadir)
         os.chown(datadir, uid, gid)
     
-    conf = ConfigParser.ConfigParser('', ordereddict.OrderedDict)
-    conf.optionxform = str
-    conf.read(conffile)
-    if not conf.has_section('server'):
-        conf.add_section('server')
+    conf = ConfigObj(conffile, indent_type='  ')
+    print conf['server']
+    if not 'server' in conf:
+        conf['server'] = {}
 
     # set the data directory
-    conf.set("server", "DataDir", os.path.abspath(datadir))
-    if not conf.has_option("server", "Port"):
+    conf["server"]["DataDir"] = os.path.abspath(datadir)
+    print conf['server']['Port']
+    if not ('port' in conf["server"] or 'Port' in conf['server']):
         print "Skipping", root, ": no port in conf"
         continue
     else:
-        p = conf.get("server", "Port")
+        p = conf["server"].get('Port', conf['server'].get("port"))
         if p in ports:
             print "Detected port conflict on port", p
             print " .. skipping", root
