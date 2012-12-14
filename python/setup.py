@@ -40,7 +40,7 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
-      version="2.0.335",
+      version="2.0.461",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
@@ -87,4 +87,6 @@ setup(name="Smap",
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
                'bin/smap-tool',
-               'bin/smap-reporting', 'bin/smap-monitize'])
+               'bin/smap-reporting', 'bin/smap-monitize'],
+      install_requires = [
+        'configobj', 'avro'])

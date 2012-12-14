@@ -43,10 +43,6 @@ from twisted.internet import reactor, ssl
 from twisted.application.service import MultiService
 from twisted.enterprise import adbapi
 
-from smap.archiver import settings, republisher
-from smap.subscriber import subscribe
-from smap.ssl import SslServerContextFactory
-
 class Options(usage.Options):
     optParameters = [["port", "p", None, "service port number"]]
     optFlags = [["subscribe", "s", "subscribe to sources"],
@@ -116,6 +112,9 @@ class ArchiverServiceMaker(object):
 # However, since this plugin gets installed for all smap installs,
 # just fail silently rather than print out a bunch of warnings.
 try:
+    from smap.archiver import settings, republisher
+    from smap.subscriber import subscribe
+    from smap.ssl import SslServerContextFactory
     from smap.archiver.server import getSite
 except ImportError:
     pass
