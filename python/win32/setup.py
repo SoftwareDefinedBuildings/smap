@@ -25,7 +25,9 @@ def find_data_files(source,target,patterns):
     ret = {}
     for pattern in patterns:
         pattern = os.path.join(source,pattern)
+        print pattern
         for filename in glob.glob(pattern):
+            print filename
             if os.path.isfile(filename):
                 targetpath = os.path.join(target,os.path.relpath(filename,source))
                 path = os.path.dirname(targetpath)
@@ -58,10 +60,9 @@ class ServiceDesc:
     self.cmdline_style='pywin32'
 
 data_files = find_data_files(os.path.dirname(sys.modules['smap'].__file__),
-                             '', ['schema/*.av'])
+                             '', ['schema\*.av'])
 data_files.extend(find_data_files(os.path.dirname(__file__),
                                   '', ['dateutil/zoneinfo/*.tar.gz','db_ws', 'BACnet.ini']))
-
 setup(
     name='bacnet',
     version='0.1',
@@ -69,7 +70,7 @@ setup(
     # ext_modules=[bacnet_module],
     data_files = data_files,
     # console=["scan.py", "bacnet_smap2.py", "print_list.py", "win32traceutil.py"],
-    console = ["win32traceutil.py", "smap2_cmdline.py"],
+    console = ["win32traceutil.py", "smap2_cmdline.py", "smap2_service.py"],
     service=[ServiceDesc()],
     zipfile=None,
     options = dict(
@@ -79,7 +80,13 @@ setup(
         bundle_files = 1,
         excludes = ['pywin', 'pywin.debugger', 'pywin.debugger.dbgcon',
                     'pywin.dialogs', 'pywin.dialogs.list'],
-        dll_excludes = ['mswsock.dll', 'powrprof.dll']
+        dll_excludes = ['mswsock.dll', 'powrprof.dll'],
+        # the type libraries are python wrappers around the COM types we're using
+        typelibs = [
+            ('{F8582D24-88FB-11D0-B850-00C0F0104305}', 0, 1, 0),
+            ('{FAB7A1E3-3B79-4292-9C3A-DF39A6F65EC1}', 0, 5, 1)
+            ]
+
       ),
     ),
 )

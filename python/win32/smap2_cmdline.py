@@ -14,7 +14,7 @@ from twisted.internet import reactor
 import smap.server
 import smap.loader
 
-from smap.drivers import example, opc, opc_exe
+from smap.drivers import example, quickopc
 
 if __name__ == '__main__':
     cfg = 'smap.ini'
