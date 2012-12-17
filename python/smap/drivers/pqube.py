@@ -210,15 +210,18 @@ class PQubeModbus(SmapDriver):
                                 data_type='double', description=desc)
 
     def start(self):
+        self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
         periodicSequentialCall(self.update).start(self.rate)
+
+    def stop(self):
+        self.m.close()
 
     def update(self):
         """Poll the Modbus/TCP device and interpret the response"""
-        m = ModbusTCP(self.host, self.port, self.slaveaddr)
                     
         for offset in xrange(0, max(PQUBE_REGISTERS.keys()), self.MAX_READ_RANGE):
             try:
-                data = m.read(self.base + offset, self.MAX_READ_RANGE)
+                data = self.m.read(self.base + offset, self.MAX_READ_RANGE)
             except Exception, e:
                 log.err("Exception polling PQube meter at (%s:%i): %s" % 
                         (self.host, self.port, str(e)))

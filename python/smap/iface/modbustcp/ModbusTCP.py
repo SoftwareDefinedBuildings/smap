@@ -53,7 +53,6 @@ class ReconnectingSocket(object):
 
     def connect(self, remote):
         self.remote = remote
-        self._connect()
 
     def send(self, data):
         if not self.sock: self._connect()
@@ -76,6 +75,9 @@ class ModbusTCP:
         self.sock = ReconnectingSocket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.sock.settimeout(timeout)
         self.sock.connect((host, port))
+
+    def close(self):
+        self.sock.close()
 
     def read(self, base, n):
         txid = random.randint(0, 65535)
