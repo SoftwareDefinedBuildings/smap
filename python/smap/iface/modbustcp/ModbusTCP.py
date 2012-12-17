@@ -37,22 +37,51 @@ import random
 
 FUNC_READ = 3
 
+class ReconnectingSocket(object):
+    def __init__(self, *args, **kwargs):
+        self.initargs = (args, kwargs)
+        self.sock = None
+        self.timeout = 1
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
+
+    def _connect(self):
+        self.sock = socket.socket(*self.initargs[0], **self.initargs[1])
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self.remote)
+
+    def connect(self, remote):
+        self.remote = remote
+        self._connect()
+
+    def send(self, data):
+        if not self.sock: self._connect()
+        try:
+            self.sock.send(data)
+        except IOError:
+            self.sock.close()
+            self.sock = None
+            raise
+
+    def recv(self, bytes):
+        return self.sock.recv(bytes)
+    
+    def close(self):
+        return self.sock.close()
+
 class ModbusTCP:
     def __init__(self, host, port=502, slaveaddr=1, timeout=2.0):
-        self.remote = (host, port)
         self.slaveaddr = slaveaddr
-        self.timeout = timeout
+        self.sock = ReconnectingSocket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        self.sock.settimeout(timeout)
+        self.sock.connect((host, port))
 
     def read(self, base, n):
         txid = random.randint(0, 65535)
-        command = struct.pack(">HHHBBHH", txid, 0, 6, self.slaveaddr, FUNC_READ, base, n)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        sock.settimeout(self.timeout)
-        
-        sock.connect(self.remote)
-        sock.send(command)
-        data = sock.recv(1024)
-        sock.close()
+        command = struct.pack(">HHHBBHH", txid, 0, 6, self.slaveaddr, FUNC_READ, base, n)        
+        self.sock.send(command)
+        data = self.sock.recv(1024)
 
         txid_r, ver, length, addr, func = struct.unpack(">HHHBB", data[:8])
         # check for malformed replys
