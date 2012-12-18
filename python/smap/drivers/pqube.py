@@ -234,4 +234,4 @@ class PQubeModbus(SmapDriver):
             for i in xrange(0, self.MAX_READ_RANGE * 2, 4):
                 if (offset+i) / 2 in PQUBE_REGISTERS:
                     desc, phase, channel, units = PQUBE_REGISTERS[(offset+i) / 2]
-                    self._add('/' + phase + '/' + channel, struct.unpack(">f",  data[i:i+4])[0])
+                    self.add('/' + phase + '/' + channel, struct.unpack(">f",  data[i:i+4])[0])
