@@ -12,8 +12,9 @@ Your First sMAP Source
 .. py:currentmodule:: smap.driver
 
 A common use case is to use an existing sMAP driver to publish data
-from a sensor or actuator.  A list of available sMAP drivers is not
-yet available, but you can look at the modules available in
+from a sensor or actuator.  A list of available sMAP drivers can be
+found in the `DriverIndex <http://code.google.com/p/smap-data/wiki/DriverIndex/>`_,
+and you can also look at the modules available in
 ``python/smap/drivers``.  In order to start a sMAP source using an
 existing driver, you first create a configuration file and then use
 the sMAP runtime to start the daemon.
@@ -47,7 +48,7 @@ Once you have this config file (available in
 ``python/conf/caiso_price.ini``), you can run the source by typing in
 the ``python`` directory::
 
- $ twistd -n smap conf/caiso.ini 
+ $ twistd -n smap conf/caiso_price.ini 
  2011-07-19 14:20:59-0700 [-] Log opened.
  2011-07-19 14:21:00-0700 [-] twisted.web.server.Site starting on 8080
  2011-07-19 14:21:00-0700 [-] Starting factory <twisted.web.server.Site instance at 0x901498c>
@@ -55,10 +56,11 @@ the ``python`` directory::
 
 And that's it!  You're running.  To consume your source, try::
 
- $ jprint http://localhost:8080/data/+
+ $ curl http://localhost:8080/data/+ | jprint
 
-``jprint`` is a convienient tool which will pretty-print your json and
-should be in your path, but you can also use `curl <http://curl.haxx.se/>`_.
+`curl <http://curl.haxx.se/>`_ is a command line tool that can easily retrieve data using http.
+The result of the request will be passed to ``jprint``, a convienient tool which will pretty-print your json and
+should be in your path.
 
 Adding Metadata
 ---------------
@@ -147,7 +149,7 @@ snippet from before::
   Metadata/Instrument/Manufacturer = sMAP Implementer Forum
   StartVal = 10
 
-We can now run this just as easily as before either using ``twistd``.
+We can now run this just as easily as before using ``twistd``.
 
 When writing a driver, paths should be relative to a root path ("/")
 and not include any other path components; the full path is created by
