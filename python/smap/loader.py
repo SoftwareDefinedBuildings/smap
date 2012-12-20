@@ -128,7 +128,7 @@ contain a ``uuid`` key to set the root identifier for the source.
       raise Exception("Config file %s not found." % file)
     print "Loading config file:", found
 
-    conf = configobj.ConfigObj(found, indent_type='  ', list_values=False)
+    conf = configobj.ConfigObj(found, indent_type='  ')
 
     # if there's a server section, override the default server
     # configuration with that
