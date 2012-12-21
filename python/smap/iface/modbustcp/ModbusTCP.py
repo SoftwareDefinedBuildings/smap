@@ -37,6 +37,9 @@ import random
 
 FUNC_READ = 3
 
+class ModbusError(IOError):
+    pass
+
 class ReconnectingSocket(object):
     def __init__(self, *args, **kwargs):
         self.initargs = (args, kwargs)
@@ -89,7 +92,7 @@ class ModbusTCP:
         # check for malformed replys
         if txid != txid_r or ver != 0 or addr != self.slaveaddr \
                or func != FUNC_READ or length != len(data) - 6:
-            raise IOError('Invalid modbus response received from device')
+            raise ModbusError('Invalid modbus response received from device')
 
         # print txid_r,ver,length,addr,func
 

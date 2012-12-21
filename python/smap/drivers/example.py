@@ -39,10 +39,11 @@ class Driver(SmapDriver):
             'Instrument/ModelName' : 'ExampleInstrument'
             })
         self.counter = int(opts.get('StartVal', 0))
+        self.rate = float(opts.get('Rate', 1))
 
     def start(self):
         # Call read every 2 seconds
-        periodicSequentialCall(self.read).start(2)
+        periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
         self.add('/sensor0', self.counter)

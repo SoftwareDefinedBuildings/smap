@@ -57,7 +57,7 @@ from twisted.python import log
 
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
-from smap.iface.modbustcp.ModbusTCP import ModbusTCP
+from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -222,6 +222,11 @@ class PQubeModbus(SmapDriver):
         for offset in xrange(0, max(PQUBE_REGISTERS.keys()), self.MAX_READ_RANGE):
             try:
                 data = self.m.read(self.base + offset, self.MAX_READ_RANGE)
+            except ModbusError:
+                log.err("Modbus protocol error; restarting connection")
+                self.m.close()
+                self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
+                return
             except Exception, e:
                 log.err("Exception polling PQube meter at (%s:%i): %s" % 
                         (self.host, self.port, str(e)))
