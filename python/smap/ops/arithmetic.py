@@ -131,6 +131,7 @@ log = _op_from_ufunc('log', np.log)
 log10 = _op_from_ufunc('log10', np.log10)
 sqrt = _op_from_ufunc('sqrt', np.sqrt)
 power = _op_from_ufunc('power', np.power, [(float,)])
+exp = _op_from_ufunc('exp', np.exp)
 absolute = _op_from_ufunc('absolute', np.absolute)
 rint = _op_from_ufunc('rint', np.rint)
 ceil = _op_from_ufunc('ceil', np.ceil)
@@ -173,3 +174,10 @@ def _count(data, axis=0):
     elif axis == 1: 
         return np.ones(shape[0]) * shape[1]
 count = _op_from_compressive_op('count', _count)
+
+def _product(data, axis=0):
+    if axis == 0:
+        return reduce(np.multiply, data[1:], data[0, :])
+    if axis == 1:
+        return reduce(np.multiply, data.T[1:], data[:, 0])
+product = _op_from_compressive_op('product', _product)

@@ -68,7 +68,7 @@ class StandardizeUnitsOperator(Operator):
             elif pat.match(unit):
                 return converter
         return (unit, 1)
-
+    
     def __init__(self, inputs, **kwargs):
         # print kwargs
         self.converters = [lambda x: x] * len(inputs)
@@ -94,6 +94,7 @@ class StandardizeUnitsOperator(Operator):
 
 class NullOperator(Operator):
     name = 'null'
+    operator_name = 'null'
     def __init__(self, inputs):
         # don't change uuids
         Operator.__init__(self, inputs, inputs)

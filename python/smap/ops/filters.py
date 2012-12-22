@@ -31,6 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import uuid
+import re
 import numpy as np
 
 from smap import operators
@@ -145,3 +146,20 @@ class NonZeroOperator(operators.Operator):
 
     def process(self, data):
         return [self.base_operator(*x) for x in zip(data, self.filter(data))]
+
+class WhereOperator(operators.Operator):
+    """Filter out a set of streams based on a tag name and value.
+    """
+    name = 'w'
+    operator_name = 'w'
+    operator_constructors = [(str, str)]
+
+    def __init__(self, inputs, tag, pat):
+        pat = re.compile(pat)
+        results = map(lambda x: pat.match(x.get(tag, '')), inputs)
+        self.takes = [i for (i, elt) in enumerate(results) if elt]
+        operators.Operator.__init__(self, inputs, 
+                                    [inputs[i] for i in self.takes])
+
+    def process(self, data):
+        return [data[i] for i in self.takes]

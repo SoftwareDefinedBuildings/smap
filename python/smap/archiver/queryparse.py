@@ -46,12 +46,10 @@ from smap.util import build_recursive, is_string
 from smap import sjson as json
 from smap.contrib import dtutil
 
-import querygen as qg
-from data import escape_string
-from querydata import extract_data
-import data
-import stream
-import help
+from smap.archiver.data import escape_string
+from smap.archiver.querydata import extract_data
+from smap.archiver import querygen as qg
+from smap.archiver import data, stream, help, ast
 
 import ply
 import ply.lex as lex
@@ -72,7 +70,11 @@ precedence = (
     ('left', 'OR'),
     ('right', '='),
     ('right', 'NOT'),
-    ('left', ',')
+    ('left', ','),
+    ('left', '+'),
+    ('left', '-'),
+    ('left', '*'),
+    ('left', '^'),
     )
 
 reserved = {
@@ -102,7 +104,7 @@ reserved = {
     'by' : 'BY',
     'help' : 'HELP',
     }
-literals = '()*,<=+-'
+literals = '()[]*^.,<=+-/'
 
 time_units = re.compile('^(d|days?|h|hours?|m|minutes?|s|seconds?)$')
 def get_timeunit(t):
@@ -127,7 +129,7 @@ def t_LVALUE(t):
     return t
 
 def t_NUMBER(t):
-    r'([+-]?[ ]*([0-9]*\.)?[0-9]+)'
+    r'([+-]?([0-9]*\.)?[0-9]+)'
     if '.' in t.value:
         try:
             t.value = float(t.value)
@@ -142,6 +144,7 @@ def t_NUMBER(t):
             t.value = 0
         
     return t
+is_number = lambda x: isinstance(x, int) or isinstance(x, float)
 
 t_ignore = " \t"
 def t_newline(t):
@@ -416,28 +419,30 @@ def p_operator_list(t):
     else:
         t[0] = t[1][0]
 
-
 def p_priv_operator_list(t):
-    """priv_operator_list   : apply_operator
-                            | apply_operator '<' priv_operator_list"""
+    """priv_operator_list   : formula
+                            | formula '<' priv_operator_list"""
     if len(t) == 2:
         t[0] = [t[1]]
     else:
         t[3].append(t[1])
         t[0] = t[3]
 
-# apply operators
-def p_apply_operator(t):
-    """apply_operator   : LVALUE '(' arg_list ')'
-                        | '(' apply_operator ')'
-                        | LVALUE
-    """
-    if len(t) == 2:
-        t[0] = stream.get_operator(t[1], empty_arg_list())
-    elif len(t) == 5:
-        t[0] = stream.get_operator(t[1], t[3])
+def make_operator(name, args, where=None):
+    if where == None:
+        return stream.get_operator(name, args)
     else:
+        return operators.make_composition_operator(
+            [where, stream.get_operator(name, args)])
+
+def p_arg_clause(t):
+    """arg_clause : '(' arg_list ')'
+                  | 
+    """
+    if len(t) > 1:
         t[0] = t[2]
+    else:
+        t[0] = (list(), dict())
 
 def empty_arg_list():
     return (list(), dict())
@@ -553,6 +558,104 @@ def p_statement_binary(t):
 
         t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
 
+def p_formula(t):
+    """formula : formula_where_clause
+               | LVALUE arg_clause formula_where_clause
+               | formula_multiply
+               | formula_add
+               | formula_subtract
+               | formula_divide
+               | formula_power
+    """
+    if t[1] == '[':
+        t[0] = t[2]
+    elif len(t) == 2:
+        t[0] = t[1]
+    else:
+        t[0] = ast.nodemaker(make_operator(t[1], t[2]), t[3])
+
+def p_formula_list(t):
+    """formula_list : formula 
+                    | formula ',' formula_list
+    """
+    if len(t) == 2:
+        t[0] = [t[1]]
+    else:
+        t[0] = [t[1]] + t[3]
+
+def p_formula_where_clause(t):
+    """formula_where_clause : '[' LVALUE '.' QSTRING ']'
+                            | '[' formula ']'
+                            | 
+    """
+    if len(t) == 6:
+        t[0] = ast.leafmaker(stream.get_operator('w', ([t[2], t[4]], {})))
+    elif len(t) == 4:
+        t[0] = t[2]
+    else:
+        t[0] = ast.leafmaker(stream.get_operator('null', ([], {})))
+
+def p_formula_multiply(t):
+    """formula_multiply : NUMBER '*' formula
+                        | formula '*' NUMBER
+                        | NUMBER '*' NUMBER
+                        | formula '*' formula
+    """
+    if is_number(t[1]) and is_number(t[3]):
+        t[0] = t[1] * t[3]
+    elif is_number(t[1]):
+        t[0] = ast.nodemaker(stream.get_operator('multiply', ([t[1]], {})), t[3])
+    elif is_number(t[3]):
+        t[0] = ast.nodemaker(stream.get_operator('multiply', ([t[3]], {})), t[1])
+    else:
+        t[0] = ast.nodemaker(operators.make_composition_operator(
+                [stream.get_operator('paste', ([], {'sort': None})),
+                 stream.get_operator('product', ([], {'axis': 1}))]),
+                t[1], t[3])
+
+def p_formula_add(t):
+    """formula_add : NUMBER '+' NUMBER
+                   | NUMBER '+' formula
+                   | formula '+' NUMBER
+                   | formula '+' formula
+    """
+    if is_number(t[1]) and is_number(t[3]):
+        t[0] = t[1] + t[3]
+    elif is_number(t[1]):
+        t[0] = ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3])
+    elif is_number(t[3]):
+        t[0] = ast.nodemaker(stream.get_operator('add', ([t[3]], {})), t[1])
+    else:
+        t[0] = ast.nodemaker(operators.make_composition_operator(
+                [stream.get_operator('paste', ([], {'sort': None})),
+                 stream.get_operator('sum', ([], {'axis': 1}))]),
+                           t[1], t[3])
+
+def p_formula_subtract(t):
+    """formula_subtract : NUMBER '-' NUMBER
+                        | formula '-' NUMBER
+                        | formula '-' formula
+    """
+    if is_number(t[1]) and is_number(t[3]):
+        t[0] = t[1] - t[3]
+    elif is_number(t[1]):
+        t[0] = ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3])
+    elif is_number(t[3]):
+        t[0] = ast.nodemaker(stream.get_operator('add', ([- t[3]], {})), t[1])
+    else:
+        t[0] = ast.nodemaker(operators.make_composition_operator(
+                [stream.get_operator('paste', ([], {'sort': None})),
+                 stream.get_operator('diff', ([], {'axis': 1}))]),
+                           t[3], t[1])
+
+def p_formula_divide(t):
+    """formula_divide : formula '/' NUMBER"""
+    t[0] = ast.nodemaker(stream.get_operator('multiply', ([1. / t[3]], {})), t[1])
+
+def p_formula_power(t):
+    """formula_power : formula '^' NUMBER"""
+    t[0] = ast.nodemaker(stream.get_operator('power', ([t[3]], {})), t[1])
+
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
@@ -567,7 +670,7 @@ def parse_opex(exp):
     try:
         opex_parser
     except NameError:
-        opex_parser = yacc.yacc(start="operator_list", 
+        opex_parser = yacc.yacc(start="formula", 
                                 tabmodule='opex_tab.py',
                                 debugfile='/dev/null',
                                 debuglog=logging.getLogger('ply-debug'),
