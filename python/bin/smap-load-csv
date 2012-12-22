@@ -1,0 +1,125 @@
+#!/usr/bin/python
+# -*- python -*-
+"""
+Copyright (c) 2011, 2012, Regents of the University of California
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions 
+are met:
+
+ - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+ - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
+import sys
+import csv
+import uuid
+import time
+from optparse import OptionParser
+
+from twisted.internet import reactor
+from twisted.python import log
+from smap.core import SmapInstance
+from smap.contrib import dtutil
+
+if __name__ == '__main__':
+    usage = 'usage: %prog [options] <csvfile>'
+    parser = OptionParser(usage=usage)
+
+    parser.add_option('-u', '--uuid', dest='uuid', 
+                      default='9ffb78a6-4c6a-11e2-b19e-d78597b0c967',
+                      help='root uuid')
+    parser.add_option('-i', '--ignore-channels', dest='ignore',
+                      default='', help='comma-separated list of colums to ignore')
+    parser.add_option('-c', '--take-channels', dest='takes',
+                      default='', help='comma-separated list of columns to load')
+    parser.add_option('-t', '--time-channel', dest='time',
+                      default='', help='name of the column with timestamps')
+    parser.add_option('-f', '--time-format', dest='time_format',
+                      default='%s', help='format string used to parse the timestamps')
+    parser.add_option('-z', '--time-zone', dest='time_zone',
+                      default='America/Los_Angeles', help='time zone name')
+    parser.add_option('-d', '--report-dest', dest='report_dest',
+                      default=None, help='reporting destination')
+
+    opts, args = parser.parse_args()
+    if len(args) != 1:
+        parser.print_help()
+        sys.exit(1)
+
+    
+    try:
+        uid = uuid.UUID(opts.uuid)
+    except ValueError:
+        print >>sys.stderr, "Error: invalid UUID:", opts.uuid
+        sys.exit(1)
+
+    try:
+        fp = open(args[0], 'r')
+    except IOError, e:
+        print >>sys.stderr, "Error:", e
+        sys.exit(1)
+    data = csv.DictReader(fp)
+    columns = set(data.fieldnames)
+
+    if not opts.report_dest:
+        print >>sys.stderr, "Error: no reporting destination"
+        sys.exit(1)
+
+    if opts.takes:
+        takes = set(opts.takes.split(','))
+        columns.intersection_update(takes)
+
+    if opts.ignore:
+        ignores = set(opts.ignore.split(','))
+        columns.difference_update(ignores)
+
+    if opts.time:
+        t = opts.time
+    else:
+        t = data.fieldnames[0]
+    columns.difference_update(set([t]))
+
+    # okay, so we're set up with a time column and a list of other
+    # columns to take.
+
+    log.startLogging(sys.stderr)
+    inst = SmapInstance(uid)
+    inst.reports.add_report({
+            'ReportDeliveryLocation' : [opts.report_dest],
+            'uuid': uuid.uuid1(),
+            'ReportResource' : '/+',
+            'Format' : 'json',
+            })
+    for c in columns:
+        inst.add_timeseries('/' + c, '', 
+                            timezone=opts.time_zone,
+                            data_type='double')
+
+    for r in data:
+        if opts.time_format == '%s':
+            ts = int(r[t])
+        else:
+            ts = dtutil.dt2ts(dtutil.strptime_tz(r[t], opts.time_format))
+        for c in columns:
+            inst._add('/' + c, ts, float(r[c]))
+
+    reactor.run()
