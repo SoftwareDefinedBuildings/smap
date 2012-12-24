@@ -138,7 +138,7 @@ class NonZeroOperator(operators.Operator):
 
     def __init__(self, inputs, filter):
         self.filter = filter(inputs)
-        self.name = 'nonzero(%s)' % str(filter)
+        self.name = 'nonzero(%s)' % str(self.filter)
         operators.Operator.__init__(self, inputs, operators.OP_N_TO_N)
 
     def base_operator(self, data, takes):
@@ -155,9 +155,12 @@ class WhereOperator(operators.Operator):
     operator_constructors = [(str, str)]
 
     def __init__(self, inputs, tag, pat):
+        self.name = 'w(%s, %s)' % (tag, pat)
         pat = re.compile(pat)
         results = map(lambda x: pat.match(x.get(tag, '')), inputs)
         self.takes = [i for (i, elt) in enumerate(results) if elt]
+        if len(self.takes) == 0:
+            print "WARNING: no points found:", self.name
         operators.Operator.__init__(self, inputs, 
                                     [inputs[i] for i in self.takes])
 

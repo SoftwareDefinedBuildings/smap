@@ -50,6 +50,9 @@ class AstNode(operators.Operator):
     def process(self, data):
         return self.op(util.flatten((c.process(data) for c in self.children)))
 
+    def __str__(self):
+        return '%s[%s]' % (str(self.op), ','.join(map(str, self.children)))
+
 class AstLeaf(AstNode):
     """A leaf node which just runs the base operator in input data
     """

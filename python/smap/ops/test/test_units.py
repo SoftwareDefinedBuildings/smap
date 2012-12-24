@@ -27,6 +27,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import uuid
 import numpy as np
 from twisted.trial import unittest
 
@@ -35,23 +36,26 @@ from smap.ops.util import StandardizeUnitsOperator
 class TestUnits(unittest.TestCase):
     """Test the unit conversion operator"""
 
-    def test_lookup(self):
-        self.assertEquals(StandardizeUnitsOperator.find_conversion('W')[0], 'kW')
-        self.assertEquals(StandardizeUnitsOperator.find_conversion('deg F')[0], 'C')
-        self.assertEquals(StandardizeUnitsOperator.find_conversion('Deg F')[0], 'C')
-        self.assertEquals(StandardizeUnitsOperator.find_conversion('lbs/hr')[0], 'lbs/hr')
-        self.assertEquals(StandardizeUnitsOperator.find_conversion('Lbs/hour')[0], 'lbs/hr')
+#     def test_lookup(self):
+#         op = StandardizeUnitsOperator([{
+#                     'uuid': 12,
+#                     'Properties/UnitofMeasure': 'W'}])
+#         self.assertEquals(op.find_conversion('W')[0], 'kW')
+#         self.assertEquals(op.find_conversion('deg F')[0], 'C')
+#         self.assertEquals(op.find_conversion('Deg F')[0], 'C')
+#         self.assertEquals(op.find_conversion('lbs/hr')[0], 'lbs/hr')
+#         self.assertEquals(op.find_conversion('Lbs/hour')[0], 'lbs/hr')
 
     def test_op(self):
         # watts
         op = StandardizeUnitsOperator([{
-                    'uuid': 12,
+                    'uuid': 'caa850e0-4c67-11e2-8699-97d49b2d114e',
                     'Properties/UnitofMeasure': 'W'}])
         self.assertEquals(op([np.array([[0, 1000]])])[0][0,1], 1.0)
 
         # Fahrenheit
         op = StandardizeUnitsOperator([{
-                    'uuid': 12,
+                    'uuid': 'caa850e0-4c67-11e2-8699-97d49b2d114e',
                     'Properties/UnitofMeasure': 'deg F'}])
         self.assertEquals(op([np.array([[0, 32]])])[0][0,1], 0)
         self.assertEquals(op([np.array([[0, 212]])])[0][0,1], 100)

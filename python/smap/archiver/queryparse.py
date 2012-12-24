@@ -61,7 +61,8 @@ tokens = (
     'TAGS', 'SELECT', 'WHERE',
     'QSTRING','NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
-    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP',
+    'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP', 'ALL', 
+    'LTE', 'GTE', 'NE'
     )
 
 precedence = (
@@ -103,8 +104,9 @@ reserved = {
     'group' : 'GROUP',
     'by' : 'BY',
     'help' : 'HELP',
+    'all' : 'ALL',
     }
-literals = '()[]*^.,<=+-/'
+literals = '()[]*^.,<>=+-/'
 
 time_units = re.compile('^(d|days?|h|hours?|m|minutes?|s|seconds?)$')
 def get_timeunit(t):
@@ -114,6 +116,14 @@ def get_timeunit(t):
     elif t.startswith('h'): return 'hours'
     elif t.startswith('m'): return 'minutes'
     elif t.startswith('s'): return 'seconds'
+
+def t_CMP(t):
+    r'(<=)|(>=)|(!=)'
+    t.type = {
+        '<=' : 'LTE',
+        '>=' : 'GTE',
+        '!=' : 'NE'}[t.value]
+    return t
 
 def t_QSTRING(t):
     r'("[^"\\]*?(\\.[^"\\]*?)*?")|(\'[^\'\\]*?(\\.[^\'\\]*?)*?\')'    
@@ -566,6 +576,7 @@ def p_formula(t):
                | formula_subtract
                | formula_divide
                | formula_power
+               | formula_comparator
     """
     if t[1] == '[':
         t[0] = t[2]
@@ -586,12 +597,18 @@ def p_formula_list(t):
 def p_formula_where_clause(t):
     """formula_where_clause : '[' LVALUE '.' QSTRING ']'
                             | '[' formula ']'
+                            | ALL
+                            | QSTRING
                             | 
     """
     if len(t) == 6:
         t[0] = ast.leafmaker(stream.get_operator('w', ([t[2], t[4]], {})))
     elif len(t) == 4:
         t[0] = t[2]
+    elif len(t) == 2 and t[1] == 'all':
+        t[0] = ast.leafmaker(stream.get_operator('w', (['uuid', '.*'], {})))
+    elif len(t) == 2:
+        t[0] = ast.leafmaker(stream.get_operator('w', (['x', t[1]], {})))
     else:
         t[0] = ast.leafmaker(stream.get_operator('null', ([], {})))
 
@@ -655,6 +672,37 @@ def p_formula_divide(t):
 def p_formula_power(t):
     """formula_power : formula '^' NUMBER"""
     t[0] = ast.nodemaker(stream.get_operator('power', ([t[3]], {})), t[1])
+
+cmp_names = {
+    '>' : 'greater',
+    '<' : 'less',
+    '!=' : 'not_equal',
+    '>=' : 'greater_equal',
+    '<=' : 'less_equal',
+    }
+
+def p_formula_comparator(t):
+    """formula_comparator : formula comparator NUMBER
+                          | NUMBER comparator formula
+    """
+    if is_number(t[1]):
+        pass
+    else:
+        # have to initialize the comparison operator with an
+        # appropriate inner AST node.  usually this is done by the
+        # parser...
+        cmp = ast.nodemaker(stream.get_operator(cmp_names[t[2]], ([t[3]], {})),
+                            ast.leafmaker(stream.get_operator('null', ([], {}))))
+        t[0] = ast.nodemaker(stream.get_operator('nonzero', ([cmp], {})), t[1])
+
+def p_comparator(t):
+    """comparator : '<'
+                  | '>'
+                  | LTE
+                  | GTE
+                  | NE
+    """
+    t[0] = t[1]
 
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)

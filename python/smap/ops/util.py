@@ -43,11 +43,13 @@ from smap import operators, util
 from smap.core import SmapException
 from smap.operators import Operator, ParallelSimpleOperator, CompositionOperator, mknull
 from smap.contrib import dtutil
+from smap.ops.arithmetic import _op_from_ufunc
 
 class StandardizeUnitsOperator(Operator):
     """Make some unit conversions"""
     operator_name = 'units'
-    operator_constructors = [()]
+    operator_constructors = [(),
+                             (lambda x: x, str, str)]
 
     units = {
         re.compile('W(atts)?') : ('kW', 0.001),
@@ -55,41 +57,50 @@ class StandardizeUnitsOperator(Operator):
         'pounds/hour' : ('lbs/hr', 1.0),
         re.compile('[Ll]bs/h(ou)?r') : ('lbs/hr', 1.0),
         'lbs/min' : ('lbs/hr', 60),
-        re.compile('([Dd]eg F)|F') : ('C', lambda v: ((v - 32.) * 5) / 9.),
+        re.compile('([Dd]eg F)|F') : ('C', _op_from_ufunc('C-F', lambda v: ((v - 32.) * 5) / 9.)),
         }
     name = 'units'
     required_tags = set(['uuid', 'Properties/UnitofMeasure'])
 
-    @staticmethod
-    def find_conversion(unit):
+    def find_conversion(self, stream):
+        unit = stream['Properties/UnitofMeasure']
+        if self.oldname == unit:
+            return (self.newname, self.extra_op)
         for pat, converter in StandardizeUnitsOperator.units.iteritems():
             if util.is_string(pat):
                 if unit == pat: return converter
             elif pat.match(unit):
                 return converter
         return (unit, 1)
-    
-    def __init__(self, inputs, **kwargs):
-        # print kwargs
+
+    def __init__(self, inputs, *args, **kwargs):
+
+        # create a new converter from an operator
+        if len(args) == 3:
+            self.extra_op, self.oldname, self.newname = args
+        else:
+            self.extra_op, self.oldname, self.newname = None, None, None
+
         self.converters = [lambda x: x] * len(inputs)
         outputs = copy.deepcopy(inputs)
         for i in xrange(0, len(inputs)):
             if 'Properties/UnitofMeasure' in inputs[i]:
-                unit, converter = self.find_conversion(inputs[i]['Properties/UnitofMeasure'])
+                unit, converter = self.find_conversion(inputs[i])
 
                 # make a closure with the converter
                 def make_converter():
                     _converter = converter
-                    if callable(_converter): return _converter
-                    else: return lambda v: v * _converter
-                        
+                    if callable(_converter):
+                        return _converter([inputs[i]])
+                    else: 
+                        return lambda x: np.dstack((x[0][:, 0], _converter * (x[0][:,1])))
+
                 self.converters[i] = make_converter()
                 outputs[i]['Properties/UnitofMeasure'] = unit
         Operator.__init__(self, inputs, outputs)
 
     def process(self, data):
-        return map(lambda (i, x): np.dstack((x[:, 0], self.converters[i](x[:,1])))[0],
-                   enumerate(data))
+        return util.flatten(map(lambda (c, d): c([d]), zip(self.converters, data)))
 
 
 class NullOperator(Operator):
@@ -245,6 +256,24 @@ class AddColumnOperator(Operator):
             rv.append(np.column_stack((d, newcols[0][:, 1:])))
         return rv
 
+
+class RenameOperator(Operator):
+    name = 'rename'
+    operator_name = 'rename'
+    operator_constructors = [(str, str)]
+
+    def __init__(self, inputs, tag, newname):
+        self.name = 'rename(%s, %s)' % (tag, newname)
+        output = copy.deepcopy(inputs)
+        for s in output:
+            if tag in s:
+                s[newname] = s[tag]
+                del s[tag]
+        Operator.__init__(self, inputs, output)
+
+    def process(self, data):
+        return data
+
 class MaskedDTList:
     """List which lazily performs datetime conversions, and memoizes
     the result"""
@@ -279,3 +308,4 @@ class MaskedDTList:
     def __iter__(self):
         for i in xrange(0, len(self)):
             yield self.__getitem__(i)
+
