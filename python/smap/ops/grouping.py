@@ -228,7 +228,7 @@ class GroupByDatetimeField(Operator):
             prev_datetimes = MaskedDTList(prev[:, 0] / 1000, tz)
         else:
             prev = np.vstack((prev, data))
-            prev_datetimes.extend(data[:, 0])
+            prev_datetimes.extend(data[:, 0] / 1000)
         
         assert len(prev_datetimes) == len(prev)
         output = [null] * len(op.outputs)
