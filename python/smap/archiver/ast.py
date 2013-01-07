@@ -70,3 +70,25 @@ def nodemaker(op, *children):
 def leafmaker(op, *children):
     return lambda inputs: AstLeaf(inputs, op, *children)
 
+if __name__ == '__main__':
+    import queryparse
+    import uuid
+    from smap import util
+#
+    op = queryparse.parse_opex("'/v_r' >= 3.3 + 2.68 * '/v_n' - [27.16 * ['/v_n' ^ 2]] < window(mean < rename('foo', 'bar'), field='minute') < units(all * 2 < rename('foo', 'x'), 'hp', 'W')  < rename('y', 'x') < rename('Path', 'y') ")
+    # op = queryparse.parse_opex('sum < mean')
+    # op = queryparse.parse_opex("rename('Path', 'x')")
+    # op = queryparse.parse_opex("'/v_r' < rename('Path', 'x')")
+    #op = queryparse.parse_opex("window(mean, field='minute')")
+    c = op.ast([{'uuid': str(uuid.uuid1()),
+                 'Path': '/v_r',
+                 'Foo': 'bar',
+                 'Properties/Timezone': 'America/Los_Angeles'},
+                {'uuid': str(uuid.uuid1()),
+                 'Path': '/v_n',
+                 'Foo': 'bar',
+                 'Properties/Timezone': 'America/Los_Angeles'}],)
+# print c.get_restrictions(util.SetDict(op.restrict))
+    print op
+    print c
+    # print util.SetDict(op.restrict)

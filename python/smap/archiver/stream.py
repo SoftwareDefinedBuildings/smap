@@ -205,6 +205,8 @@ class OperatorApplicator(object):
         tic = time.time()
 
         # process
+        for d in opdata:
+            d[:, 0] *= 1000
         redata = self.op.process(opdata)
 
         # log.msg("writing " + str(map(len, redata)))
@@ -223,8 +225,8 @@ class OperatorApplicator(object):
     def build_result(self, (d, s)):
         obj = dict(s)
         if isinstance(d, np.ndarray):
-            d[:,0] = np.int_(d[:, 0])
-            d[:,0] *= 1000
+#             d[:,0] = np.int_(d[:, 0])
+#             d[:,0] *= 1000
             obj['Readings'] = d.tolist()
         else:
             obj['Readings'] = d

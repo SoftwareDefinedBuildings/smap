@@ -73,7 +73,7 @@ class GroupByTimeOperator(Operator):
                  inclusive=(True, False),
                  skip_empty=True):
         self.bucket_op = group_operator(inputs)
-        self.chunk_length = chunk_length
+        self.chunk_length = chunk_length * 1000
         self.chunk_delay = chunk_delay
         self.snap_times = snap_times
         self.skip_empty = skip_empty
@@ -225,7 +225,7 @@ class GroupByDatetimeField(Operator):
         tic = time.time()
         if prev == None:
             prev = np.copy(data)
-            prev_datetimes = MaskedDTList(prev[:, 0], tz)
+            prev_datetimes = MaskedDTList(prev[:, 0] / 1000, tz)
         else:
             prev = np.vstack((prev, data))
             prev_datetimes.extend(data[:, 0])
@@ -282,7 +282,7 @@ class GroupByDatetimeField(Operator):
             if self.snap_times:
                 t = dtutil.dt2ts(bin_start)
                 for j in xrange(0, len(opdata)):
-                    opdata[j][:, 0] = t
+                    opdata[j][:, 0] = t * 1000
             output = extend(output, opdata)
 
             bin_start += self.bin_slide
@@ -490,3 +490,26 @@ class VectorizeOperator(Operator):
 for n in xrange(0, 10):
     VectorizeOperator.operator_constructors.append(tuple([lambda _: _] * n))
 
+class HistOperator(ParallelSimpleOperator):
+    name = 'hist'
+    operator_name = 'hist'
+    operator_constructors = [(),
+                             (int,),
+                             (int, float, float)]
+    
+    def __init__(self, inputs, *params):
+        self.name = 'hist(%s)' % ','.join(map(str, params))
+        if len(params) == 0:
+            bins, range = 10, None
+        elif len(params) == 1:
+            bins, range = params[0], None
+        else:
+            bins, range = params[0], (params[1], params[2])
+        ParallelSimpleOperator.__init__(self, inputs, 
+                                        bins=bins, range=range,
+                                        density=bool(False))
+
+    @staticmethod
+    def base_operator(data, bins=10, range=None, density=False):
+        c, b = np.histogram(data[:, 1:], bins=bins, range=range, density=density)
+        return np.vstack((b[:-1], c)).T

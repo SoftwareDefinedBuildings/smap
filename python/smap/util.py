@@ -38,6 +38,7 @@ import errno
 import cPickle as pickle
 import ConfigParser
 import traceback as trace
+import collections
 
 from twisted.internet import task, reactor, threads, defer
 from twisted.python.lockfile import FilesystemLock
@@ -340,16 +341,33 @@ def syncMaybeDeferred(fn, *args):
 def import_module(modname):
     """Import a module named by a classic dotted-name"""
     cmps = modname.split('.')
-    mod = __import__('.'.join(cmps[:-1]), globals(), locals(), [cmps[-1]]) 
+    mod = __import__('.'.join(cmps[:-1]), globals(), locals(), [cmps[-1]])
     return getattr(mod, cmps[-1])
 
 
-if __name__ == '__main__':
-    import sys
-    log.startLogging(sys.stdout)
-    def cb(st):
-        print "db running, sleeping", st
-        raise Exception('foo')
-        time.sleep(st)
-    periodicSequentialCall(cb, 3).start(2.5)
-    reactor.run()
+class SetDict(dict):
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self)
+        if len(args):
+            for k, v in args[0]:
+                self[k] = v
+
+        for k, v in kwargs.iteritems():
+            self[k] = v
+
+    def __setitem__(self, i, y):
+        if i in self:
+            self[i].add(y)
+        else:
+            dict.__setitem__(self, i, set([y]))
+
+    def __getitem__(self, i):
+        if i in self:
+            return dict.__getitem__(self, i)
+        else:
+            return set([])
+
+    def __iter__(self):
+        for k, s in self.iteritems():
+            for v in s:
+                yield (k, v)

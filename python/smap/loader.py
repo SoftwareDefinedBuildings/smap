@@ -146,6 +146,8 @@ contain a ``uuid`` key to set the root identifier for the source.
         if s.startswith('report'):
             resource = conf[s].get('ReportResource', '/+')
             format = conf[s].get('Format', 'json')
+            max_age = conf[s].get('MaxAge', None)
+            max_age = int(max_age) if max_age != None else None
 
             dest = [conf[s]['ReportDeliveryLocation']]
             for i in xrange(0, 10):
@@ -157,6 +159,7 @@ contain a ``uuid`` key to set the root identifier for the source.
                 'ReportResource' : resource,
                 'Format': format,
                 'uuid' : inst.uuid(s),
+                'MaxAge' : max_age,
                 }
             for o in ['MinPeriod', 'MaxPeriod']:
                 if o in conf[s]:

@@ -42,7 +42,7 @@ import re
 from twisted.internet import defer
 
 from smap import operators
-from smap.util import build_recursive, is_string
+from smap.util import build_recursive, is_string, flatten, SetDict 
 from smap import sjson as json
 from smap.contrib import dtutil
 
@@ -271,22 +271,33 @@ def p_query(t):
         else:
             t[0] = help.help(t[2]), None
 
+def add_formula_restrictions(c_restrict, f_restrict):
+    extra = []
+    for k, v in SetDict(f_restrict):
+        extra.append('((s.metadata -> %s) ~ %s)' % (escape_string(k), escape_string(v)))
+    if len(extra):
+        return c_restrict + ' AND (' + ' OR '.join(extra) + ')'
+    else:
+        return c_restrict
+
 # apply a sequence of operators to data
 def p_apply_statement(t):
-    """apply_statement  : operator_list TO data_clause WHERE statement_as_list
-                        | operator_list TO data_clause WHERE statement_as_list GROUP BY tag_list
+    """apply_statement  : formula_pipe TO data_clause WHERE statement
+                        | formula_pipe TO data_clause WHERE statement GROUP BY tag_list
     """
+    print "Existing restrictions", t[5]
+    restrict = add_formula_restrictions(t[5], t[1].restrict)
     tag_extractor, tag_query = make_select_rv(t, 
                                               make_tag_select('*'), 
-                                              t[5][0][1])
-    _, data_query = make_select_rv(t, t[3], t[5][0][1])
+                                              restrict)
+    _, data_query = make_select_rv(t, t[3], restrict)
 
-    # this does not make me feel good.
-    
+    # this does not make me feel good.    
     data_extractor = lambda x: x
     if len(t) > 7: group = t[8]
     else: group = None
-    app = stream.OperatorApplicator(t[1], t[3].dparams,
+    print "Extra restrictions", t[1].restrict
+    app = stream.OperatorApplicator(t[1].ast, t[3].dparams,
                                     t.parser.request, group=group)
     t[0] = ([app.start_processing, tag_extractor, data_extractor], 
             [None, tag_query, data_query])
@@ -422,22 +433,6 @@ def p_limit(t):
         slimit = t[2]
     t[0] = [limit, slimit]
 
-def p_operator_list(t):
-    """operator_list   : priv_operator_list"""
-    if len(t[1]) > 1:
-        t[0] = operators.make_composition_operator(t[1])
-    else:
-        t[0] = t[1][0]
-
-def p_priv_operator_list(t):
-    """priv_operator_list   : formula
-                            | formula '<' priv_operator_list"""
-    if len(t) == 2:
-        t[0] = [t[1]]
-    else:
-        t[3].append(t[1])
-        t[0] = t[3]
-
 def make_operator(name, args, where=None):
     if where == None:
         return stream.get_operator(name, args)
@@ -483,13 +478,17 @@ def p_call_argument(t):
                        | NUMBER
                        | LVALUE '=' NUMBER
                        | LVALUE '=' QSTRING
-                       | operator_list """
+                       | formula_pipe
+                       | """
     if len(t) == 4:
         t[0] = ('kwarg', {
             t[1] : t[3]
             })
     else:
-        t[0] = ('arg', t[1])
+        if isinstance(t[1], formula_pipe):
+            t[0] = ('arg', t[1].ast)
+        else:
+            t[0] = ('arg', t[1])
 
 def p_tag_list(t):
     """tag_list : LVALUE
@@ -508,21 +507,6 @@ def p_set_list(t):
         t[0] = [(t[1], t[3])]
     else:
         t[0] = [(t[1], t[3])] + t[5]
-
-def p_statement_as_list(t):
-    """statement_as_list   : statement
-                           | statement AS LVALUE
-                           | statement_as_list ',' statement
-                           | statement_as_list ',' statement AS LVALUE 
-                           """
-    if len(t) == 2:
-        t[0] = [('$1', t[1])]
-    elif len(t) == 4 and t[2] == 'as':
-        t[0] = [(t[3], t[1])]
-    elif len(t) == 4 and t[2] == ',':
-        t[0] = t[1] + [("$%i" % (len(t[1]) + 1), t[3])]
-    else:
-        t[0] = t[1] + [(t[5], t[3])]
 
 def p_statement(t):
     """statement : statement_unary
@@ -568,6 +552,9 @@ def p_statement_binary(t):
 
         t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
 
+
+formula = collections.namedtuple('formula', 'ast restrict')
+formula_pipe = collections.namedtuple('formula', 'ast restrict mapping')
 def p_formula(t):
     """formula : formula_where_clause
                | LVALUE arg_clause formula_where_clause
@@ -578,21 +565,55 @@ def p_formula(t):
                | formula_power
                | formula_comparator
     """
-    if t[1] == '[':
-        t[0] = t[2]
-    elif len(t) == 2:
+    if len(t) == 2:
         t[0] = t[1]
     else:
-        t[0] = ast.nodemaker(make_operator(t[1], t[2]), t[3])
+        if t[1] == 'rename':
+            restrict = [('rename', t[2][0])]
+        else:
+            restrict = []
+        t[0] = formula(ast.nodemaker(make_operator(t[1], t[2]), t[3].ast),
+                       restrict + t[3].restrict)
 
-def p_formula_list(t):
-    """formula_list : formula 
-                    | formula ',' formula_list
-    """
+def rename_restrictions(tags, mapping):
+    """Process tag renames for a formula pipe"""
+    new_tags = []
+    for name, value in reversed(tags):
+        if name == 'rename':
+            if value[0] in mapping:
+                mapping[value[1]] = mapping[value[0]]
+                del mapping[value[0]]
+            else:
+                mapping[value[1]] = value[0]
+        elif name in mapping:
+            new_tags.append((mapping[name], value))
+        else:
+            new_tags.append((name, value))
+    new_tags.reverse()
+    return new_tags, mapping
+
+def p_formula_pipe(t):
+    """formula_pipe   : formula
+                      | formula '<' formula_pipe"""
     if len(t) == 2:
-        t[0] = [t[1]]
+        tree = t[1].ast
+        restrict = t[1].restrict
+        mapping = {}
     else:
-        t[0] = [t[1]] + t[3]
+        tree = ast.nodemaker(t[1].ast, t[3].ast)
+        restrict = t[1].restrict + t[3].restrict
+        mapping = t[3].mapping
+    restrict, mapping = rename_restrictions(restrict, mapping)
+    t[0] = formula_pipe(tree, restrict, mapping)
+ 
+# def p_formula_list(t):
+#     """formula_list : formula 
+#                     | formula ',' formula_list
+#     """
+#     if len(t) == 2:
+#         t[0] = [t[1]]
+#     else:
+#         t[0] = [t[1]] + t[3]
 
 def p_formula_where_clause(t):
     """formula_where_clause : '[' LVALUE '.' QSTRING ']'
@@ -602,15 +623,18 @@ def p_formula_where_clause(t):
                             | 
     """
     if len(t) == 6:
-        t[0] = ast.leafmaker(stream.get_operator('w', ([t[2], t[4]], {})))
+        t[0] = formula(ast.leafmaker(stream.get_operator('w', ([t[2], t[4]], {}))),
+                       [(t[2], t[4])])
     elif len(t) == 4:
         t[0] = t[2]
     elif len(t) == 2 and t[1] == 'all':
-        t[0] = ast.leafmaker(stream.get_operator('w', (['uuid', '.*'], {})))
+        t[0] = formula(ast.leafmaker(stream.get_operator('w', (['uuid', '.*'], {}))),
+                       [])
     elif len(t) == 2:
-        t[0] = ast.leafmaker(stream.get_operator('w', (['x', t[1]], {})))
+        t[0] = formula(ast.leafmaker(stream.get_operator('w', (['x', t[1]], {}))),
+                       [('x', t[1])])
     else:
-        t[0] = ast.leafmaker(stream.get_operator('null', ([], {})))
+        t[0] = formula(ast.leafmaker(stream.get_operator('null', ([], {}))), [])
 
 def p_formula_multiply(t):
     """formula_multiply : NUMBER '*' formula
@@ -621,14 +645,17 @@ def p_formula_multiply(t):
     if is_number(t[1]) and is_number(t[3]):
         t[0] = t[1] * t[3]
     elif is_number(t[1]):
-        t[0] = ast.nodemaker(stream.get_operator('multiply', ([t[1]], {})), t[3])
+        t[0] = formula(ast.nodemaker(stream.get_operator('multiply', ([t[1]], {})), t[3].ast),
+                       t[3].restrict)
     elif is_number(t[3]):
-        t[0] = ast.nodemaker(stream.get_operator('multiply', ([t[3]], {})), t[1])
+        t[0] = formula(ast.nodemaker(stream.get_operator('multiply', ([t[3]], {})), t[1].ast),
+                       t[1].restrict)
     else:
-        t[0] = ast.nodemaker(operators.make_composition_operator(
-                [stream.get_operator('paste', ([], {'sort': None})),
-                 stream.get_operator('product', ([], {'axis': 1}))]),
-                t[1], t[3])
+        t[0] = formula(ast.nodemaker(operators.make_composition_operator(
+                    [stream.get_operator('paste', ([], {'sort': None})),
+                     stream.get_operator('product', ([], {'axis': 1}))]),
+                                     t[1].ast, t[3].ast),
+                       t[1].restrict + t[3].restrict)
 
 def p_formula_add(t):
     """formula_add : NUMBER '+' NUMBER
@@ -639,14 +666,17 @@ def p_formula_add(t):
     if is_number(t[1]) and is_number(t[3]):
         t[0] = t[1] + t[3]
     elif is_number(t[1]):
-        t[0] = ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3])
+        t[0] = formula(ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3].ast),
+                       t[3].restrict)
     elif is_number(t[3]):
-        t[0] = ast.nodemaker(stream.get_operator('add', ([t[3]], {})), t[1])
+        t[0] = formula(ast.nodemaker(stream.get_operator('add', ([t[3]], {})), t[1].ast),
+                       t[3].restrict)
     else:
-        t[0] = ast.nodemaker(operators.make_composition_operator(
-                [stream.get_operator('paste', ([], {'sort': None})),
-                 stream.get_operator('sum', ([], {'axis': 1}))]),
-                           t[1], t[3])
+        t[0] = formula(ast.nodemaker(operators.make_composition_operator(
+                    [stream.get_operator('paste', ([], {'sort': None})),
+                     stream.get_operator('sum', ([], {'axis': 1}))]),
+                                     t[1].ast, t[3].ast),
+                       t[1].restrict + t[3].restrict)
 
 def p_formula_subtract(t):
     """formula_subtract : NUMBER '-' NUMBER
@@ -656,22 +686,27 @@ def p_formula_subtract(t):
     if is_number(t[1]) and is_number(t[3]):
         t[0] = t[1] - t[3]
     elif is_number(t[1]):
-        t[0] = ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3])
+        t[0] = formula(ast.nodemaker(stream.get_operator('add', ([t[1]], {})), t[3].ast),
+                       t[3].restrict)
     elif is_number(t[3]):
-        t[0] = ast.nodemaker(stream.get_operator('add', ([- t[3]], {})), t[1])
+        t[0] = formula(ast.nodemaker(stream.get_operator('add', ([- t[3]], {})), t[1].ast),
+                       t[1].restrict)
     else:
-        t[0] = ast.nodemaker(operators.make_composition_operator(
-                [stream.get_operator('paste', ([], {'sort': None})),
-                 stream.get_operator('diff', ([], {'axis': 1}))]),
-                           t[3], t[1])
+        t[0] = formula(ast.nodemaker(operators.make_composition_operator(
+                    [stream.get_operator('paste', ([], {'sort': None})),
+                     stream.get_operator('diff', ([], {'axis': 1}))]),
+                                     t[3].ast, t[1].ast),
+                       t[3].restrict + t[1].restrict)
 
 def p_formula_divide(t):
     """formula_divide : formula '/' NUMBER"""
-    t[0] = ast.nodemaker(stream.get_operator('multiply', ([1. / t[3]], {})), t[1])
+    t[0] = formula(ast.nodemaker(stream.get_operator('multiply', ([1. / t[3]], {})), t[1].ast),
+                   t[1].restrict)
 
 def p_formula_power(t):
     """formula_power : formula '^' NUMBER"""
-    t[0] = ast.nodemaker(stream.get_operator('power', ([t[3]], {})), t[1])
+    t[0] = formula(ast.nodemaker(stream.get_operator('power', ([t[3]], {})), t[1].ast),
+                   t[1].restrict)
 
 cmp_names = {
     '>' : 'greater',
@@ -693,17 +728,18 @@ def p_formula_comparator(t):
         # parser...
         cmp = ast.nodemaker(stream.get_operator(cmp_names[t[2]], ([t[3]], {})),
                             ast.leafmaker(stream.get_operator('null', ([], {}))))
-        t[0] = ast.nodemaker(stream.get_operator('nonzero', ([cmp], {})), t[1])
+        t[0] = formula(ast.nodemaker(stream.get_operator('nonzero', ([cmp], {})), t[1].ast),
+                       t[1].restrict)
 
+# '<'
 def p_comparator(t):
-    """comparator : '<'
-                  | '>'
+    """comparator : '>'
                   | LTE
                   | GTE
                   | NE
     """
     t[0] = t[1]
-
+    
 def p_error(t):
     raise qg.QueryException("Syntax error at '%s'" % t.value, 400)
 
@@ -718,7 +754,7 @@ def parse_opex(exp):
     try:
         opex_parser
     except NameError:
-        opex_parser = yacc.yacc(start="formula", 
+        opex_parser = yacc.yacc(start="formula_pipe", 
                                 tabmodule='opex_tab.py',
                                 debugfile='/dev/null',
                                 debuglog=logging.getLogger('ply-debug'),

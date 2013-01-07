@@ -36,12 +36,10 @@ no-arg version for use in the instance.
 """
 
 import sys
-#import urllib2
 import time
+
 from twisted.internet import reactor
 from twisted.python import log
-#set json keywords
-#(true, false, null) = (True, False, None)
 
 def datacheck(instance, driver, timep):
     """This function kills the reactor when the instance/driver stats feed 
@@ -51,13 +49,14 @@ def datacheck(instance, driver, timep):
     driver - what to check for, 
     timep - width of allowable window (allowable window is now-(timep seconds)
     """
-    #see if at least latest point in user defined time window
+    # see if at least latest point in user defined time window
     lastpointtime = driver.statslog.latest()
     comparetime = time.time() - timep
     if lastpointtime >= comparetime:
         return
     else:
-        log.err("Killing sMAP: no data check violated for driver " + str(driver))
+        log.err("Killing sMAP: no data check violated for driver " + 
+                str(driver))
         reactor.stop()
 
 def get(inst, driver, opts):
