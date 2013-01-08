@@ -52,7 +52,7 @@ def stringify_times(obj):
     for v in obj:
         if 'Readings' in v:
             for i in xrange(0, len(v['Readings'])):
-                v['Readings'][i][0] = time.ctime(v['Readings'][i][0]/1000)
+                v['Readings'][i][0] = time.ctime(v['Readings'][i][0])
 
 def run_query(opts, q):
     try:
@@ -112,7 +112,7 @@ def run_query(opts, q):
 
 gnuplot_args = [["set", "xdata", "time"],
                 ["set", "timefmt", '"%s"'],
-                ["set", "term", "dumb"],
+#                 ["set", "term", "dumb"],
                 ["unset", "key"]]
 def get_gnuplot():
     return '\n'.join(map(' '.join, gnuplot_args))
@@ -141,7 +141,7 @@ def plot(dat):
         print >>fp, get_gnuplot()
         print >>fp, """
 plot %s
-    """ % ','.join(['"%s" using ($1/1000):%i with linesp' % (pfile, x+2) for x in xrange(0, len(data['Readings'][0]))])
+    """ % ','.join(['"%s" using ($1):%i with linesp' % (pfile, x+2) for x in xrange(0, len(data['Readings'][0]))])
 
     with open('/dev/null', 'w') as null:
         p = subprocess.Popen("gnuplot %s" % pscript, 
@@ -155,9 +155,14 @@ plot %s
 
 if __name__ == '__main__':
     usage = 'usage: %prog [options] querys ...'
+    try:
+        default_backend = settings.conf['default backend'] + '/api/query'
+    except:
+        default_backend = 'http://localhost:8079/api/query'
+
     parser = OptionParser(usage=usage)
     parser.add_option('-u', '--url', dest='url', 
-                      default=settings.conf['default backend'] + '/api/query',
+                      default=default_backend,
                       help='location of backend server')
     parser.add_option('-k', '--key', dest='key', default=None,
                       help='api keys: k1[,k2 ...]')
