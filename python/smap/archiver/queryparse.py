@@ -274,7 +274,11 @@ def p_query(t):
 def add_formula_restrictions(c_restrict, f_restrict):
     extra = []
     for k, v in SetDict(f_restrict):
-        extra.append('((s.metadata -> %s) ~ %s)' % (escape_string(k), escape_string(v)))
+        if k != 'uuid':
+            extra.append('((s.metadata -> %s) ~ %s)' % 
+                         (escape_string(k), escape_string(v)))
+        else:
+            extra.append('(s.uuid = %s)' % escape_string(v))
     if len(extra):
         return c_restrict + ' AND (' + ' OR '.join(extra) + ')'
     else:
@@ -804,6 +808,7 @@ class QueryParser:
                 d.addCallback(ext[0])
         else:
             d = deferreds[0]
+        d.addErrback(eb)
 
         return d
 
