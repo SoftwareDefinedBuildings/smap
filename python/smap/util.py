@@ -41,6 +41,7 @@ import traceback as trace
 import collections
 
 from twisted.internet import task, reactor, threads, defer
+from twisted.internet.protocol import Protocol
 from twisted.python.lockfile import FilesystemLock
 from twisted.python import log, failure
 
@@ -371,3 +372,14 @@ class SetDict(dict):
         for k, s in self.iteritems():
             for v in s:
                 yield (k, v)
+
+class BufferProtocol(Protocol):
+    def __init__(self, finished):
+        self.finished = finished
+        self.buffer = []
+
+    def dataReceived(self, data):
+        self.buffer.append(data)
+
+    def connectionLost(self, reason):
+        self.finished.callback(''.join(self.buffer))

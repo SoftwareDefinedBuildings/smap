@@ -101,9 +101,12 @@ class DataResource(resource.Resource):
         def add_error(x):
             # return a 500 so the sMAP server can hold onto the data
             # until things can be fixed.
-            setResponseCode(request, x.value, 500)
-            request.write(str(x.value))
-            request.finish()
+            try:
+                setResponseCode(request, x.value, 500)
+                request.write(str(x.value))
+                request.finish()
+            except:
+                pass
 
         # and finish the request
         d.addCallback(add_success)

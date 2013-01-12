@@ -134,7 +134,8 @@ contain a ``uuid`` key to set the root identifier for the source.
     # configuration with that
     if 'server' in conf:
         smapconf.SERVER = util.dict_merge(smapconf.SERVER, 
-                                          dict(((k.lower(), v) for (k, v) in conf['server'].iteritems())))
+                                          dict(((k.lower(), v) for (k, v) in 
+                                                conf['server'].iteritems())))
 
     # we need the root to have a uuid
     inst = core.SmapInstance(conf['/']['uuid'], **instargs)

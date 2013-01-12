@@ -46,6 +46,7 @@ import smap.reporting as reporting
 import smap.util as util
 import smap.sjson as json
 from smap.operators import null
+from smap.core import SmapException
 import settings
 
 def makeErrback(request_):
@@ -97,9 +98,16 @@ class SmapMetadata:
         """Set the metadata for a Timeseries object
         """
         for path, ts in obj.iteritems():
+            if not util.is_string(path):
+                raise Exception("Invalid path: " + path)
+
             tags = ["hstore('Path', %s)" % escape_string(path)]
             for name, val in util.buildkv('', ts):
                 if name == 'Readings' or name == 'uuid': continue
+                if not (util.is_string(name) and util.is_string(val)):
+                    raise SmapException('Invalid metadata pair: "%s" -> "%s"' % (str(name),
+                                                                                 str(val)),
+                                        400)
                 tags.append("hstore(%s, %s)" % (escape_string(name), 
                                                 escape_string(val)))
             query = "UPDATE stream SET metadata = metadata || " + " || ".join(tags) + \
@@ -148,8 +156,11 @@ class SmapData:
         md = SmapMetadata(self.db)
         meta_deferred = md.add(subid, ids, obj)
         data_deferred = threads.deferToThread(self._add_data_real, ids, obj)        
-        return defer.DeferredList([meta_deferred, data_deferred], 
-                                  fireOnOneErrback=True, consumeErrors=True)
+        d = defer.DeferredList([meta_deferred, data_deferred], 
+                               fireOnOneErrback=True, consumeErrors=True)
+        # propagate the original error... 
+        d.addErrback(lambda x: x.value.subFailure)
+        return d
 
     def _run_create(self, uuids, result, newresult):
         """Chain together the stream creations so we don't exceed database limits"""

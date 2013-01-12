@@ -31,14 +31,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import os
-import sys
-import time
-import traceback
-
-import util
-import copy
-import pprint
-import cStringIO as StringIO
 import urlparse
 
 from twisted.internet import reactor, task, defer, threads
@@ -47,6 +39,7 @@ from twisted.web.http_headers import Headers
 from twisted.python import log
 import logging
 
+import util
 import core
 import disklog
 import sjson as json
@@ -236,6 +229,50 @@ class ReportInstance(dict):
             (len(self['PendingData']) > 0 and \
                  (now - self['LastSuccess']) > self['MinPeriod'])
 
+    def _log_response(self, resp, url):
+        def response_printer(resp):
+            log.msg("Reply from %s: '%s'" % (url,resp.strip()))
+        done = defer.Deferred()
+        resp.deliverBody(util.BufferProtocol(done))
+        done.addCallback(response_printer)
+        return done
+
+    def _success(self, resp):
+        self['Busy'] = False
+        if resp.code in [200, 201, 204]:
+            # on success record the time and remove the data
+            self['LastSuccess'] = util.now()
+            self['PendingData'].truncate()
+            if len(self['PendingData']) > 0:
+                # this causes a new deferred to get added to
+                # the chain, so we continue immediately at the
+                # next log position if this one worked.
+                return self.attempt()
+            else:
+                return resp
+        else:
+            # but most HTTP codes indicate a failure
+            log.msg("Report delivery to %s returned %i" % (
+                    self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
+                    resp.code))
+            response = self._log_response(resp, 
+                     self['ReportDeliveryLocation'][self['ReportDeliveryIdx']])
+            self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                         len(self['ReportDeliveryLocation']))
+            return response
+
+    def _failure(self, fail):
+        self['Busy'] = False
+        try:
+            log.msg("Report delivery to %s failed: %s" %
+                    (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
+                     str(fail.value)))
+            self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
+                                         len(self['ReportDeliveryLocation']))
+        except:
+            log.err()
+        return resp
+
     def attempt(self):
         """Try to make a delivery
         :rvalue: a :py:class:`Deferred` of the attempt
@@ -249,8 +286,8 @@ class ReportInstance(dict):
             if data == None:
                 self['PendingData'].truncate()
                 return
-        except Exception, e:
-            print e
+        except:
+            log.err()
             return
 
         self['LastAttempt'] = util.now()
@@ -277,51 +314,12 @@ class ReportInstance(dict):
                                        [formatter.content_type]}),
                               formatter(data))
         except:
-            traceback.print_exc()
+            log.err()
             return
 
-        def makeSuccessCb():
-            # make a closure for removing the delivered data
-            # on a success
-            def cbResponse(resp):
-                self['Busy'] = False
-                if resp.code in [200, 201, 204]:
-                    # on success record the time and remove the data
-                    self['LastSuccess'] = util.now()
-                    self['PendingData'].truncate()
-                    if len(self['PendingData']) > 0:
-                        # this causes a new deferred to get added to
-                        # the chain, so we continue immediately at the
-                        # next log position if this one worked.
-                        return self.attempt()
-                    else:
-                        return resp
-                else:
-                    # but most HTTP codes indicate a failure
-                    log.err("Report delivery to %s returned %i" % (
-                            self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
-                            resp.code))
-                    self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
-                                                 len(self['ReportDeliveryLocation']))
-                    raise core.SmapException("Report delivery to " +
-                                             str(self['ReportDeliveryLocation']) +
-                                             ' returned ' + str(resp.code))
-            return cbResponse
-
-        def makeFailureCb(inst):
-            inst_ = inst
-            def cbFail(fail):
-                inst_['Busy'] = False
-                self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
-                                             len(self['ReportDeliveryLocation']))
-                log.err("Report delivery to %s failed: %s" %
-                        (dest_url, str(fail.value)))
-                return resp
-            return cbFail
-
         self['Busy'] = True
-        d.addErrback(makeFailureCb(self))
-        d.addCallback(makeSuccessCb())
+        d.addCallback(self._success)
+        d.addErrback(self._failure)
         return d
 
 
@@ -354,7 +352,7 @@ class Reporting:
                 d = self._flush()
                 if d: d.addBoth(lambda _ : None)
             self.t = task.LoopingCall(flush)
-            self.t.start(autoflush)
+            reactor.callLater(autoflush, self.t.start, autoflush)
 
         # add a shutdown handler so we save the final reports after exiting
         if reportfile:
