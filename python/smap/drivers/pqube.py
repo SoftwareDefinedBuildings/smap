@@ -56,6 +56,7 @@ import struct
 from twisted.python import log
 
 from smap.driver import SmapDriver
+from smap.drivers import modbus
 from smap.util import periodicSequentialCall
 from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError
 
@@ -156,87 +157,45 @@ class PQube(SmapDriver):
 
             self.add('/%s/%s' % (phase, channel), reading_time, vparser(match.groups(0)))
 
-# modbus registers
-# reg number : (description, phase, channelname, units)
-PQUBE_REGISTERS = {
-    0 : (None, 'A', 'phase-earth_voltage', 'V'), 
-    2 : (None, 'B', 'phase-earth_voltage', 'V'), 
-    4 : (None, 'C', 'phase-earth_voltage', 'V'), 
 
-    8 : (None, 'A', 'phase-neutral_voltage', 'V'), 
-    10 : (None, 'B', 'phase-neutral_voltage', 'V'), 
-    12 : (None, 'C', 'phase-neutral_voltage', 'V'), 
+class PQubeModbus(modbus.ModbusDriver):
+    # modbus registers
+    # reg number : (description, phase, channelname, units)
+    BASE = 7000
+    
+    REGISTERS = {
+        0 : (None, '/A/phase-earth_voltage', 'V', modbus.float), 
+        2 : (None, '/B/phase-earth_voltage', 'V', modbus.float), 
+        4 : (None, '/C/phase-earth_voltage', 'V', modbus.float), 
 
-    28 : ('L1 Amp', 'A', 'current', 'A'), 
-    30 : ('L2 Amp', 'B', 'current', 'A'), 
-    32 : ('L3 Amp', 'C', 'current', 'A'), 
+        8 : (None, '/A/phase-neutral_voltage', 'V', modbus.float), 
+        10 : (None, '/B/phase-neutral_voltage', 'V', modbus.float), 
+        12 : (None, '/C/phase-neutral_voltage', 'V', modbus.float), 
 
-    26 : ('Frequency', 'ABC', 'line_frequency', 'Hz'), 
-    64 : ('Voltage THD', 'ABC', 'voltage_thd', 'pct'), 
-    66 : ('Current TDD', 'ABC', 'current_tdd', 'pct'), 
+        28 : ('L1 Amp', '/A/current', 'A', modbus.float), 
+        30 : ('L2 Amp', '/B/current', 'A', modbus.float), 
+        32 : ('L3 Amp', '/C/current', 'A', modbus.float), 
 
-    14 : ('L1-L2', 'AB', 'volts', 'V'), 
-    16 : ('L2-L3', 'BC', 'volts', 'V'), 
-    18 : ('L3-L1', 'AC', 'volts', 'V'), 
+        26 : ('Frequency', '/ABC/line_frequency', 'Hz', modbus.float), 
+        64 : ('Voltage THD', '/ABC/voltage_thd', 'pct', modbus.float), 
+        66 : ('Current TDD', '/ABC/current_tdd', 'pct', modbus.float), 
 
-    36 : ('Power', 'ABC', 'true_power', 'W'), 
-    38 : ('Apparent Power', 'ABC', 'apparent_power', 'VA'), 
-    80 : ('Reactive Power', 'ABC', 'reactive_power', 'VAR'), 
-    82 : ('True Power Factor', 'ABC', 'pf', 'PF'), 
+        14 : ('L1-L2', '/AB/volts', 'V', modbus.float), 
+        16 : ('L2-L3', '/BC/volts', 'V', modbus.float), 
+        18 : ('L3-L1', '/AC/volts', 'V', modbus.float), 
 
-    # meters
-    60 : ('Energy', 'ABC', 'true_energy', 'Wh'),
-    62 : ('Apparent Energy', 'ABC', 'apparent_energy', 'VAh'), 
-    }
+        36 : ('Power', '/ABC/true_power', 'W', modbus.float), 
+        38 : ('Apparent Power', '/ABC/apparent_power', 'VA', modbus.float), 
+        80 : ('Reactive Power', '/ABC/reactive_power', 'VAR', modbus.float), 
+        82 : ('True Power Factor', '/ABC/pf', 'PF', modbus.float), 
 
-class PQubeModbus(SmapDriver):
-    # max number of registers to read in one go
-    MAX_READ_RANGE = 100
-    def setup(self, opts):
-        self.host = opts.get('Address')
-        self.port = int(opts.get('Port', 502))
-        self.rate = int(opts.get('Rate', 30))
-        self.slaveaddr = int(opts.get('SlaveAddress', 1))
-        self.base = int(opts.get('BaseRegister', 7000))
+        # meters
+        60 : ('Energy', '/ABC/true_energy', 'Wh', modbus.float),
+        62 : ('Apparent Energy', '/ABC/apparent_energy', 'VAh', modbus.float),
+        }
 
-        self.set_metadata('/', {
+    METADATA = {
             'Instrument/Manufacturer' : 'Power Standards Laboratory',
-            'Instrument/SamplingPeriod' : str(self.rate),
             'Extra/Driver' : 'smap.drivers.pqube.PQube',
-            })
+            }
 
-        for desc, phase, channel, units in PQUBE_REGISTERS.itervalues():
-            self.add_timeseries('/' + phase + '/' + channel, units, 
-                                data_type='double', description=desc)
-
-    def start(self):
-        self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
-        periodicSequentialCall(self.update).start(self.rate)
-
-    def stop(self):
-        self.m.close()
-
-    def update(self):
-        """Poll the Modbus/TCP device and interpret the response"""
-                    
-        for offset in xrange(0, max(PQUBE_REGISTERS.keys()), self.MAX_READ_RANGE):
-            try:
-                data = self.m.read(self.base + offset, self.MAX_READ_RANGE)
-            except ModbusError:
-                log.err("Modbus protocol error; restarting connection")
-                self.m.close()
-                self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
-                return
-            except Exception, e:
-                log.err("Exception polling PQube meter at (%s:%i): %s" % 
-                        (self.host, self.port, str(e)))
-                return
-            else:
-                if len(data) != self.MAX_READ_RANGE * 2:
-                    log.err("Wrong data length from (%s:%i)" % (self.host, self.port))
-                    return
-
-            for i in xrange(0, self.MAX_READ_RANGE * 2, 4):
-                if (offset+i) / 2 in PQUBE_REGISTERS:
-                    desc, phase, channel, units = PQUBE_REGISTERS[(offset+i) / 2]
-                    self.add('/' + phase + '/' + channel, struct.unpack(">f",  data[i:i+4])[0])
