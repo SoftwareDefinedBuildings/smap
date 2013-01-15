@@ -27,6 +27,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
+Pure python implementations of Modbus/TCP and Modbus/RTU
+
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
@@ -34,8 +36,14 @@ import sys
 import socket
 import struct
 import random
+import binascii
 
-FUNC_READ = 3
+import crcmod.predefined
+# grab the standard modbus crc polynomial (0x8005)
+crc16 = crcmod.predefined.mkPredefinedCrcFun('modbus')
+
+FUNC_READ_HOLDING = 3
+FUNC_READ_INPUT = 4
 
 class ModbusError(IOError):
     pass
@@ -82,26 +90,60 @@ class ModbusTCP:
     def close(self):
         self.sock.close()
 
-    def read(self, base, n):
+    def read(self, base, n, func=None):
         txid = random.randint(0, 65535)
-        command = struct.pack(">HHHBBHH", txid, 0, 6, self.slaveaddr, FUNC_READ, base, n)        
+        if func == None: func = FUNC_READ_HOLDING
+        command = struct.pack(">HHHBBHH", txid, 0, 6, self.slaveaddr, 
+                              func, base, n)
         self.sock.send(command)
         data = self.sock.recv(1024)
 
-        txid_r, ver, length, addr, func = struct.unpack(">HHHBB", data[:8])
+        txid_r, ver, length, addr, function = struct.unpack(">HHHBB", data[:8])
         # check for malformed replys
         if txid != txid_r or ver != 0 or addr != self.slaveaddr \
-               or func != FUNC_READ or length != len(data) - 6:
+               or func != function or length != len(data) - 6:
             raise ModbusError('Invalid modbus response received from device')
-
-        # print txid_r,ver,length,addr,func
 
         # just return the string -- the user knows how to unpack it
         # better then we probably do...
         return data[9:]
 
+class ModbusRTU:
+    """Implementation of the encapsulated Modbus/RTU over TCP protocol
+    """
+    def __init__(self, host, port=502, slaveaddr=1, timeout=2.0):
+        self.slaveaddr = slaveaddr
+        self.sock = ReconnectingSocket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        self.sock.settimeout(timeout)
+        self.sock.connect((host, port))
+
+    def close(self):
+        self.sock.close()
+
+    def _go(self, function, data):
+        command = struct.pack("BB", self.slaveaddr, function) + data
+        command += struct.pack("@H", crc16(command))
+ 
+        self.sock.send(command)
+        reply = self.sock.recv(1024)
+
+        # sanity-check the reply
+        if len(reply) < 6:
+            raise ModbusError('Short modbus response received from device')
+        addr, func, length = struct.unpack("BBB", reply[:3])
+
+        if addr != self.slaveaddr or function != func or \
+                crc16(reply[:-2]) != struct.unpack("@H", reply[-2:])[0] or \
+                length != len(reply) - 5:
+            raise ModbusError('Invalid modbus response received from device')
+        return reply[3:-2]
+        
+    def read(self, base, n, func=None):
+        if func == None: func = FUNC_READ_HOLDING
+        return self._go(func, struct.pack(">HH", base - 1, n))
+
 if __name__ == '__main__':
     reg = int(sys.argv[1])
-    m = ModbusTCP('10.0.50.118')
-    x = m.read(reg, 0)
+    m = ModbusRTU('192.168.1.12', slaveaddr=7)
+    x = m.read(reg, 2, func=FUNC_READ_INPUT)
     print [ord(c) for c in x]

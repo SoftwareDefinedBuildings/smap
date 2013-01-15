@@ -57,8 +57,8 @@ from twisted.python import log
 
 from smap.driver import SmapDriver
 from smap.drivers import modbus
+from smap.drivers.modbus import ModbusRegister as R
 from smap.util import periodicSequentialCall
-from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -164,34 +164,34 @@ class PQubeModbus(modbus.ModbusDriver):
     BASE = 7000
     
     REGISTERS = {
-        0 : (None, '/A/phase-earth_voltage', 'V', modbus.float), 
-        2 : (None, '/B/phase-earth_voltage', 'V', modbus.float), 
-        4 : (None, '/C/phase-earth_voltage', 'V', modbus.float), 
+        0 : R('/A/phase-earth_voltage', 'V', modbus.float), 
+        2 : R('/B/phase-earth_voltage', 'V', modbus.float), 
+        4 : R('/C/phase-earth_voltage', 'V', modbus.float), 
 
-        8 : (None, '/A/phase-neutral_voltage', 'V', modbus.float), 
-        10 : (None, '/B/phase-neutral_voltage', 'V', modbus.float), 
-        12 : (None, '/C/phase-neutral_voltage', 'V', modbus.float), 
+        8 : R('/A/phase-neutral_voltage', 'V', modbus.float), 
+        10 : R('/B/phase-neutral_voltage', 'V', modbus.float), 
+        12 : R('/C/phase-neutral_voltage', 'V', modbus.float), 
 
-        28 : ('L1 Amp', '/A/current', 'A', modbus.float), 
-        30 : ('L2 Amp', '/B/current', 'A', modbus.float), 
-        32 : ('L3 Amp', '/C/current', 'A', modbus.float), 
+        28 : R('/A/current', 'A', modbus.float, 'L1 Amp'), 
+        30 : R('/B/current', 'A', modbus.float, 'L2 Amp'), 
+        32 : R('/C/current', 'A', modbus.float, 'L3 Amp'), 
 
-        26 : ('Frequency', '/ABC/line_frequency', 'Hz', modbus.float), 
-        64 : ('Voltage THD', '/ABC/voltage_thd', 'pct', modbus.float), 
-        66 : ('Current TDD', '/ABC/current_tdd', 'pct', modbus.float), 
+        26 : R('/ABC/line_frequency', 'Hz', modbus.float, 'Frequency'), 
+        64 : R('/ABC/voltage_thd', 'pct', modbus.float, 'Voltage THD'), 
+        66 : R('/ABC/current_tdd', 'pct', modbus.float, 'Current TDD'), 
 
-        14 : ('L1-L2', '/AB/volts', 'V', modbus.float), 
-        16 : ('L2-L3', '/BC/volts', 'V', modbus.float), 
-        18 : ('L3-L1', '/AC/volts', 'V', modbus.float), 
+        14 : R('/AB/volts', 'V', modbus.float, 'L1-L2'), 
+        16 : R('/BC/volts', 'V', modbus.float, 'L2-L3'), 
+        18 : R('/AC/volts', 'V', modbus.float, 'L3-L1'), 
 
-        36 : ('Power', '/ABC/true_power', 'W', modbus.float), 
-        38 : ('Apparent Power', '/ABC/apparent_power', 'VA', modbus.float), 
-        80 : ('Reactive Power', '/ABC/reactive_power', 'VAR', modbus.float), 
-        82 : ('True Power Factor', '/ABC/pf', 'PF', modbus.float), 
+        36 : R('/ABC/true_power', 'W', modbus.float, 'Power'), 
+        38 : R('/ABC/apparent_power', 'VA', modbus.float, 'Apparent Power'), 
+        80 : R('/ABC/reactive_power', 'VAR', modbus.float, 'Reactive Power'), 
+        82 : R('/ABC/pf', 'PF', modbus.float, 'True Power Factor'), 
 
         # meters
-        60 : ('Energy', '/ABC/true_energy', 'Wh', modbus.float),
-        62 : ('Apparent Energy', '/ABC/apparent_energy', 'VAh', modbus.float),
+        60 : R('/ABC/true_energy', 'Wh', modbus.float),
+        62 : R('/ABC/apparent_energy', 'VAh', modbus.float),
         }
 
     METADATA = {

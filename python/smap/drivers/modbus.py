@@ -37,9 +37,31 @@ from twisted.python import log
 
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
-from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError
+from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError, FUNC_READ_HOLDING
+import smap.iface.modbus.TCPModbusClient as TCPModbusClient
 
 float = struct.Struct(">f")
+int16 = struct.Struct(">h")
+
+class FactorStruct(struct.Struct):
+    def __init__(self, fmt, factor):
+        self.factor = factor
+        struct.Struct.__init__(self, fmt)
+
+    def unpack(self, data):
+        v = struct.Struct.unpack(self, data)
+        return tuple((x * self.factor for x in v))
+
+class ModbusRegister(object):
+    def __init__(self, path, unit, parser=int16, 
+                 description=None, function=FUNC_READ_HOLDING, 
+                 data_type="double"):
+        self.path = path
+        self.unit = unit
+        self.parser = parser
+        self.description = description
+        self.function = function
+        self.data_type = data_type
 
 class ModbusDriver(SmapDriver):
     """Generic base class for drivers polling modbus devices"""
@@ -49,6 +71,7 @@ class ModbusDriver(SmapDriver):
     METADATA = {}
     REGISTERS = {}
     BASE = 0
+    CLIENT = ModbusTCP
 
     def setup(self, opts):
         self.host = opts.get('Address')
@@ -62,27 +85,41 @@ class ModbusDriver(SmapDriver):
                 'Instrument/SamplingPeriod' : str(self.rate),
                 })
 
-        for desc, path, units, fmt in self.REGISTERS.itervalues():
-            self.add_timeseries(path, units, 
-                                data_type='double', description=desc)
+        for reg in self.REGISTERS.itervalues():
+            self.add_timeseries(reg.path, reg.unit, 
+                                data_type=reg.data_type, 
+                                description=reg.description)
 
     def start(self):
-        self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
+        self.m = self.CLIENT(self.host, self.port, self.slaveaddr)
         periodicSequentialCall(self.update).start(self.rate)
 
     def stop(self):
         self.m.close()
 
     def update(self):
+        regs = {}
+        for idx, reg in self.REGISTERS.iteritems():
+            if not reg.function in regs:
+                regs[reg.function] = {}
+            regs[reg.function][idx] = reg
+
+        for args in regs.iteritems():
+            self.update_function(*args)
+
+    def update_function(self, func, registers):
         """Poll the Modbus/TCP device and interpret the response"""
                     
-        for offset in xrange(0, max(self.REGISTERS.keys()), self.MAX_READ_RANGE):
+        regs = registers.keys()
+        for offset in xrange(min(regs), max(regs) + self.MAX_READ_RANGE, 
+                             self.MAX_READ_RANGE):
             try:
-                data = self.m.read(self.base + offset, self.MAX_READ_RANGE)
+                data = self.m.read(self.base + offset, self.MAX_READ_RANGE,
+                                   func=func)
             except ModbusError:
                 log.err("Modbus protocol error; restarting connection")
                 self.m.close()
-                self.m = ModbusTCP(self.host, self.port, self.slaveaddr)
+                self.m = self.CLIENT(self.host, self.port, self.slaveaddr)
                 return
             except Exception, e:
                 log.err("Exception polling PQube meter at (%s:%i): %s" % 
@@ -93,7 +130,8 @@ class ModbusDriver(SmapDriver):
                     log.err("Wrong data length from (%s:%i)" % (self.host, self.port))
                     return
 
-            for i in xrange(0, self.MAX_READ_RANGE * 2, 4):
-                if (offset+i) / 2 in self.REGISTERS:
-                    desc, path, units, fmt = self.REGISTERS[(offset+i) / 2]
-                    self.add(path, fmt.unpack(data[i:i+fmt.size])[0])
+            for i in xrange(0, len(data), 2):
+                reg = registers.get(offset + (i / 2), None)
+                if reg:
+                    val = reg.parser.unpack(data[i:i+reg.parser.size])[0]
+                    self.add(reg.path, val)
