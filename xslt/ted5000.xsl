@@ -17,7 +17,12 @@
 	  <Readings>
 	    <Reading>
 	      <Timestamp><xsl:copy-of select="$timestamp"/></Timestamp>
-	      <Value><xsl:value-of select="."/></Value>
+              <xsl:if test="name(../..) = 'Voltage'">
+	        <Value><xsl:value-of select=". div 10"/></Value>
+              </xsl:if>
+              <xsl:if test="name(../..) != 'Voltage'">
+	        <Value><xsl:value-of select="."/></Value>
+              </xsl:if>
 	    </Reading>
 	  </Readings>
 	</Timeseries>
