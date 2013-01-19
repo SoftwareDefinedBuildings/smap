@@ -17,12 +17,16 @@
 	  <Readings>
 	    <Reading>
 	      <Timestamp><xsl:copy-of select="$timestamp"/></Timestamp>
-              <xsl:if test="name(../..) = 'Voltage'">
-	        <Value><xsl:value-of select=". div 10"/></Value>
-              </xsl:if>
-              <xsl:if test="name(../..) != 'Voltage'">
-	        <Value><xsl:value-of select="."/></Value>
-              </xsl:if>
+              <xsl:choose>
+                <xsl:when test="name(../..) = 'Voltage' and
+                                not(contains(name(.), 'Date') or
+                                    contains(name(.), 'Time'))">
+                  <Value><xsl:value-of select=". div 10"/></Value>
+                </xsl:when>
+                <xsl:otherwise>
+                  <Value><xsl:value-of select="."/></Value>
+                </xsl:otherwise>
+              </xsl:choose>
 	    </Reading>
 	  </Readings>
 	</Timeseries>
