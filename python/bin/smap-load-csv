@@ -33,12 +33,16 @@ import sys
 import csv
 import uuid
 import time
+import unicodedata
 from optparse import OptionParser
 
 from twisted.internet import reactor
 from twisted.python import log
 from smap.core import SmapInstance
 from smap.contrib import dtutil
+
+def path(col):
+    return '/' + repr(col)
 
 if __name__ == '__main__':
     usage = 'usage: %prog [options] <csvfile>'
@@ -59,12 +63,19 @@ if __name__ == '__main__':
                       default='America/Los_Angeles', help='time zone name')
     parser.add_option('-d', '--report-dest', dest='report_dest',
                       default=None, help='reporting destination')
+    parser.add_option('-v', '--verbose', dest='verbose',
+                      default=False, help='verbose', action='store_true')
+    parser.add_option('-k', '--skip-lines', dest='skip_lines',
+                      default=0, type='int', help='number of lines to skip')
+    parser.add_option('-l', '--limit-lines', dest='limit', type='int',
+                      default=None, help='only process this many lines from the file')
+    parser.add_option('-s', '--source-name', dest='source_name',
+                      default='CSV Input', help='Metadata/SourceName tag value')
 
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
         sys.exit(1)
-
     
     try:
         uid = uuid.UUID(opts.uuid)
@@ -74,15 +85,12 @@ if __name__ == '__main__':
 
     try:
         fp = open(args[0], 'r')
+        for i in xrange(0, opts.skip_lines): fp.readline()
     except IOError, e:
         print >>sys.stderr, "Error:", e
         sys.exit(1)
     data = csv.DictReader(fp)
     columns = set(data.fieldnames)
-
-    if not opts.report_dest:
-        print >>sys.stderr, "Error: no reporting destination"
-        sys.exit(1)
 
     if opts.takes:
         takes = set(opts.takes.split(','))
@@ -103,23 +111,46 @@ if __name__ == '__main__':
 
     log.startLogging(sys.stderr)
     inst = SmapInstance(uid)
-    inst.reports.add_report({
-            'ReportDeliveryLocation' : [opts.report_dest],
-            'uuid': uuid.uuid1(),
-            'ReportResource' : '/+',
-            'Format' : 'json',
-            })
+    inst.set_metadata('/', {'Metadata/SourceName': opts.source_name})
+    if opts.report_dest:
+        inst.reports.add_report({
+                'ReportDeliveryLocation' : [opts.report_dest],
+                'uuid': uuid.uuid1(),
+                'ReportResource' : '/+',
+                'Format' : 'json',
+                })
+    else:
+        print >>sys.stderr, "Warning: no reporting destination"
+
     for c in columns:
-        inst.add_timeseries('/' + c, '', 
+        p = path(c)
+        if opts.verbose: print "timeseries /%s tz: %s" % (p, opts.time_zone)
+
+        inst.add_timeseries(p, '', 
                             timezone=opts.time_zone,
                             data_type='double')
 
+    processed = 0
     for r in data:
+        if opts.limit != None and processed >= opts.limit:
+            break
+        else:
+            processed += 1
+        print processed, opts.limit
+
         if opts.time_format == '%s':
             ts = int(r[t])
         else:
             ts = dtutil.dt2ts(dtutil.strptime_tz(r[t], opts.time_format))
-        for c in columns:
-            inst._add('/' + c, ts, float(r[c]))
 
+        if opts.verbose: print ts
+        for c in columns:
+            if not r[c]: continue
+            p = path(c)
+            if opts.verbose: print "\t %s '%s' added" % (p, r[c])
+            inst._add(p, ts, float(r[c]))
+
+    print "processed %i lines" % processed
+    d = inst._flush()
+    d.addCallbacks(lambda x: reactor.stop())
     reactor.run()
