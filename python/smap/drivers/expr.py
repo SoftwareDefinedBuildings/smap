@@ -100,7 +100,7 @@ Configuration options:
             print "adding group", g, "(%i/%i)" % (i, len(groups))
             i += 1
             for op in self.ops:
-                op_instance = op(inputs)
+                op_instance = op.ast(inputs)
                 assert len(op_instance.outputs) == 1
                 try:
                     inp = map(operator.itemgetter('uuid'), op_instance.inputs)
