@@ -84,7 +84,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
-        fp = open(args[0], 'r')
+        fp = open(args[0], 'rU')
         for i in xrange(0, opts.skip_lines): fp.readline()
     except IOError, e:
         print >>sys.stderr, "Error:", e
