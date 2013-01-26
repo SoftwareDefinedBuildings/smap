@@ -38,6 +38,7 @@ import urlparse
 import urllib2
 from twisted.internet import reactor, threads, defer
 from twisted.python.util import println
+from twisted.python import log
 from zope.interface import implements
 
 from interface import *
