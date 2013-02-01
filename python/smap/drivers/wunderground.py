@@ -52,7 +52,10 @@ from twisted.python import log
 from smap import driver, util
 
 def get_val(dom, key):
-    v = dom.getElementsByTagName(key)[0].firstChild.nodeValue
+    try:
+        v = dom.getElementsByTagName(key)[0].firstChild.nodeValue
+    except AttributeError:
+        v = ""
     return v
 
 class WunderGround(driver.SmapDriver):
