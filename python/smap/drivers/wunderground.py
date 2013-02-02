@@ -55,7 +55,7 @@ def get_val(dom, key):
     try:
         v = dom.getElementsByTagName(key)[0].firstChild.nodeValue
     except AttributeError:
-        v = ""
+        pass
     return v
 
 class WunderGround(driver.SmapDriver):
@@ -67,13 +67,28 @@ class WunderGround(driver.SmapDriver):
         self.last_time = 0
         self.metadata_done = False
         
-        self.add_timeseries("/wind_dir", "deg")
-        self.add_timeseries("/wind_speed", "m/s", data_type="double")
-        self.add_timeseries("/wind_gust", "m/s", data_type="double") 
-        self.add_timeseries("/humidity", "rh")
-        self.add_timeseries("/temperature", "C", data_type="double") 
-        self.add_timeseries("/pressure", "mb", data_type="double")   
-        self.add_timeseries("/dew_point", "C", data_type="double")   
+        self.timeseries = [
+                           {"path": "/wind_dir", "unit": "deg", "xml_nodename": "wind_degrees", "data_type": "integer"},
+                           {"path": "/wind_speed", "unit": "m/s", "xml_nodename": "wind_mph", "data_type": "double"},
+                           {"path": "/wind_gust", "unit": "m/s", "xml_nodename": "wind_gust_mph", "data_type": "double"},
+                           {"path": "/humidity", "unit": "rh", "xml_nodename": "relative_humidity", "data_type": "integer"},
+                           {"path": "/temperature", "unit": "C", "xml_nodename": "temp_c", "data_type": "double"},
+                           {"path": "/pressure", "unit": "mb", "xml_nodename": "pressure_mb", "data_type": "double"},
+                           {"path": "/dew_point", "unit": "C", "xml_nodename": "dewpoint_c", "data_type": "double"}
+                          ]
+        self.metadata = [
+                         {"tag": "Extra/StationType", "xml_nodename": "station_type"},  
+                         {"tag": "Location/StationID", "xml_nodename": "station_id"},  
+                         {"tag": "Location/Latitude", "xml_nodename": "latitude"},  
+                         {"tag": "Location/Longitude", "xml_nodename": "longitude"},  
+                         {"tag": "Location/Altitude", "xml_nodename": "elevation"},  
+                         {"tag": "Location/Uri", "xml_nodename": "link"},  
+                         {"tag": "Location/City", "xml_nodename": "city"},  
+                         {"tag": "Location/State", "xml_nodename": "state"}
+                        ]
+ 
+        for ts in timeseries:
+            self.add_timeseries(ts.path, ts.unit, data_type=ts.data_type)
 
     def start(self):
         util.periodicSequentialCall(self.update).start(self.rate)
@@ -103,26 +118,27 @@ class WunderGround(driver.SmapDriver):
             return
 
         if reading_time > self.last_time:
-            self.add('/wind_dir', reading_time, int(get_val(dom, "wind_degrees")))
-            self.add('/wind_speed', reading_time, float(get_val(dom, "wind_mph")))
-            self.add("/wind_gust", reading_time, float(get_val(dom, "wind_gust_mph")))
-            self.add("/humidity", reading_time, int(get_val(dom, "relative_humidity")))
-            self.add("/temperature", reading_time, float(get_val(dom, "temp_c")))
-            self.add("/pressure", reading_time, float(get_val(dom, "pressure_mb")))
-            self.add("/dew_point", reading_time, float(get_val(dom, "dewpoint_c")))
+        
+            for ts in self.timeseries:
+                v = get_val(dom, ts.xml_nodename)
+                if v is not None:
+                    if ts.data_type == "double":
+                       v = float(v)
+                    else:
+                       v = int(v)
+                    self.add(ts.path, reading_time, v)
+            
             last_time = reading_time
-
+ 
         if not self.metadata_done:
             self.metadata_done = True
-            self.set_metadata('/', {
-                    'Extra/StationType' : get_val(dom, "station_type"),
-                    'Extra/StationID' : get_val(dom, "station_id"),
-                    'Location/Latitude' : get_val(dom, "latitude"),
-                    'Location/Longitude': get_val(dom, "longitude"),
-                    'Location/Altitude': get_val(dom, "elevation"),
-                    'Location/Uri' : get_val(dom, "link"),
-                    'Location/City' : get_val(dom, "city"),
-                    'Location/State' : get_val(dom, "state"),
-                    })
+            d = {}
+            for m in self.metadata:
+                v = get_val(dom, m.xml_nodename)
+                if v is not None:
+                    d.add(m.tag, v)
+                else:
+                    d.add(m.tag, "")
+            self.set_metadata('/', d)
 
         dom.unlink()
