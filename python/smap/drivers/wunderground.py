@@ -55,7 +55,7 @@ def get_val(dom, key):
     try:
         v = dom.getElementsByTagName(key)[0].firstChild.nodeValue
     except AttributeError:
-        pass
+        v = None
     return v
 
 class WunderGround(driver.SmapDriver):
@@ -66,12 +66,12 @@ class WunderGround(driver.SmapDriver):
         self.rate = int(opts.get("Rate", 60))
         self.last_time = 0
         self.metadata_done = False
-        
+       
         self.timeseries = [
-                           {"path": "/wind_dir", "unit": "deg", "xml_nodename": "wind_degrees", "data_type": "integer"},
+                           {"path": "/wind_dir", "unit": "deg", "xml_nodename": "wind_degrees", "data_type": "long"},
                            {"path": "/wind_speed", "unit": "m/s", "xml_nodename": "wind_mph", "data_type": "double"},
                            {"path": "/wind_gust", "unit": "m/s", "xml_nodename": "wind_gust_mph", "data_type": "double"},
-                           {"path": "/humidity", "unit": "rh", "xml_nodename": "relative_humidity", "data_type": "integer"},
+                           {"path": "/humidity", "unit": "rh", "xml_nodename": "relative_humidity", "data_type": "long"},
                            {"path": "/temperature", "unit": "C", "xml_nodename": "temp_c", "data_type": "double"},
                            {"path": "/pressure", "unit": "mb", "xml_nodename": "pressure_mb", "data_type": "double"},
                            {"path": "/dew_point", "unit": "C", "xml_nodename": "dewpoint_c", "data_type": "double"}
@@ -87,8 +87,8 @@ class WunderGround(driver.SmapDriver):
                          {"tag": "Location/State", "xml_nodename": "state"}
                         ]
  
-        for ts in timeseries:
-            self.add_timeseries(ts.path, ts.unit, data_type=ts.data_type)
+        for ts in self.timeseries:
+            self.add_timeseries(ts["path"], ts["unit"], data_type=ts["data_type"])
 
     def start(self):
         util.periodicSequentialCall(self.update).start(self.rate)
@@ -120,13 +120,13 @@ class WunderGround(driver.SmapDriver):
         if reading_time > self.last_time:
         
             for ts in self.timeseries:
-                v = get_val(dom, ts.xml_nodename)
+                v = get_val(dom, ts["xml_nodename"])
                 if v is not None:
-                    if ts.data_type == "double":
+                    if ts["data_type"] == "double":
                        v = float(v)
                     else:
                        v = int(v)
-                    self.add(ts.path, reading_time, v)
+                    self.add(ts["path"], reading_time, v)
             
             last_time = reading_time
  
@@ -134,11 +134,11 @@ class WunderGround(driver.SmapDriver):
             self.metadata_done = True
             d = {}
             for m in self.metadata:
-                v = get_val(dom, m.xml_nodename)
+                v = get_val(dom, m["xml_nodename"])
                 if v is not None:
-                    d.add(m.tag, v)
+                    d.update({m["tag"]: v})
                 else:
-                    d.add(m.tag, "")
+                    d.update({m["tag"]: ""})
             self.set_metadata('/', d)
 
         dom.unlink()
