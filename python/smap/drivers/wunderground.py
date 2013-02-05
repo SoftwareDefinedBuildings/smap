@@ -44,12 +44,15 @@ and add a query parameter with the station id.
 
 import urllib2
 import rfc822
+import datetime
+import time
 from xml.dom.minidom import parse, parseString
 from xml.parsers.expat import ExpatError
 
 from twisted.internet import reactor
 from twisted.python import log
 from smap import driver, util
+from smap.contrib import dtutil
 
 def get_val(dom, key):
     try:
@@ -57,6 +60,26 @@ def get_val(dom, key):
     except AttributeError:
         v = None
     return v
+
+def parse_local(t):
+    return datetime.datetime.strptime(t, "Last Updated on %B %d, %I:%M %p")
+
+def guess_timezone(local, gmt):
+    # parse the two timestamps
+    zonename = local.split(' ')[-1]
+    local = parse_local(local[:-4])
+    gmt = datetime.datetime(*rfc822.parsedate_tz(gmt)[:5])
+    # and fix the year since their string doesn't come with one
+    local = local.replace(year=gmt.year)
+    onames = dtutil.olson(zonename, local - gmt)
+    if len(onames):
+        log.msg("WARNING: inferred zone code %s for %s" % (onames[-1], zonename))
+        return onames[-1]
+    else:
+        log.msg("WARNING: no match found for zone name %s with utcoffset %s" % 
+                (zonename, str(local - gmt)))
+        return zonename
+    
 
 class WunderGround(driver.SmapDriver):
     def setup(self, opts):
@@ -66,6 +89,7 @@ class WunderGround(driver.SmapDriver):
         self.rate = int(opts.get("Rate", 60))
         self.last_time = 0
         self.metadata_done = False
+        self.tz = opts.get('Timezone', None)
        
         self.timeseries = [
                            {"path": "/wind_dir", "unit": "deg", "xml_nodename": "wind_degrees", "data_type": "long"},
@@ -86,10 +110,21 @@ class WunderGround(driver.SmapDriver):
                          {"tag": "Location/City", "xml_nodename": "city"},  
                          {"tag": "Location/State", "xml_nodename": "state"}
                         ]
- 
-        for ts in self.timeseries:
-            self.add_timeseries(ts["path"], ts["unit"], data_type=ts["data_type"])
 
+    def create_timeseries(self, dom):
+        if not self.tz:
+            try:
+                local_time = get_val(dom, "observation_time")
+                reading_time = get_val(dom, "observation_time_rfc822")
+                tz = guess_timezone(local_time, reading_time)
+            except Exception, e:
+                tz = self.tz
+                log.err()
+
+        for ts in self.timeseries:
+            self.add_timeseries(ts["path"], ts["unit"], data_type=ts["data_type"],
+                                timezone=tz)
+ 
     def start(self):
         util.periodicSequentialCall(self.update).start(self.rate)
 
@@ -109,6 +144,9 @@ class WunderGround(driver.SmapDriver):
         except ExpatError, e:
             log.err("Exception parsing DOM [%s]: %s" % (url, str(e)))
             return
+
+        if not self.metadata_done:
+            self.create_timeseries(dom)
 
         try:
             reading_time = rfc822.parsedate_tz(get_val(dom, "observation_time_rfc822"))
@@ -139,6 +177,7 @@ class WunderGround(driver.SmapDriver):
                     d.update({m["tag"]: v})
                 else:
                     d.update({m["tag"]: ""})
+
             self.set_metadata('/', d)
 
         dom.unlink()

@@ -35,6 +35,10 @@ Also, includes matplotlib helpers to setup date plotting.
 
 from dateutil.tz import *
 import datetime, calendar
+try:
+  import pytz
+except ImportError:
+  pass
 
 utc = gettz('UTC')
 local = tzlocal()
@@ -100,3 +104,18 @@ def ts(str, format='%x %X', tzstr='Local'):
 
 def iso8601(ts, tzinfo=utc):
   return str(ts.astimezone(tzinfo)).replace(' ', 'T')
+
+def olson(cname, offset):
+  """Convert a libc name (like EST) to an olson tz name
+  (America/New_York)"""
+
+  zones = []
+  for name in pytz.common_timezones:
+    timezone = pytz.timezone(name)
+    if not hasattr(timezone, '_tzinfos'):
+      continue
+    for (utcoffset, daylight, tzname), _ in timezone._tzinfos.iteritems():
+      if tzname == cname and utcoffset == offset:
+        zones.append(name)
+  return zones
+
