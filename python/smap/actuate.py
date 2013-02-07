@@ -121,8 +121,11 @@ class SmapActuator(core.Timeseries):
                                   lambda req, state: util.syncMaybeDeferred(self.set_state, req, state))
         self.autoadd = autoadd
         self.__setitem__('Actuate', {
-                'Model' : self.ACTUATE_MODEL
+                'Model': self.ACTUATE_MODEL
                 })
+
+    def setup(self, opts):
+        self['Actuate'].update(self.control_description)
 
     def valid_state(self, state):
         """Determine if a given state is valid for a particular actuator.
@@ -211,6 +214,7 @@ State here are static and can't be configured.
         self.control_description = {
             'States' : [['0', 'off'], ['1', 'on']]
             }
+        SmapActuator.setup(self, opts)
 
 
 class NStateActuator(SmapActuator):
@@ -220,14 +224,20 @@ are possible, this profile does not express any of them.
     """
     ACTUATE_MODEL = 'discrete'
     def valid_state(self, state):
-        return int(state) in self.control_description['States']
+        return state >= 0 and state < len(self.control_description['States'])
+
+    def parse_state(self, state):
+        try:
+            return int(state)
+        except ValueError:
+            return self.control_description['States'].index(state)
     
-    def __init__(self, states, *args, **kwargs):
+    def setup(self, opts):
         self.control_type = 'nstate'
         self.control_description = {
-            'States' : states,
+            'States' : opts.get('states', [])
             }
-        SmapActuator.__init__(self, **kwargs)
+        SmapActuator.setup(self, opts)
 
 class IntegerActuator(SmapActuator):
     ACTUATE_MODEL = 'integer'
@@ -259,12 +269,12 @@ specified.
     def parse_state(self, state):
         return float(state)
 
-    def __init__(self, range=None, **kwargs):
+    def setup(self, opts):
         self.control_type = 'continuous'
         self.control_description = {
-            'States' : range,
+            'States' : opts.get('range', [0, 1]),
             }
-        SmapActuator.__init__(self, **kwargs)
+        SmapActuator.setup(self, opts)
 
 
 class GuardBandActuator(SmapActuator):

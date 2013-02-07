@@ -33,4 +33,5 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # default configuration 
 SERVER = {
     'port' : 8080,
+    'docroot': None,
 }

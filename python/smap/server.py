@@ -35,7 +35,7 @@ When run as the main module, runs a sample server on port 8080
 """
 
 import sys, os
-from twisted.web import resource, server
+from twisted.web import resource, server, static
 from twisted.web.resource import NoResource
 from twisted.internet import reactor, task, defer
 from twisted.python import log
@@ -237,12 +237,14 @@ class RootResource(resource.Resource):
         request.setHeader('Content-type', 'application/json')
         return json.dumps(self.value)
 
-def getSite(inst):
+def getSite(inst, docroot=None):
     """Return a service for creating an application
     """
     root = RootResource()
     root.putChild('data', InstanceResource(inst))
     root.putChild('reports', ReportingResource(inst.reports))
+    if docroot:
+        root.putChild('docs', static.File(docroot))
 
     site = server.Site(root)
     return site

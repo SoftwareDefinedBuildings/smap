@@ -86,7 +86,7 @@ class SmapServiceMaker(object):
         inst.start()
         reactor.addSystemEventTrigger('before', 'shutdown', inst.stop)
 
-        site = getSite(inst)
+        site = getSite(inst, docroot=smapconf.SERVER['docroot'])
         service = MultiService()
 
         # add HTTP and HTTPS servers to the twisted multiservice

@@ -32,18 +32,19 @@ import os
 from smap import actuate, driver
 from smap.authentication import authenticated
 
-class FileActuator(actuate.BinaryActuator):
-    """Example Binary Acutator which implements actuation by writing
+class _Actuator(actuate.SmapActuator):
+    """Example Acutator which implements actuation by writing
     to a file
     """
-
     def setup(self, opts):
-        actuate.BinaryActuator.setup(self, opts)
         self.file = os.path.expanduser(opts['filename'])
 
     def get_state(self, request):
-        with open(self.file, 'r') as fp:
-            return int(fp.read())
+        try:
+            with open(self.file, 'r') as fp:
+                return self.parse_state(fp.read())
+        except IOError:
+            return None
 
     # @authenticated(['__has_ssl__'])
     def set_state(self, request, state):
@@ -51,11 +52,41 @@ class FileActuator(actuate.BinaryActuator):
             fp.write(str(state))
         return state
 
+class BinaryActuator(_Actuator, actuate.BinaryActuator):
+    def setup(self, opts):
+        actuate.BinaryActuator.setup(self, opts)
+        _Actuator.setup(self, opts)
+
+class ContinuousActuator(_Actuator, actuate.ContinuousActuator):
+    def setup(self, opts):
+        actuate.ContinuousActuator.setup(self, opts)
+        _Actuator.setup(self, opts)
+
+class DiscreteActuator(_Actuator, actuate.NStateActuator):
+    def setup(self, opts):
+        actuate.NStateActuator.setup(self, opts)
+        _Actuator.setup(self, opts)
+
 
 class FileDriver(driver.SmapDriver):
     """Driver which creates a single point backed by a file.  You
     could use this, for instance, to expose flags in /proc"""
     def setup(self, opts):
-        filename = opts.pop('Filename', '~/FileActuatorFile')
+
+        # set up an appropriate actuator
+        setup={'filename': opts.pop('Filename', '~/FileActuatorFile')}
+        data_type = 'long'
+        if not 'model' in opts or opts['model'] == 'binary':
+            klass = BinaryActuator
+        elif opts['model'] == 'discrete':
+            klass = DiscreteActuator
+            setup['states'] = opts.pop('states', ['cat', 'dog'])
+        elif opts['model'] == 'continuous':
+            klass = ContinuousActuator
+            setup['range'] = map(float, opts.pop('range'))
+            data_type = 'double'
+        else:
+            raise ValueError("Invalid actuator model: " + opts['model'])
+
         self.add_actuator('/point0', 'Switch Position',
-                          FileActuator, setup={'filename': filename})
+                          klass, setup=setup, data_type=data_type, write_limit=5)

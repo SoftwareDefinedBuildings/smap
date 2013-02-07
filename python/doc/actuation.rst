@@ -7,7 +7,7 @@ reasons:
 
 * Often, sMAP must access underlying devices in response to a request,
   rather than asynchronously as part of a polling loop
-* Authentication and authorization are most likly required
+* Authentication and authorization are most likely required
 
 :py:class:`smap.actuate` contains base classes needed for actuation.
 They provide the ability to create a sMAP point which maps to an
@@ -63,7 +63,7 @@ You may, however, return a
 :py:class:`~twisted.internet.defer.Deferred` which will fire with the
 result; however, since any HTTP requests will wait until you produce a
 value you should make sure to either produce a result or an error
-within a resonable amount of time.
+within a reasonable amount of time.
 
 The value (or result of the deferred) for both methods should be a
 valid value for the actuator type in question.  Every actuator class
@@ -112,7 +112,7 @@ the actuator more than once per second.
 Actuator Classes
 ----------------
 
-We have defined several different actuator classes that cover commong
+We have defined several different actuator classes that cover common
 types of actuation as part of 
 
 ================================= ====================== ===========================
@@ -123,3 +123,29 @@ Actuator class                    Description            Valid states
 ``IntegerActuator()``                                    Any integer
 ``ContinuousActuator((lo, hi))``  Values inside a range  ``value >= lo and value <= hi``
 ================================= ====================== ===========================
+
+Full Example
+------------
+
+The conf file in ``python/conf/example.ini`` includes a file actuation
+driver for demonstration purposes::
+
+  [/actuator0]
+  type = smap.drivers.file.FileDriver
+  Filename = ~/smap-actuator.txt
+
+This creates a file actuator backed by the file
+``~/smap-actuator.txt``.  The sMAP server will return errors until
+that file is created; however, you can change the state of that file
+using HTTP requests, once that driver is running::
+
+  # create the file
+  echo 1 > ~/smap-actuator.txt
+
+  # get the current value
+  curl http://localhost:8080/data/actuator0/point0
+  {"Properties": {"Timezone": "America/Los_Angeles", "UnitofMeasure": "Switch Position", "ReadingType": "long"}, "Actuate": {"Model": "binary"}, "uuid": "7afaa0a6-7719-5c1b-ae38-0f03b6d35256", "Readings": [[1354064481000, 0]]}
+
+  # change the state
+  curl  -XPUT localhost:8080/data/actuator0/point0?state=1
+  {"Properties": {"Timezone": "America/Los_Angeles", "UnitofMeasure": "Switch Position", "ReadingType": "long"}, "Actuate": {"Model": "binary"}, "uuid": "7afaa0a6-7719-5c1b-ae38-0f03b6d35256", "Readings": [[1354064507000, 1]]} 

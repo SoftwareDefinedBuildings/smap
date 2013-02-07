@@ -1,0 +1,173 @@
+<html>
+  <head>
+    <!-- get jQuery from google -->
+    <link rel="stylesheet" type="text/css" href="http://ajax.aspnetcdn.com/ajax/jquery.dataTables/1.9.4/css/jquery.dataTables.css">
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.0/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.0/themes/base/jquery-ui.css"type="text/css" media="all" />
+    <script type="text/javascript" charset="utf8" src="http://ajax.aspnetcdn.com/ajax/jquery.dataTables/1.9.4/jquery.dataTables.min.js"></script>
+    <title>Example sMAP Interface page</title>
+    <style>
+      th {
+        text-align: left;
+      }
+      td {
+        font-family: monospace;
+      }
+      #console {
+        font-family: monospace;
+        width: 100%;
+        height: 20%;
+        float: bottom;
+        left: 0;
+      }
+      #main {      
+        height: 80%;
+        overflow: auto;
+      }
+      
+      .val {
+        width: 30%;
+        float: left;
+      }
+      .slider {
+        float: right;
+        width: 60%;
+        margin-top: 4px;
+      }
+
+    </style>
+    <script type="text/javascript">
+
+      $(document).ready(function () {
+        updateFeeds();
+      });
+
+      function latest(r) {
+        return r.slice(-1)[0][1];
+      }
+      function latestts(r) {
+        return r.slice(-1)[0][0];
+      }
+
+      function log(msg) {
+        $("#console").val($("#console").val() + msg);
+        $("#console").scrollTop($("#console")[0].scrollHeight);
+      }
+
+      function updateState(path, val) {
+        $.ajax({
+           url: '/data' + path + "?state=" + val,
+           type: 'PUT',
+           success: function(result) {
+             log("SUCCESS: " + path + " set to " + val + "\n");
+           },
+           error: function(xhr, status, error) {
+             log("ERROR: " + path + ": " + error + "\n");
+           }
+        });
+      }
+
+      function makeBinaryActuator (path, meta) {
+        var checked_0 = latest(meta["Readings"]) == 0 ? "checked" : "";
+        var checked_1 = latest(meta["Readings"]) == 1 ? "checked" : "";
+        var input = $("<input type=\"radio\" name=\"" + meta['uuid'] + 
+                         "\" value=0 " + checked_0 + ">0&nbsp;" +
+                      "<input type=\"radio\" name=\"" + meta['uuid'] + 
+                         "\" value=1 " + checked_1 + ">1");
+        input.change(function () {
+          updateState(path, $("input:radio[name=" + meta["uuid"] + "]:checked").val());
+        });
+         return input;
+      }
+
+      // a discrete actuator is displayed as a select interface
+      function makeDiscreteActuator(path, meta) {
+        var select = $("<select>");
+        var value = latest(meta['Readings']);
+        for (var i = 0; i < meta['Actuate']['States'].length; i++) {
+          var checked = value == i ? "selected" : "";
+          select.append("<option value=" + i + " " + checked + " >" +
+                        meta['Actuate']['States'][i] +
+                        "</option>");
+        }
+        $(select).change(function (event) {
+                            updateState(path, $(select).children("option")
+                                                       .filter(":selected")
+                                                       .text());
+                         });
+        return select;
+      }
+
+      // create a slider ui for a continuous actuator
+      function makeContinuousActuator(path, meta) {
+        var rv = $("<div>");
+        var input = $("<input class=\"val\" type=\"text\" value=\"" + 
+                              latest(meta['Readings']) + "\"/>");
+        var slider = $("<div class=\"slider\" id=\"" + meta['uuid'] +
+                              "_slider\"></div>");
+                            
+        var range = meta.Actuate.States;
+        $(slider).slider({min: range[0], max: range[1], step: .01,
+                          value: latest(meta['Readings']),
+                          change: function(event, ui) {
+                            $(input).val($(slider).slider("value"));
+                            updateState(path, $(slider).slider("value"));
+                          }});
+        $(input).change(function(event) {
+                            $(slider).slider("value", $(input).val());
+                            });
+        rv.append(input); rv.append(slider);
+                            
+        return rv;
+      }
+
+      // create the ui for a timeseries
+      function makeTimeseries(path, meta) {
+        if (meta['Actuate'] === undefined) {
+          return meta["Readings"].slice(-1)[0][1] + ' ' +
+                 meta ["Properties"]["UnitofMeasure"];
+        } else if (meta['Actuate']['Model'] == 'binary') {
+          return makeBinaryActuator(path, meta);
+        } else if (meta['Actuate']['Model'] == 'discrete') {
+          return makeDiscreteActuator(path, meta);
+        } else if (meta['Actuate']['Model'] == 'continuous') {
+          return makeContinuousActuator(path, meta);
+        } else {
+          return ;
+        }
+      }
+
+      function updateFeeds() {
+        $.get('/data/+', function (data) {
+          for (var prop in data) {
+            if (data[prop]['uuid'] === undefined) continue;
+             var tr = $("<tr>");
+             tr.append("<td>" + prop + "</td>");
+             tr.append("<td>" + data[prop]['uuid'] + "</td>");
+             var td = $("<td>"); td.append(makeTimeseries(prop, data[prop]));
+             tr.append(td);
+             var t = new Date(latestts(data[prop].Readings));
+             tr.append("<td>" + t + "</td>");
+             $("#channels_body").append(tr);
+          }
+          $("#channels").dataTable();
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="main">
+
+      <h1>sMAP Direct</h1>
+      <table id="channels" class="dataTable" width=100%>
+        <thead>
+          <tr><th>Path</th><th>uuid</th><th>current value</th><th>local time</th></tr>
+        </thead>
+        <tbody id="channels_body">
+        </tbody>
+      </table>
+    </div>
+    <textarea id="console" readonly></textarea>
+  </body>
+</html>
