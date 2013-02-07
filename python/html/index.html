@@ -125,7 +125,7 @@
       // create the ui for a timeseries
       function makeTimeseries(path, meta) {
         if (meta['Actuate'] === undefined) {
-          return meta["Readings"].slice(-1)[0][1] + ' ' +
+          return latest(meta["Readings"]) + 
                  meta ["Properties"]["UnitofMeasure"];
         } else if (meta['Actuate']['Model'] == 'binary') {
           return makeBinaryActuator(path, meta);
