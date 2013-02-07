@@ -42,7 +42,7 @@ class TestParser(unittest.TestCase):
 
     def test_mergedsum(self):
         q = "nansum(axis=1) < paste < swindow(first, 20)"
-        op = parse_opex(q)
+        op = parse_opex(q).ast
         inst = op([{'uuid' : str(uuid.uuid1()), 'Properties/Timezone': 'America/Los_Angeles'},
                    {'uuid' : str(uuid.uuid1()), 'Properties/Timezone': 'America/Los_Angeles'},
                    {'uuid' : str(uuid.uuid1()), 'Properties/Timezone': 'America/Los_Angeles'},
@@ -53,6 +53,7 @@ class TestParser(unittest.TestCase):
             d = [operators.null] * 4
             d[i % 20] = np.array([[i, 1]])
             out = inst(d)
+            print i, out 
             if i == 40:
                 self.assertEquals(np.sum(out[0] - np.array([[0, 2]])), 0)
             elif i == 60:

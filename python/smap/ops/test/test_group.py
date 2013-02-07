@@ -75,6 +75,7 @@ class TestGroupByDatetime(unittest.TestCase):
             
         self.testdata[:, 0] *= 3600 
         self.testdata[:, 0] += now 
+        self.testdata[:, 0] *= 1000 # to ms
 
     def test_day(self):
         op = grouping.GroupByDatetimeField(self.inputs, arithmetic.mean, field='day')
@@ -92,7 +93,7 @@ class TestGroupByDatetime(unittest.TestCase):
             # should have only been one thing in each bucket
             self.assertEquals(outdata[0][i, 1], i)
             # make sure we snapped to the beginning of the window
-            dt = datetime.datetime.utcfromtimestamp(outdata[0][i, 0])
+            dt = datetime.datetime.utcfromtimestamp(outdata[0][i, 0] / 1000)
             self.assertEquals(dt.minute, 0)
             self.assertEquals(dt.second, 0)
             
@@ -308,13 +309,13 @@ class TestVectorOperator(unittest.TestCase):
     def test_stream_axis(self):
         """This is the default operator the vector operator uses"""
         inputs = make_input_meta(5)
-        op = self.TestClass(inputs, axis="stream")
+        op = self.TestClass(inputs, axis=1)
         data = make_test_data(5)
         rv = op(data)
         self.assertEquals(np.sum(rv - data[-1]), 0)
 
     def test_time_axis(self):
         inputs = make_input_meta(5)
-        op = self.TestClass(inputs, axis="time")
+        op = self.TestClass(inputs, axis=1)
         data = make_test_data(5)
         rv = op(data)
