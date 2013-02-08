@@ -97,7 +97,6 @@ if __name__ == '__main__':
         et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
     except:
         pass
-    print st, et
 
     dl = []
     for dpath, driver in inst.drivers.iteritems():
@@ -110,5 +109,5 @@ if __name__ == '__main__':
         d.addCallback(lambda x: inst._flush())
         dl.append(d)
     dl = defer.DeferredList(dl, consumeErrors=True)
-    dl.addCallbacks(lambda x: reactor.callFromThread(reactor.stop))
+    dl.addCallbacks(lambda x: reactor.callFromThread, reactor.stop)
     reactor.run()
