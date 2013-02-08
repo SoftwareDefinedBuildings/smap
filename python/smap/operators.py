@@ -235,7 +235,7 @@ class OperatorDriver(driver.SmapDriver):
             new = op._process()
             for newv in new[0]:
                 ts, v = int(newv[0]), op.data_type[1](newv[1])
-                self._add(addpath, ts, v)
+                self._add(addpath, ts / 1000, v)
 
     def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
         self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 24)))
