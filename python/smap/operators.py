@@ -221,7 +221,6 @@ class OperatorDriver(driver.SmapDriver):
                 data = np.array(data)
             if len(data) == 0:
                 data = np.reshape(data, (0, 2))
-            data[:,0] /= 1000
 
             # push all data through the appropriate operators
             for addpath, op in self.operators[source_id].itervalues():
