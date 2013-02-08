@@ -17,15 +17,19 @@
       #console {
         font-family: monospace;
         width: 100%;
-        height: 20%;
+        height: 15%;
         float: bottom;
         left: 0;
       }
       #main {      
         height: 80%;
         overflow: auto;
+        font-family: helvetica;
+        font-size: smaller;
       }
-      
+      #update_period {
+        width: 30;
+      }
       .val {
         width: 30%;
         float: left;
@@ -35,12 +39,18 @@
         width: 60%;
         margin-top: 4px;
       }
+      .content {
+        float: left;
+        clear: left;
+        width: 100%;
+      }
 
     </style>
     <script type="text/javascript">
-
+      var updater = null;
       $(document).ready(function () {
         updateFeeds();
+        $("#update_period").change(resetUpdater);
       });
 
       function latest(r) {
@@ -49,8 +59,22 @@
       function latestts(r) {
         return r.slice(-1)[0][0];
       }
+      function resetUpdater() {
+        var period = $("#update_period").val() * 1000;
+        if (updater) {
+          clearInterval(updater);
+          updater = null;
+        }
+        if (period < 1000 || isNaN(period)) {
+          log("ERROR: invalid period\n");
+          return;
+        }
+        log("INFO: new update period: " + (period / 1000) + "s\n");
+        updater = setInterval(updateData, period);
+      }
 
       function log(msg) {
+	msg = (new Date()) + ": " + msg;
         $("#console").val($("#console").val() + msg);
         $("#console").scrollTop($("#console")[0].scrollHeight);
       }
@@ -72,9 +96,9 @@
         var checked_0 = latest(meta["Readings"]) == 0 ? "checked" : "";
         var checked_1 = latest(meta["Readings"]) == 1 ? "checked" : "";
         var input = $("<input type=\"radio\" name=\"" + meta['uuid'] + 
-                         "\" value=0 " + checked_0 + ">0&nbsp;" +
+                         "\" value=0 " + checked_0 + ">0</input>&nbsp;" +
                       "<input type=\"radio\" name=\"" + meta['uuid'] + 
-                         "\" value=1 " + checked_1 + ">1");
+                         "\" value=1 " + checked_1 + ">1</input>");
         input.change(function () {
           updateState(path, $("input:radio[name=" + meta["uuid"] + "]:checked").val());
         });
@@ -145,29 +169,61 @@
              var tr = $("<tr>");
              tr.append("<td>" + prop + "</td>");
              tr.append("<td>" + data[prop]['uuid'] + "</td>");
-             var td = $("<td>"); td.append(makeTimeseries(prop, data[prop]));
+             var td = $("<td id=\"data_" + data[prop]["uuid"] + "\">"); 
+             td.append(makeTimeseries(prop, data[prop]));
              tr.append(td);
              var t = new Date(latestts(data[prop].Readings));
-             tr.append("<td>" + t + "</td>");
+             tr.append("<td id=\"time_" + data[prop]["uuid"] + "\">" + t + "</td>");
              $("#channels_body").append(tr);
           }
-          $("#channels").dataTable();
+          $("#channels").dataTable({
+			    iDisplayLength: 25
+			    });
+          resetUpdater();
         });
       }
+
+      function updateData() {
+        $.get('/data/+', function (data) {
+          for (var path in data) {
+            if (data[path]['uuid'] === undefined) continue;
+            $("#data_" + data[path]["uuid"]).empty();
+            $("#time_" + data[path]["uuid"]).empty();
+            $("#data_" + data[path]["uuid"]).append(makeTimeseries(path, data[path]));
+            var t = new Date(latestts(data[path].Readings));
+            $("#time_" + data[path]["uuid"]).append(t);
+          }
+        });
+      }	
+
+      
+      window.setInterval(updateData, 10000);		   
     </script>
   </head>
   <body>
     <div id="main">
 
       <h1>sMAP Direct</h1>
-      <table id="channels" class="dataTable" width=100%>
-        <thead>
-          <tr><th>Path</th><th>uuid</th><th>current value</th><th>local time</th></tr>
-        </thead>
-        <tbody id="channels_body">
-        </tbody>
-      </table>
+      <hr>
+      <p style="float: right">
+	Autoupdate Period: <input id="update_period" value=10></input>
+      </p>
+      <div class="content">
+	<table id="channels" class="dataTable" width=100%>
+          <thead>
+            <tr><th>Path</th><th>uuid</th><th>current value</th><th>local time</th></tr>
+          </thead>
+          <tbody id="channels_body">
+          </tbody>
+	</table>
+      </div>
+      <div class="content">
+	<hr>
+	
+      </div>
     </div>
     <textarea id="console" readonly></textarea>
+    <p>
+    <a href="http://code.google.com/p/smap-data/">sMAP Project</a> 
   </body>
 </html>
