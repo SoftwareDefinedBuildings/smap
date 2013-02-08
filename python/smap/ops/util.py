@@ -168,6 +168,20 @@ class StripMetadata(Operator):
     def process(self, inputs):
         return inputs
 
+class SetKeyOperator(Operator):
+    name = 'set_key'
+    operator_name = 'set_key'
+    operator_constructors = [(str, str)]
+
+    def __init__(self, inputs, key, value):
+        # don't change uuids
+        outputs = copy.deepcopy(inputs)
+        for o in outputs:
+            o[key] = value
+        Operator.__init__(self, inputs, outputs)
+
+    def process(self, inputs):
+        return inputs
 
 class MissingDataOperator(ParallelSimpleOperator):
     """For pasted input data, only yield rows where more
