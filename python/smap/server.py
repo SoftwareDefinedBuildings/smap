@@ -221,12 +221,12 @@ class ReportingResource(resource.Resource):
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
     """
-    def __init__(self, value=None):
+    def __init__(self, value=None, contents=['data', 'reports']):
         resource.Resource.__init__(self)
         if value:
             self.value = value
         else:
-            self.value = {'Contents' : ['data', 'reports']}
+            self.value = {'Contents' : contents}
 
     def getChild(self, name, request):
         if name == '':
@@ -240,7 +240,11 @@ class RootResource(resource.Resource):
 def getSite(inst, docroot=None):
     """Return a service for creating an application
     """
-    root = RootResource()
+    contents = ['data', 'reports']
+    if docroot: 
+        contents.append('docs')
+        contents.sort()
+    root = RootResource(contents=contents)
     root.putChild('data', InstanceResource(inst))
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:

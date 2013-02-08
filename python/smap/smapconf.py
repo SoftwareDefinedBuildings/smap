@@ -30,8 +30,20 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import sys
+import os
+
 # default configuration 
 SERVER = {
     'port' : 8080,
-    'docroot': None,
 }
+
+# guess where the html might be...
+try:
+    if not 'docroot' in SERVER:
+        path = os.path.dirname(sys.modules[__name__].__file__)
+        path = os.path.join(path, "data")
+        SERVER['docroot'] = path
+except:
+    SERVER['docroot'] = None
+                           

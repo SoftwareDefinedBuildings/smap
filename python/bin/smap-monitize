@@ -117,25 +117,25 @@ def build_env(opts):
 
 for conffile in args:
     root = os.path.basename(conffile[:conffile.rfind('.')])
-    print "processing", root
+    print "processing", root, "...",
     datadir = os.path.join(opts.var, root)
     if not os.path.exists(datadir):
         os.mkdir(datadir)
         os.chown(datadir, uid, gid)
     
     conf = ConfigObj(conffile, indent_type='  ')
-    print conf['server']
     if not 'server' in conf:
         conf['server'] = {}
 
     # set the data directory
     conf["server"]["DataDir"] = os.path.abspath(datadir)
-    print conf['server']['Port']
     if not ('port' in conf["server"] or 'Port' in conf['server']):
+        print
         print "Skipping", root, ": no port in conf"
         continue
     else:
         p = conf["server"].get('Port', conf['server'].get("port"))
+        print "port", p
         if p in ports:
             print "Detected port conflict on port", p
             print " .. skipping", root
