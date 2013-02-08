@@ -43,8 +43,8 @@ class AstNode(operators.Operator):
         for (i, c) in enumerate(self.children):
             self.children[i] = c(inputs)
 
-        inputs = util.flatten((c.op.outputs for c in self.children))
-        self.op = self.op(inputs)
+        my_inputs = util.flatten((c.op.outputs for c in self.children))
+        self.op = self.op(my_inputs)
         operators.Operator.__init__(self, inputs, self.op.outputs)
 
     def process(self, data):
