@@ -124,6 +124,9 @@ class SmapActuator(core.Timeseries):
                 'Model': self.ACTUATE_MODEL
                 })
 
+    def translate_state(self, state):
+        return state
+
     def setup(self, opts):
         self['Actuate'].update(self.control_description)
 
@@ -182,6 +185,7 @@ class SmapActuator(core.Timeseries):
     def _finish_render(self, state, tsrender):
         # finish by adding the current state as the reading
         now = util.now()
+        state = self.translate_state(state)
 
         if self.autoadd:
             self.add(now, state)
@@ -224,14 +228,18 @@ are possible, this profile does not express any of them.
     """
     ACTUATE_MODEL = 'discrete'
     def valid_state(self, state):
-        return state >= 0 and state < len(self.control_description['States'])
+        # return state >= 0 and state < len(self.control_description['States'])
+        return state in self.control_description['States']
 
     def parse_state(self, state):
+        return state
+
+    def translate_state(self, state):
         try:
-            return int(state)
-        except ValueError:
             return self.control_description['States'].index(state)
-    
+        except:
+            return None
+
     def setup(self, opts):
         self.control_type = 'nstate'
         self.control_description = {
