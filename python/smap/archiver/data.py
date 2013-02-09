@@ -60,7 +60,7 @@ def makeErrback(request_):
             traceback.print_exc()
 
 def escape_string(s):
-    return psycopg2.extensions.QuotedString(s).getquoted()
+    return psycopg2.extensions.QuotedString(str(s)).getquoted()
 
 class ReadingdbPool:
     def __init__(self):
