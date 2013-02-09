@@ -60,7 +60,7 @@ def makeErrback(request_):
             traceback.print_exc()
 
 def escape_string(s):
-    return psycopg2.extensions.QuotedString(str(s)).getquoted()
+    return psycopg2.extensions.QuotedString(s).getquoted()
 
 class ReadingdbPool:
     def __init__(self):
@@ -103,13 +103,13 @@ class SmapMetadata:
 
             tags = ["hstore('Path', %s)" % escape_string(path)]
             for name, val in util.buildkv('', ts):
+                name, val = escape_string(name), escape_string(str(val))
                 if name == 'Readings' or name == 'uuid': continue
                 if not (util.is_string(name) and util.is_string(val)):
                     raise SmapException('Invalid metadata pair: "%s" -> "%s"' % (str(name),
                                                                                  str(val)),
                                         400)
-                tags.append("hstore(%s, %s)" % (escape_string(name), 
-                                                escape_string(val)))
+                tags.append("hstore(%s, %s)" % (name, val))
             query = "UPDATE stream SET metadata = metadata || " + " || ".join(tags) + \
                 " WHERE uuid = %s" % escape_string(ts['uuid'])
             yield self.db.runOperation(query)
