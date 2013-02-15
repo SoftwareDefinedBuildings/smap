@@ -36,6 +36,7 @@ the data into sMAP-XML.
 from twisted.internet import defer, threads
 from twisted.python import log
 
+import time
 from lxml import etree
 import urllib2
 import urlparse
@@ -64,6 +65,7 @@ class XMLDriver(FetchDriver):
         self.xslt = opts.get('Xslt', None) # transformation to be applied
         self.timefmt = opts.get("Timeformat", None)
         self.timezone = opts.get("Timezone", 'UTC')
+        self.ignore_time = opts.get('IgnoreTimestamps', False)
         if self.xslt:
             with open(self.xslt, "r") as fp:
                 self.xslt = etree.XSLT(etree.XML(fp.read()))
@@ -132,7 +134,10 @@ class XMLDriver(FetchDriver):
             path = xmlts.attrib['path']
             for r in xmlts.find('Readings').getchildren():
                 try:
-                    rtime = self.parse_time(ts, r.find("Timestamp").text)
+                    if not self.ignore_time:
+                        rtime = self.parse_time(ts, r.find("Timestamp").text)
+                    else:
+                        rtime = time.time()
                     rval = self.parse_val(ts, r.find("Value").text)
                 except (ValueError, TypeError), e:
                     log.err()
