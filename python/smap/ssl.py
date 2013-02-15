@@ -34,6 +34,7 @@ Configure client and server SSL contexts for use in various servers
 
 import os
 from twisted.python import log
+from smap.util import to_bool
 
 try:
     from twisted.internet.ssl import ClientContextFactory
@@ -58,7 +59,7 @@ else:
                                                   os.path.expanduser(opts["key"]), 
                                                   os.path.expanduser(opts["cert"]))
             ctx = self.getContext()
-            if 'verify' in opts and opts['verify'].lower() in ['true']:
+            if 'verify' in opts and to_bool(opts['verify']):
                 ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                                verifyCallback)
             if 'ca' in opts:
@@ -80,7 +81,7 @@ else:
                 ctx.use_certificate_file(os.path.expanduser(self.ssl_opts['cert']))
                 ctx.use_privatekey_file(os.path.expanduser(self.ssl_opts['key']))
 
-            if 'verify' in self.ssl_opts and self.ssl_opts['verify'].lower() in ['true']:
+            if 'verify' in self.ssl_opts and to_bool(self.ssl_opts['verify']):
                 ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                                self.verifyCallback)
             if 'ca' in self.ssl_opts:
