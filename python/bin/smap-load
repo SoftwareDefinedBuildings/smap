@@ -36,7 +36,7 @@ import sys
 import time 
 from optparse import OptionParser
 
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, threads
 from twisted.python import log
 
 from smap import loader, util
@@ -102,12 +102,13 @@ if __name__ == '__main__':
     for dpath, driver in inst.drivers.iteritems():
         if len(sections) > 1 and not dpath in sections:
             continue
-        try:            
-            d = defer.maybeDeferred(driver.load(st, et, cache=opts.cache))
-        except TypeError:
-            d = defer.maybeDeferred(driver.load(st, et))
-        d.addCallback(lambda x: inst._flush())
-        dl.append(d)
+        # try: 
+        #     loader = driver.load(st, et, cache=opts.cache)
+        # except TypeError:
+        dl.append(defer.maybeDeferred(driver.load, st, et))
+
     dl = defer.DeferredList(dl, consumeErrors=True)
-    dl.addCallbacks(lambda x: reactor.callFromThread, reactor.stop)
+    dl.addCallback(lambda x: inst._flush())
+    dl.addCallbacks(lambda x: reactor.callFromThread(reactor.stop))
+
     reactor.run()
