@@ -329,9 +329,11 @@ def p_selector(t):
     """selector : tag_list
                 | '*'
                 | DISTINCT LVALUE
-                | DISTINCT TAGS"""
+                | DISTINCT """
     if t[1] == 'distinct':
-        if t[2] == 'uuid':
+        if len(t) == 2:
+            t[0] = selector("DISTINCT skeys(s.metadata)", ext_non_null)
+        elif t[2] == 'uuid':
             t[0] = selector("DISTINCT s.uuid", ext_non_null)
         else:
             t[0] = selector("DISTINCT (s.metadata -> %s)" % escape_string(t[2]),
