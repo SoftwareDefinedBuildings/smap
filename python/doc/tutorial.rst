@@ -1,14 +1,18 @@
-Tutorial
-========
+.. _driver-tutorial:
+
+sMAP source tutorial
+====================
 
 In this tutorial you will learn how to:
 
 * Create a simple sMAP source from an existing driver
 * Write a sMAP driver
 * Manage the destination of data using the :py:class:`smap.reporting.Reporting` module
+* Locate and download data using the :ref:`ArchiverQuery` and :ref:`ArchiverAPI` interfaces.
 
-Your First sMAP Source
-----------------------
+Task 1: Start an existing driver
+--------------------------------
+
 .. py:currentmodule:: smap.driver
 
 A common use case is to use an existing sMAP driver to publish data
@@ -63,7 +67,7 @@ The result of the request will be passed to ``jprint``, a convienient tool which
 should be in your path.
 
 Adding Metadata
----------------
+~~~~~~~~~~~~~~~
 
 It's often useful to tag your streams with additional information
 about them -- sampling rate, what kind of instrument you're using, and
@@ -92,8 +96,8 @@ Metadata/Extra/*      Arbitrary extra information
 The Location and Instrument subspaces have a pre-defined set of keys
 which you should use to structure your tags; see :ref:`metadata-tags`.
 
-Writing Drivers
----------------
+Task 2: Write a new driver
+--------------------------
 
 A common design pattern is to implement a "driver" for a type of
 instrument, and then copy that driver to represent multiple
@@ -219,8 +223,8 @@ poll your device, interpret the response, and update a number of sMAP
 points in such a body.
 
 
-Data Destination: Where does the Data go?
------------------------------------------
+Task 3: Send data to the archiver
+---------------------------------
 
 sMAP sends out its data via HTTP POST requests to data sinks who are
 interested in the data.  These consumers can get configured in one of
@@ -251,3 +255,8 @@ server crashes or is restarted.  Data is only removed from the buffer
 once the library receives a HTTP ``200 OK``, ``201 CREATED``, or ``204
 NO CONTENT`` responses from the destination server.
 
+Next steps
+----------
+
+As you move sMAP sources from development to production, you may want
+to use :ref:`smap-monitize` to install them in a service manager.

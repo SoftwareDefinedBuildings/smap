@@ -3,31 +3,50 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to the sMAP Library!
-============================
+sMAP: the Simple Measurement and Actuation Profile
+==================================================
 
-This documentation exists to document the sMAP python library.  The
-sMAP library contains utilities and data structures for creating sMAP
-servers which implement the profile as of version 2.  By following
-the introduction and tutorial, you'll be able to learn the basics of
-creating a new sMAP source which can be integrated into a stream
-processing and storage architecture.
+An enormous amount of physical information; that is, information from
+and about the world is available today as the cost of communication
+and instrumentation has fallen. However, making use of that
+information is still challenging. The information is frequently siloed
+into proprietary systems, available only in batch, fragmentary, and
+disorganized. The sMAP project aims to change this by making available
+and usable:
 
-For more detailed information and a full specification of the sMAP
-profile, see the `documentation <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
+* a specification for transmitting physical data and describing its contents,
+* a large set of free and open drivers with communicating with devices using native protocols and transforming it to the sMAP profile, and
+* tools for building, organizing, and querying large repositories of physical data.
+
+.. image:: _static/highlevel.png
+
+The core object in sMAP is the Timeseries, a single progression of
+``(time, value)`` tuples. Each Timeseries in sMAP is identified by a ``UUID``,
+and can be tagged with metadata; all grouping of time series occurs
+using these tags. These objects are exchanged between all components
+in this ecosystem.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    intro
    install
    tutorial
-   conf
-   scraping
-   actuation
-   internals
-   core
+   archiver_tutorial
+   additional_tutorial
+
+   drivers 
+   tools
    archiver
+   
+
+   internals
+   driver_index
+
+   additional
+
+For more detailed information and a full specification of the sMAP
+profile, see the `specification <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
 
 Indices and tables
 ==================
