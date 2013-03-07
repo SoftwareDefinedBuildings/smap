@@ -34,15 +34,21 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import json
 import urllib2
+import uuid
 
 from optparse import OptionParser
 from smap.contrib import dtutil
 
-def test_liveness(smap_url, opts):
-    fp = urllib2.urlopen(smap_url + '/data/+')
-    data = json.load(fp)
-    fp.close()
+def load_json(url):
+    fp = urllib2.urlopen(url)
+    try:
+        data = json.load(fp)
+    finally:
+        fp.close()
+    return data
 
+def test_liveness(smap_url, opts):
+    data = load_json(smap_url + '/data/+')
     readings = [(k, 
                  v['uuid'], 
                  v['Readings'][-1] if len(v['Readings']) else [0, None],
@@ -56,6 +62,31 @@ def test_liveness(smap_url, opts):
         print path,
         print "%s%s" % (latest[1], props['UnitofMeasure'])
 
+def display_reports(smap_url, opts):
+    data = load_json(smap_url + '/reports')
+    for u in sorted(data['Contents']):
+        report = load_json(smap_url + '/reports/' + u)
+        print "Report name...", u
+        print " ReportResource:", report['ReportResource']
+        print " ReportDeliveryLocation: " + ('\n' + ' ' * 25).join(report['ReportDeliveryLocation'])
+        print
+
+def install_report(smap_url, opts):
+    report = {
+        'uuid': str(uuid.uuid1()),
+        'ReportResource': '/+',
+        'ReportDeliveryLocation': [opts.destination]
+        }
+    fp = urllib2.urlopen(smap_url + '/reports', json.dumps(report))
+    print report['uuid']
+    fp.close()
+
+def delete_report(smap_url, opts):
+    opener = urllib2.build_opener(urllib2.HTTPHandler)
+    request = urllib2.Request(smap_url + '/reports/' + opts.report_name)
+    request.get_method = lambda: 'DELETE'
+    fp = opener.open(request)
+    fp.close()
 
 if __name__ == '__main__':
     usage = 'usage: %prog [options] url'
@@ -66,6 +97,16 @@ if __name__ == '__main__':
     parser.add_option('-u', '--uuids', dest='uuids',
                       default=False, action='store_true',
                       help="Print uuids instead of paths")
+    parser.add_option('-r', '--reports', dest='reports',
+                      default=False, action='store_true',
+                      help="Display report destinations for the source")
+    parser.add_option('-c', '--create-report', dest='destination',
+                      default=None,
+                      help="Start sending data to a new destination URL")
+    parser.add_option('-d', '--delete-report', dest='report_name',
+                      default=None,
+                      help="Remove a report (by name)")
+    
     opts, args = parser.parse_args()
     if not len(args):
         parser.print_help()
@@ -73,3 +114,6 @@ if __name__ == '__main__':
 
     for source_url in args:
         if opts.liveness: test_liveness(source_url, opts)
+        if opts.destination: install_report(source_url, opts)
+        if opts.report_name: delete_report(source_url, opts)
+        if opts.reports: display_reports(source_url, opts)
