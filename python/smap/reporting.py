@@ -271,7 +271,7 @@ class ReportInstance(dict):
                                          len(self['ReportDeliveryLocation']))
         except:
             log.err()
-        return resp
+        return fail
 
     def attempt(self):
         """Try to make a delivery
