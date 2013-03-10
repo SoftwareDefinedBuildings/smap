@@ -14,14 +14,14 @@ into proprietary systems, available only in batch, fragmentary, and
 disorganized. The sMAP project aims to change this by making available
 and usable:
 
-* a specification for transmitting physical data and describing its contents,
-* a large set of free and open drivers with communicating with devices using native protocols and transforming it to the sMAP profile, and
+* a :download:`specification <resources/v2.pdf>` for transmitting physical data and describing its contents,
+* a :ref:`large set <driver-index>` of free and open drivers with communicating with devices using native protocols and transforming it to the sMAP profile, and
 * tools for building, organizing, and querying large repositories of physical data.
 
-.. image:: _static/highlevel.png
+.. image:: resources/highlevel.png
 
-The core object in sMAP is the Timeseries, a single progression of
-``(time, value)`` tuples. Each Timeseries in sMAP is identified by a ``UUID``,
+The core object in sMAP is the timeseries, a single progression of
+``(time, value)`` tuples. Each timeseries in sMAP is identified by a ``UUID``,
 and can be tagged with metadata; all grouping of time series occurs
 using these tags. These objects are exchanged between all components
 in this ecosystem.
@@ -31,12 +31,11 @@ in this ecosystem.
 
    intro
    install
+   python_access
    tutorial
-   archiver_tutorial
    additional_tutorial
 
    drivers 
-   tools
    archiver
    
 
@@ -44,9 +43,6 @@ in this ecosystem.
    driver_index
 
    additional
-
-For more detailed information and a full specification of the sMAP
-profile, see the `specification <http://cs.berkeley.edu/~stevedh/pubs/v2.pdf>`_.
 
 Indices and tables
 ==================

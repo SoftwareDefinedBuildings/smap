@@ -6,6 +6,8 @@ There are many patterns for driver-writing, organized around how the
 underlying instrumentation is accessed.  sMAP provides special support
 for some types of sources.
 
+.. _periodic-scraping:
+
 Periodic scraping
 -----------------
 
@@ -47,7 +49,7 @@ Configuring your driver
 
 In addition to whatever configuration options your driver may take,
 ``FetchDriver`` takes two options: ``Uri`` and ``Rate``.  The driver
-attempts to load data from the specified uri every rate seconds.
+attempts to load data from the specified URI every rate seconds.
 
 The driver currently understands three URI schemes:
 
@@ -97,6 +99,7 @@ it using the XSLT stylesheet, and then adds the data.  Timeformat is a
 python `strptime` time string used to parse the timestamps found in
 the transformed xml.
 
+.. _actuation:
 
 Actuation
 ---------

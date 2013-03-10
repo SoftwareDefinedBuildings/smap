@@ -7,8 +7,7 @@ In this tutorial you will learn how to:
 
 * Create a simple sMAP source from an existing driver
 * Write a sMAP driver
-* Manage the destination of data using the :py:class:`smap.reporting.Reporting` module
-* Locate and download data using the :ref:`ArchiverQuery` and :ref:`ArchiverAPI` interfaces.
+* Manage the publication of data
 
 Task 1: Start an existing driver
 --------------------------------
@@ -63,8 +62,8 @@ And that's it!  You're running.  To consume your source, try::
  $ curl http://localhost:8080/data/+ | jprint
 
 `curl <http://curl.haxx.se/>`_ is a command line tool that can easily retrieve data using http.
-The result of the request will be passed to ``jprint``, a convienient tool which will pretty-print your json and
-should be in your path.
+The result of the request will be passed to ``jprint``, a convenient tool which will pretty-print your json and is installed along with the sMAP library.
+
 
 Adding Metadata
 ~~~~~~~~~~~~~~~
@@ -96,6 +95,17 @@ Metadata/Extra/*      Arbitrary extra information
 The Location and Instrument subspaces have a pre-defined set of keys
 which you should use to structure your tags; see :ref:`metadata-tags`.
 
+You can place these tags directly into your configuration file::
+
+  [/OAKLAND]
+  type = smap.drivers.caiso_price.CaIsoPrice
+  Location = OAKLAND_1_N001
+
+  # add metadata to describe data
+  Metadata/Location/State = CA
+  Metadata/Location/City = Oakland
+  Metadata/Extra/ISONodeName = OAKLAND_1_N001
+
 Task 2: Write a new driver
 --------------------------
 
@@ -104,18 +114,16 @@ instrument, and then copy that driver to represent multiple
 instruments of the same class.  For instance, you would write
 one driver for the Dent electric meter, and then connect that driver
 to new Dent meters which are mapped into the sMAP hierarchy.
-
 To support this important case, we have provided the
-:py:mod:`smap.driver` module.  Writing a driver is not really any
-harder than not writing a driver, so we strongly encourage you to
-use this framework.
+:py:mod:`smap.driver` module. 
     
-Conceptually, a "driver" is a place in the resource hierarchy
-under which all the resources are added and implemented
-programmatically.  To be a driver, you need to implement two
-methods; the :py:class:`smap.driver.BaseDriver` class is one
+Conceptually, a "driver" is a piece of code which communicates with
+the underlying data source, and translates whatever data is available
+into time series with metadata.  To be a driver, you need to implement
+two methods; the :py:class:`smap.driver.BaseDriver` class is one
 example::
 
+  import time
   from smap import driver, util
     
   class BaseDriver(driver.SmapDriver):
@@ -130,19 +138,25 @@ example::
           util.periodicSequentialCall(self.read).start(1)
 
       def read(self):
-          self.add('/sensor0', self.counter)
+          self.add('/sensor0', time.time(), self.counter)
           self.counter += 1
 
-To start a sMAP instance which exposes only this driver, you can use
-the ``smap-run-driver`` tool; this example is available as
-:py:class:`smap.driver.BaseDriver`::
+As you can see, the driver uses the ``setup`` method to add a time
+series by naming it as the ``/sensor0`` resource.  The second argument
+provides engineering units.  The driver also applies some metadata to
+this resource, and initializes its internal state (``counter``).  The
+``opts`` argument to ``setup`` is generated from the configuration
+file section being loaded; any options in the driver's section of the
+configuration file are passed to the driver.
 
- $ smap-run-driver smap.driver.BaseDriver
+You'll also notice that this driver uses the
+:py:function:``smap.util.periodicSeqentialCall`` to periodically
+update the time series with a new value.  Normally, the ``read``
+method would contain code which polled the data source, interpreted
+the results, and then adds the data to the time series.
 
-We can also have this all done from a config file.  Typically, you
-would debug your driver first inside of ``smap-run-driver`` before
-inflicting it on the wider world.  Let's modify the old config
-snippet from before::
+To start a sMAP instance which exposes only this driver, you can use a
+simple config file.  Let's modify the old config snippet from before::
 
   [/]
   uuid = 75503ac2-abf0-11e0-b7d6-0026bb56ec92
@@ -164,15 +178,8 @@ timeseries and collections inside of a driver only need to be unique
 within that driver, not the whole sMAP source because the keys are
 combined with the driver's UUID to generate their full identifier.
 
-When created from a config file, the second parameter to setup is a
-dict whose keys are keys from the appropriate section of the
-configuration file, and the corresponding values.  You can use this
-mechanism to pass arguments to your drivers; in this example we can
-tell the driver to start counting at 10 rather than 0 (the default).
-
-
-Recitative: Threads and Events
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Threads and Events
+~~~~~~~~~~~~~~~~~~
 
 Twisted is an event system -- everything runs in a single main loop,
 and nothing can block.  You're welcome to use all of the twisted
@@ -198,41 +205,15 @@ blocking APIs::
       print "Reading value:", val
   util.periodicSequentialCall(readValue, 1).start(1)
 
-Adding Data
-~~~~~~~~~~~
-
-Now that we've discussed some of the perils and pitfalls of the
-:py:mod:`twisted` concurrency model, we're ready to generate some
-data!  Let's assume that we've set up our instance like above, but
-haven't yet started running the server::
-
-  counter = 1
-  def read():
-     global counter
-     inst.add('/sensor0', counter)
-     counter += 1
-  util.periodicSequentialCall(read).start(1)
-
-This example will add sequential values to our sensor, at a rate of
-once per second (that's set by the argument to start).  In this
-example, we used the version of :py:meth:`SmapInstance.add` which
-automatically timestamps your reading with the current system time.
-``read()`` will be called in a separate thread once a second, which
-means it's okay to use blocking io in the body.  You would typically
-poll your device, interpret the response, and update a number of sMAP
-points in such a body.
-
 
 Task 3: Send data to the archiver
 ---------------------------------
 
-sMAP sends out its data via HTTP POST requests to data sinks who are
-interested in the data.  These consumers can get configured in one of
-two ways: the first is via the sMAP-specified mechanism, a POST
-request to the ``/reports`` resource on a sMAP server.  The reports can
-also be configured via a config file section.
-
-An example configuration file snippet::
+sMAP can sends out data via HTTP POST requests to data consumers.
+These consumers can get configured in one of two ways: the first is
+via the sMAP-specified mechanism, either dynamically, via a POST
+request to the ``/reports`` resource on a sMAP server.  The reports
+can also be statically configured via a config file section::
 
   [report 0]
   ReportDeliveryLocation = http://new.openbms.org/backend/add/MYAPIKEY
@@ -259,4 +240,30 @@ Next steps
 ----------
 
 As you move sMAP sources from development to production, you may want
-to use :ref:`smap-monitize` to install them in a service manager.
+to:
+
+* look through the :ref:`driver-index` to see if there is a driver for your device.
+* learn how to add :ref:`actuation`.
+* learn how to write polling :ref:`periodic-scraping` drivers.
+* use :ref:`smap-monitize` to install running sources in a service
+  manager. 
+* use :ref:`smap-tool` to configure data consumers.
+
+
+Inspecting a running server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As you could see from the output, the sMAP source starts an HTTP
+server on port 8080 (by default).  sMAP provides several ways of
+inspecting this running server.  First, ``sMAP Direct`` supplies a
+simple web-based interface to sensors and actuators accessible through
+the sMAP source.  To access this, first start an example sMAP source::
+
+  $ twistd -n smap python/conf/example.ini
+  ...
+  2013-03-09 12:24:36-0800 [-] Site starting on 8080
+
+This config file is available in `here <http://smap-data.googlecode.com>`_ and also in the source repository.  Once this is running, simply visit http://localhost:8080/docs in your browser, and you should see the UI:
+
+.. image:: resources/direct.png
+

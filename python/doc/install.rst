@@ -8,6 +8,8 @@ datacenter or on a machine with sufficient resources, whereas sMAP
 sources are placed on low-power embedded devices close to the
 instrumentation they access.
 
+.. _library-install:
+
 sMAP Library Installation
 -------------------------
 
@@ -15,14 +17,14 @@ There are numerous ways to get the sMAP library.  The library contains
 everything you need to create sources; installing the archiver and
 powerdb2 requires additional setup.  
 
-easy_install
-~~~~~~~~~~~~
+pip
+~~~
 
-If you have setuputils installed, sMAP is now available (along with
-its dependencies) from the `PyPI <http://pypi.python.org>`_.
-Installing it should be as easy as::
+If you have distutils installed, sMAP is available along with its
+dependencies from the `PyPI <http://pypi.python.org/pypi/Smap>`_.  Installing
+it should be as easy as::
 
- easy_install smap
+ pip install smap
 
 To install from svn, have a look at the dependencies below.
 
@@ -30,24 +32,32 @@ Dependencies
 ~~~~~~~~~~~~
 
 * `python 2.6, 2.7 <http://www.python.org>`_
-* `twisted 11 <http://www.twistedmatrix.com>`_
+* `twisted >= 11 <http://www.twistedmatrix.com>`_
 * `zope.interface <http://pypi.python.org/pypi/zope.interface>`_
 * `avro <http://avro.apache.org/releases.html>`_
-* `configobj <https://pypi.python.org/pypi/configobj/>`_
+* `configobj 4 <https://pypi.python.org/pypi/configobj/>`_
+* `python-dateutil <http://pypi.python.org/pypi/python-dateutil>`_
 
 For the Cal ISO driver used in the tutorial, you also need:
 
-* `dateutil <http://pypi.python.org/pypi/python-dateutil>`_
 * `BeautifulSoup <http://www.crummy.com/software/BeautifulSoup/>`_
 
-On debian, you can install nearly all of this with::
+If you wish to send data using SSL, you also need:
+
+* `pyOpenSSL <https://launchpad.net/pyopenssl>`_ (optional)
+
+For high-performance data downloading, you can include:
+
+* ``pycURL``
+
+On debian, you can install these with apt::
 
  $ apt-get install python python-zopeinterface python-twisted python-dateutil python-beautifulsoup
 
-Unfortunately, you must still install avro by hand.
+You can then install configobj and avro using pip.
 
-Source Install
-~~~~~~~~~~~~~~
+Install from Source
+~~~~~~~~~~~~~~~~~~~
 
 Once the dependencies are installed, you can download and install the
 smap source.  Right now we recommend that you use the svn version

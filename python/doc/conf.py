@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'sMAP'
-copyright = u'2011, Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>'
+copyright = u'2011-2013, University of California Regents <stevedh@eecs.berkeley.edu>'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
