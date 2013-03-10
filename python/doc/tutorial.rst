@@ -259,11 +259,11 @@ inspecting this running server.  First, ``sMAP Direct`` supplies a
 simple web-based interface to sensors and actuators accessible through
 the sMAP source.  To access this, first start an example sMAP source::
 
-  $ twistd -n smap python/conf/example.ini
+  $ twistd -n smap example.ini
   ...
   2013-03-09 12:24:36-0800 [-] Site starting on 8080
 
-This config file is available in `here <http://smap-data.googlecode.com>`_ and also in the source repository.  Once this is running, simply visit http://localhost:8080/docs in your browser, and you should see the UI:
+This config file is available :download:`here <../conf/example.ini>` and also in the source repository.  Once this is running, simply visit http://localhost:8080/docs in your browser, and you should see the UI:
 
 .. image:: resources/direct.png
 

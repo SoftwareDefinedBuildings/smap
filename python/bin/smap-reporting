@@ -66,6 +66,7 @@ for rf in args:
     for r in rpt:
         if opts.uuid == str(r['uuid']):
             if opts.location:
+                print opts.location
                 r['ReportDeliveryLocation'] = [opts.location]
             #if opts.truncate:
                 # print "Truncating to", opts.truncate, "log entries"

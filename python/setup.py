@@ -40,7 +40,7 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "HandleModbusTCPClient.c"]))
 
 setup(name="Smap",
-      version="2.0.461",
+      version="2.0.524",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
@@ -91,4 +91,4 @@ setup(name="Smap",
                'bin/smap-tool',
                'bin/smap-reporting', 'bin/smap-monitize'],
       install_requires = [
-        'configobj', 'avro'])
+        'twisted', 'configobj', 'avro', 'python-dateutil'])

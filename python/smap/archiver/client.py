@@ -96,8 +96,6 @@ results together."""
     return rv.values()
 
 class SmapClient:
-    """Blocking client class for the archiver API.
-    """
     def __init__(self, base=conf['default backend'],
                  key=None, private=False, timeout=50.0):
         """
@@ -142,10 +140,10 @@ the result.
         fp.close()
         return rv
 
-    def tags(self, qbody, tags='*', nest=False, asdict=False):
+    def tags(self, where, tags='*', nest=False, asdict=False):
         """Look up tags associated with a specific query body"""
-        log.msg(qbody)
-        tags = self.query('select %s where %s' % (tags, qbody))
+        log.msg(where)
+        tags = self.query('select %s where %s' % (tags, where))
         if not nest:
             tags = map(lambda t: dict(util.buildkv('', t)), tags)
         if asdict:
@@ -251,26 +249,26 @@ uuids.  Attempts to use cached data and load missing data in parallel.
         return self.query(qbody)
         
 
-    def data(self, qbody, start, end, limit=10000):
-        """Load data for streams matching a particular query
+    def data(self, where, start, end, limit=10000, cache=True):
+        """Load data for streams matching a particular query.
 
-        Uses the local time-series cache in the .cache directory.
-
-        :param str qbody: the selector for the data in questions
-        :param int start: query start time in UTC seconds (inclusive)
-        :param int end: query end time in UTC seconds (exclusive)
-        :return: a tuple of (uuids, data).  uuids is a list of uuids matching
+:param str where: the ArchiverQuery selector for finding time series
+:param int start: query start time in UTC seconds (inclusive)
+:param int end: query end time in UTC seconds (exclusive)
+:return: a tuple of (uuids, data).  uuids is a list of uuids matching
     the selector, and data is a list numpy matrices with the data 
     corresponding to each uuid.
         """
-        uids = self.query('select distinct uuid where %s' % qbody)
-        data = self.data_uuid(uids, start, end, limit=limit)
+        uids = self.query('select distinct uuid where %s' % where)
+        data = self.data_uuid(uids, start, end, limit=limit, cache=cache)
         return uids, data
 
-    def prev(self, qbody, ref, limit=1, streamlimit=10):
-        """Load data before a reference time.
+    def prev(self, where, ref, limit=1, streamlimit=10):
+        """Load data before a reference timestamp.  For instance, to
+        locate the last reading whose timestamp is less than the
+        current time, you can use ``latest(where_clause, int(time.time())``.
 
-        :param str qbody: a selector identifying the streams to query
+        :param str where: a selector identifying the streams to query
         :param int ref: reference timestamp
         :param int limit: the maximum number of points to retrieve per stream
         :param int streamlimit: the maximum number of streams to query

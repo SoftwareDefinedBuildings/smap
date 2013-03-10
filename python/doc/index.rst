@@ -33,7 +33,6 @@ in this ecosystem.
    install
    python_access
    tutorial
-   additional_tutorial
 
    drivers 
    archiver
