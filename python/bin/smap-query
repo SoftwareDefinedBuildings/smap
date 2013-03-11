@@ -50,6 +50,7 @@ HISTFILE = os.path.expanduser('~/.smap-query-history')
 
 def stringify_times(obj):
     for v in obj:
+        if not isinstance(v, dict): continue
         if 'Readings' in v:
             for i in xrange(0, len(v['Readings'])):
                 try:
@@ -92,7 +93,7 @@ def run_query(opts, q):
         else:
             if opts.dates:
                 stringify_times(obj)
-            json.dump(obj, sys.stdout, sort_keys=True, indent=2)
+            json.dump(sorted(obj), sys.stdout, sort_keys=True, indent=2)
 
 #                 json
 #         while True:
