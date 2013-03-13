@@ -107,9 +107,9 @@ class Dent18(SmapDriver):
         self.scale_register = 4300
         self.scalar = None
         self.last_read = None
-        self.elt_scales = [('elt-A', None), ('elt-B', None),
-                           ('elt-C', None), ('elt-D', None),
-                           ('elt-E', None), ('elt-F', None)]
+        self.elt_scales = map(lambda x: ('elt-' + x, None),
+                              opts.pop('elements', ['A','B','C',
+                                                    'D','E','F']))
         
         map(lambda elt: add_phases(self, elt=[elt[0]]),
             self.elt_scales)
@@ -143,15 +143,14 @@ class Dent18(SmapDriver):
                     scale = None
                 if scale != None: break
             if scale == None:
-                raise core.SmapException("Could not read sale from dent: cannot proceed (%s)" %
+                raise core.SmapException("Could not read scale from dent: cannot proceed (%s)" %
                                          (str(self.serverloc)))
             self.elt_scales[i] = self.elt_scales[i][0], scale
         print self.elt_scales
         reactor.callInThread(self.final_startup)
 
     def final_startup(self):
-        periodicSequentialCall(self.update_all).start(self.rate)
-            
+        periodicSequentialCall(self.update_all).start(self.rate)            
 
     def read_scale(self, modbus_addr):
         """Read the scale register on a dent"""
@@ -264,3 +263,13 @@ class Dent18(SmapDriver):
                      float(data[55+i]) / c_d(scale))
             self.add(base + 'phase-neutral_voltage', reading_time, 
                      float(data[58+i]) / v_d(scale))
+
+class Dent3(Dent18):
+    def setup(self, opts):
+        opts['elements'] = ['A']
+        Dent18.setup(self, opts)
+        self.scale_register = 4602
+        self.set_metadata('/', {
+            'Extra/Driver' : 'smap.drivers.dent.Dent3', 
+            'Instrument/Model' : 'PowerScout 3',
+            })
