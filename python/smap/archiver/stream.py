@@ -209,6 +209,7 @@ class OperatorApplicator(object):
             d[:, 0] *= 1000
         redata = self.op.process(opdata)
 
+        log.msg("STATS: Operator processing took %0.6fs" % (time.time() - tic))
         # log.msg("writing " + str(map(len, redata)))
         # construct a return value with metadata and data merged
         redata = map(self.build_result, zip(redata, self.op.outputs))

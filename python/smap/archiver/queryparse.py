@@ -40,6 +40,7 @@ import collections
 import re
 
 from twisted.internet import defer
+from twisted.python import log
 
 from smap import operators
 from smap.util import build_recursive, is_string, flatten, SetDict 
@@ -794,11 +795,16 @@ class QueryParser:
         deferreds = []
 
         for ext_, q_ in zip(ext[1:], q[1:]):
+            def print_time(result, start):
+                logging.getLogger('stats').info("Query took %0.6fs" % (time.time() - start))
+                return result
             if not ext_:
                 d = db.runOperation(q_)
+                d.addCallback(print_time, time.time())
                 d.addCallback(lambda _: [])
             else:
                 d = db.runQuery(q_)
+                d.addCallback(print_time, time.time())
                 d.addCallback(ext_)
 
             d.addErrback(eb)

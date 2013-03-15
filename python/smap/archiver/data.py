@@ -34,6 +34,7 @@ import traceback
 import operator
 import pprint
 import time
+import logging
 
 import numpy as np
 
@@ -97,22 +98,29 @@ class SmapMetadata:
     def add(self, subid, ids, obj):
         """Set the metadata for a Timeseries object
         """
+        tic = time.time()
         for path, ts in obj.iteritems():
             if not util.is_string(path):
                 raise Exception("Invalid path: " + path)
 
             tags = ["hstore('Path', %s)" % escape_string(path)]
             for name, val in util.buildkv('', ts):
-                name, val = escape_string(name), escape_string(str(val))
                 if name == 'Readings' or name == 'uuid': continue
+                name, val = escape_string(name), escape_string(str(val))
                 if not (util.is_string(name) and util.is_string(val)):
                     raise SmapException('Invalid metadata pair: "%s" -> "%s"' % (str(name),
                                                                                  str(val)),
                                         400)
                 tags.append("hstore(%s, %s)" % (name, val))
+
             query = "UPDATE stream SET metadata = metadata || " + " || ".join(tags) + \
                 " WHERE uuid = %s" % escape_string(ts['uuid'])
+
+            # skip path updates if no other metadata
+            if len(tags) == 1:
+                continue
             yield self.db.runOperation(query)
+        logging.getLogger('stats').info("Metadata insert took %0.6fs" % (time.time() - tic))
 
 
 class SmapData:
@@ -133,7 +141,7 @@ class SmapData:
         try:
             r = rdb_pool.get()
             for ts in obj.itervalues():
-                data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings']]
+                data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings'] if x[0] > 0]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
                     settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
@@ -162,14 +170,18 @@ class SmapData:
         d.addErrback(lambda x: x.value.subFailure)
         return d
 
-    def _run_create(self, uuids, result, newresult):
+    def _run_create(self, uuids, result, newresult, start=None):
         """Chain together the stream creations so we don't exceed database limits"""
         if len(uuids) > 0:
-            query = "SELECT " + ','.join(uuids[:1000])
+            query = "SELECT " + ','.join(uuids[:100])
+            tic = time.time()
+            if start: 
+                logging.getLogger('stats').info("run create: %0.6fs" % (tic - start))
             d = self.db.runQuery(query)
-            d.addCallback(lambda rv: self._run_create(uuids[1000:],
+            d.addCallback(lambda rv: self._run_create(uuids[100:],
                                                       result + newresult[0],
-                                                      map(list, rv)))
+                                                      map(list, rv),
+                                                      start=tic))
             return d
         else:
             return result + newresult[0]
@@ -291,6 +303,10 @@ def send_result((request, result)):
     request.write(json.dumps(result))
     request.finish()
 
+def log_time(result, start):
+    logging.getLogger('stats').info("data load took %0.6fs" % (time.time() - start))
+    return result
+
 def data_load_result(request, method, result, send=False, **loadargs):
     """Callback that can be chained onto a db query to load the data
     from the reading db.
@@ -313,6 +329,7 @@ def data_load_result(request, method, result, send=False, **loadargs):
     if len(result) > 0:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])
+        d.addCallback(log_time, time.time())
         return d
     else:
         return defer.succeed([])

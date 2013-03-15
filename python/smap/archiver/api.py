@@ -37,6 +37,7 @@ import operator
 import urllib
 import csv
 import datetime
+import logging
 
 from twisted.internet import reactor, threads, defer
 from twisted.web import resource, server
@@ -134,6 +135,10 @@ def build_inner_query(request, tags):
 
     return inner_query, clauses
 
+def log_time(result, start):
+    logging.getLogger('stats').info("api query took %0.6fs" % (time.time() - start))
+    return result
+
 def build_query(db, request, tags):
     """Will wrap a query which an appropriate selector to yield
     distinct tagnames, tagvals, or uuids depending on what is needed.
@@ -163,6 +168,7 @@ FROM (
 
     log.msg(query)
     d = db.runQuery(query)
+    d.addCallback(log_time, time.time())
     return d
 
 def build_tag_query(db, request, tags):
@@ -176,7 +182,9 @@ FROM stream s
 WHERE s.id IN """ + inner_query + """
 ORDER BY s.id ASC"""
     log.msg(query)
-    return db.runQuery(query)
+    d = db.runQuery(query)
+    d.addCallback(log_time, time.time())
+    return d
 
 class Api(resource.Resource):
     """Provide api calls against the databases for data and tag lookups.
@@ -369,6 +377,7 @@ class Api(resource.Resource):
 id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
+            d.addCallback(log_time, time.time())
             d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)

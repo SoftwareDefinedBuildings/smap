@@ -33,7 +33,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 from smap import operators, util
 
 class AstNode(operators.Operator):
-    name = 'ast'
     def __init__(self, inputs, op, *children):
         self.op = op
         self.children = list(children)
@@ -45,6 +44,7 @@ class AstNode(operators.Operator):
 
         my_inputs = util.flatten((c.op.outputs for c in self.children))
         self.op = self.op(my_inputs)
+        self.name = self.op.name
         operators.Operator.__init__(self, inputs, self.op.outputs)
 
     def process(self, data):
