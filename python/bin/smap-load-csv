@@ -93,7 +93,7 @@ if __name__ == '__main__':
                       default='9ffb78a6-4c6a-11e2-b19e-d78597b0c967',
                       help='root uuid')
     parser.add_option('-i', '--ignore-channels', dest='ignore',
-                      default='', help='comma-separated list of column nanes '
+                      default='', help='comma-separated list of column names '
                       'or indexes to ignore')
     parser.add_option('-c', '--take-channels', dest='takes',
                       default='', help='comma-separated list of column names '
