@@ -143,6 +143,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         seqno = None
         if len(args) == 1:
             time = util.now()
+            if self.milliseconds: time *= 1000
             value = args[0]
         elif len(args) == 2:
             time, value = args
