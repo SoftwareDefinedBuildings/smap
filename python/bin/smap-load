@@ -90,8 +90,6 @@ if __name__ == '__main__':
             log.msg("Resetting driver")
             driver.reset()
 
-    print opts.cache
-
     try: 
         # find the date range for loading...
         st, et = None, None
