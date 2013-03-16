@@ -50,10 +50,10 @@ def get_parser():
                       help='time format string for start and end ("%m-%d-%Y")')
     parser.add_option('-s', '--start-time', dest='start_time', 
                       default=None, type='str',
-                      help='start time of import (1 hour ago)')
+                      help='start time of import')
     parser.add_option('-e', '--end-time', dest='end_time',
                       default=None, type='str',
-                      help='end time of import (now)')
+                      help='end time of import')
     parser.add_option('-z', '--timezone', dest='timezone',
                       default='Local', type='str',
                       help='time zone for time conversion')
@@ -90,6 +90,8 @@ if __name__ == '__main__':
             log.msg("Resetting driver")
             driver.reset()
 
+    print opts.cache
+
     try: 
         # find the date range for loading...
         st, et = None, None
@@ -105,7 +107,7 @@ if __name__ == '__main__':
         # try: 
         #     loader = driver.load(st, et, cache=opts.cache)
         # except TypeError:
-        dl.append(defer.maybeDeferred(driver.load, st, et))
+        dl.append(defer.maybeDeferred(driver.load, st, et, cache=opts.cache))
 
     dl = defer.DeferredList(dl, consumeErrors=True)
     dl.addCallback(lambda x: inst._flush())
