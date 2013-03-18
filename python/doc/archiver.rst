@@ -198,7 +198,7 @@ select
 +======================+=======================================+
 | tag names            | `*` or comma-separated list           |
 +----------------------+---------------------------------------+
-| **distinct** query   | tag name or **tags** literal          |
+| **distinct** query   | tag name           |
 +----------------------+---------------------------------------+
 | `data selector`      | data specification                    |
 +----------------------+---------------------------------------+
@@ -216,11 +216,16 @@ You can access stored data from multiple streams by specifying a data specificat
 
 **select data after** `reference` `limit` **where** `where-clause`
 
-A limit is optional, and can have the form **limit** `number`, **streamlimit** `number`, or **limit** `number` **streamlimit** `number`.  Limit controls the number of points returned per stream, and streamlimit controls the number of streams returned.  
+A limit is optional, and can have the form **limit** `number`, **streamlimit** `number`, or **limit** `number` **streamlimit** `number`.  Limit controls the number of points returned per stream, and streamlimit controls the number of time series returned.  
 
-The time references (`start time`, `end time`) are inclusive, exclusive, while (**before**, **after**) select data starting at the first point with timestamp (less than, greater than) the reference time stamp.  
-
-`reference` must either be an timestamp in units of UNIX milliseconds, the string literal **now**, or a quoted time string.  Valid time strings are "%m/%d/%Y", "%m/%d/%Y %M:%H", and "%Y-%m-%dT%H:%M:%S".  For instance "10/16/1985" and "2/29/2012 20:00" are valid.  They will be interpreted relative to the timezone of the server.
+You can select the time region queried using a range query, or a query
+relative to a reference time stamp.  In all these cases, the reference
+times must either be a timestamp in units of UNIX milliseconds, the
+string literal **now**, or a quoted time string.  Valid time strings
+match a time format of either ``%m/%d/%Y``, ``%m/%d/%Y %M:%H``, or
+``%Y-%m-%dT%H:%M:%S``.  For instance "10/16/1985" and "2/29/2012
+20:00" are valid.  These strings are interpreted relative to the
+timezone of the server.
 
 The reference may be modified by appending a relative time string, using unix "at"-style specifications.  You can for instance say `now + 1hour` or `now -1h -5m` for the last 1:05.  Available relative time quantities are days, hours, minutes, and seconds.
 
@@ -229,7 +234,7 @@ Examples
 
 Get all tags in the system::
 
-  query> select distinct tags
+  query> select distinct 
 
 
 Get entire tag database::

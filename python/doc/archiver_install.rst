@@ -1,4 +1,4 @@
-.. _archiver-install
+.. _archiver-install:
 
 Archiver and frontend installation
 ----------------------------------
