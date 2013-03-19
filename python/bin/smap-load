@@ -33,7 +33,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import sys
-import time 
+import time, datetime
 from optparse import OptionParser
 
 from twisted.internet import reactor, defer, threads
@@ -49,10 +49,10 @@ def get_parser():
                       type='str', 
                       help='time format string for start and end ("%m-%d-%Y")')
     parser.add_option('-s', '--start-time', dest='start_time', 
-                      default=None, type='str',
+                      default="now_minus_1hour", type='str',
                       help='start time of import')
     parser.add_option('-e', '--end-time', dest='end_time',
-                      default=None, type='str',
+                      default="now", type='str',
                       help='end time of import')
     parser.add_option('-z', '--timezone', dest='timezone',
                       default='Local', type='str',
@@ -93,8 +93,16 @@ if __name__ == '__main__':
     try: 
         # find the date range for loading...
         st, et = None, None
-        st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
-        et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
+        now = dtutil.now(tzstr=opts.timezone)
+        if (opts.start_time=="now_minus_1hour"):
+            st = now - datetime.timedelta(hours=1)
+        else:
+            st = dtutil.strptime_tz(opts.start_time, opts.timefmt, opts.timezone)
+
+        if (opts.end_time=="now"):
+            et = now
+        else:
+            et = dtutil.strptime_tz(opts.end_time, opts.timefmt, opts.timezone)
     except:
         pass
 
