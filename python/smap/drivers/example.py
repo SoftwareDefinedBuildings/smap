@@ -31,6 +31,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
+from smap.contrib import dtutil
+
+from twisted.internet import threads
 
 class Driver(SmapDriver):
     def setup(self, opts):
@@ -48,3 +51,16 @@ class Driver(SmapDriver):
     def read(self):
         self.add('/sensor0', self.counter)
         self.counter += 1
+
+    def load(self, st, et, cache=None):
+        d = threads.deferToThread(self.load_data, st, et)
+        return d
+ 
+    def load_data(self, st, et):
+        st_utc = dtutil.dt2ts(st)
+        et_utc = dtutil.dt2ts(et)
+        ts = st_utc
+        while ts <= et_utc:
+            self._add('/sensor0', ts, self.counter)
+            self.counter += 1
+            ts += 120 # 2-min increments
