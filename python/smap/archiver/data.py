@@ -138,10 +138,12 @@ class SmapData:
         """Send data to a readingdb backend
         """
         r = None
+        divisor = settings.conf['readingdb']['divisor']
         try:
             r = rdb_pool.get()
             for ts in obj.itervalues():
-                data = [(x[0] / 1000, 0, x[1]) for x in ts['Readings'] if x[0] > 0]
+                data = [(x[0] / divisor, 0, x[1]) 
+                        for x in ts['Readings'] if x[0] > 0]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
                     settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
@@ -240,14 +242,15 @@ class DataRequester:
 
         self.streamids = streamids
         ids = map(operator.itemgetter(1), streamids)
+        divisor = settings.conf['readingdb']['divisor']
 
         # args are a bit different for different requests
         if method == 'data':
             method = settings.rdb.db_query
             args = [
                 ids,
-                int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0]) / 1000,
-                int(request.args.get('endtime', [now])[0]) / 1000
+                int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0]) / divisor,
+                int(request.args.get('endtime', [now])[0]) / divisor
                 ]
             kwargs = {
                 'limit': int(request.args.get('limit', [10000000])[0])
@@ -259,7 +262,7 @@ class DataRequester:
                 method = settings.rdb.db_next
             args = [
                 ids,
-                int(request.args.get('starttime', [now])[0]) / 1000
+                int(request.args.get('starttime', [now])[0]) / divisor
                 ]
             kwargs = {
                 'n': int(request.args.get('limit', [1])[0])
@@ -289,7 +292,7 @@ class DataRequester:
         for (uid, id), d in zip(streamids, data):
             if not self.ndarray:
                 d[:,0] = np.int_(d[:, 0])
-                d[:,0] *= 1000
+                d[:,0] *= settings.conf['readingdb']['divisor']
                 d = d.tolist()
             if self.as_smapobj:
                 rv.append({'uuid': uid,
