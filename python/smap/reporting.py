@@ -307,7 +307,7 @@ class ReportInstance(dict):
             agent = Agent(reactor)
 
         try:
-            formatter = get_formatter(self['Format'])
+            formatter = get_formatter(self.get('Format', 'json'))
             d = agent.request('POST',
                               dest_url,
                               Headers({'Content-type' : 
