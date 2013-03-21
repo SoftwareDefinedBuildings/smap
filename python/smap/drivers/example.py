@@ -59,7 +59,7 @@ class Driver(SmapDriver):
     def load_data(self, st, et):
         st_utc = dtutil.dt2ts(st)
         et_utc = dtutil.dt2ts(et)
-        ts = st_utc
+        ts = int(st_utc/120) * 120 # round down to nearest 2-min increment
         while ts <= et_utc:
             self._add('/sensor0', ts, self.counter)
             self.counter += 1
