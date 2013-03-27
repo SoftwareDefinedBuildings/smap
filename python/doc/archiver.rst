@@ -216,7 +216,7 @@ You can access stored data from multiple streams by specifying a data specificat
 
 **select data after** `reference` `limit` **where** `where-clause`
 
-A limit is optional, and can have the form **limit** `number`, **streamlimit** `number`, or **limit** `number` **streamlimit** `number`.  Limit controls the number of points returned per stream, and streamlimit controls the number of time series returned.  
+A limit is optional, and can have the form **limit** `number`, **streamlimit** `number`, or **limit** `number` **streamlimit** `number`.  Limit controls the number of points returned per stream, and streamlimit controls the number of time series returned.  If a limit is not specified, specifications using **before** or **after** will return one point per stream. 
 
 You can select the time region queried using a range query, or a query
 relative to a reference time stamp.  In all these cases, the reference
@@ -251,7 +251,7 @@ Get  all buildings and cities::
 
 Get the latest readings from two streams::
 
-  select data before now limit 1 where uuid = 'd26f4650-329a-5e14-8e5a-73e820dff9f0' or uuid = '87c395ee-5ee3-5713-8928-c29e32937877'
+  select data before now where uuid = 'd26f4650-329a-5e14-8e5a-73e820dff9f0' or uuid = '87c395ee-5ee3-5713-8928-c29e32937877'
 
 Retrieve a week's worth of data for matching streams::
 
