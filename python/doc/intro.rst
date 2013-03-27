@@ -7,12 +7,12 @@ publishes time-series data from a wide variety of sensors simply and
 flexibly.
 
 The sMAP architecture consists of several components which may be used
-together to caption, transmit, store, and present time-series data:
+together to capture, transmit, store, and present time-series data:
 
 * **sMAP Sources** communicate with existing instrumentation, and
   collect time-series data using a large variety of underlying
   protocols.  They use the `sMAP Library` to describe and reliably
-  communicate this data to consumers, as well as providing uniform
+  communicate this data to consumers, as well as provide uniform
   access to actuators.
 
 * the **sMAP Archiver** is a high-performance historian for storing

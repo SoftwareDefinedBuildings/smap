@@ -209,11 +209,10 @@ blocking APIs::
 Task 3: Send data to the archiver
 ---------------------------------
 
-sMAP can sends out data via HTTP POST requests to data consumers.
-These consumers can get configured in one of two ways: the first is
-via the sMAP-specified mechanism, either dynamically, via a POST
-request to the ``/reports`` resource on a sMAP server.  The reports
-can also be statically configured via a config file section::
+sMAP can send out data via HTTP POST requests to data consumers.
+These consumers can be configured in one of two ways. The consumer
+can be statically configured in the config file with a ``report``
+section::
 
   [report 0]
   ReportDeliveryLocation = http://new.openbms.org/backend/add/MYAPIKEY
@@ -221,6 +220,11 @@ can also be statically configured via a config file section::
 Any section starting with the string "report" is treated as a
 reporting instance.  ``ReportDeliveryLocation`` specifies
 the URI data will be posted to.
+
+Secondly, the consumer can be specified dynamically, through a POST
+request to the ``/reports`` resource on the sMAP server. An easy way
+to configure a new report delivery location with an existing sMAP
+server is to use :ref:`smap-tool` with the ``-c`` option. 
 
 Buffering
 ~~~~~~~~~
@@ -248,7 +252,6 @@ to:
 * use :ref:`smap-monitize` to install running sources in a service
   manager. 
 * use :ref:`smap-tool` to configure data consumers.
-
 
 Inspecting a running server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

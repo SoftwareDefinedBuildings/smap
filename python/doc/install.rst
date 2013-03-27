@@ -3,7 +3,7 @@ Installation
 
 The three core pieces of sMAP (sources, the archiver, and powerdb2)
 can be installed separately and in different places, depending on the
-needs .  For instance, the archiver is frequently placed in a
+needs of the user.  For instance, the archiver is frequently placed in a
 datacenter or on a machine with sufficient resources, whereas sMAP
 sources are placed on low-power embedded devices close to the
 instrumentation they access.
