@@ -194,6 +194,7 @@ if __name__ == '__main__':
             inst._add(paths[c], ts, float(r[c]))
 
     print "processed %i lines" % processed
-    d = inst._flush()
-    d.addCallbacks(lambda x: reactor.stop())
-    reactor.run()
+    if opts.report_dest:
+        d = inst._flush()
+        d.addCallbacks(lambda x: reactor.stop())
+        reactor.run()

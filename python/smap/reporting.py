@@ -365,6 +365,7 @@ class Reporting:
     def add_report(self, rpt):
         dir = os.path.join(self.reportfile + '-reports',
                            str(rpt['uuid']))
+        rpt['ReportDeliveryLocation'] = map(str, rpt['ReportDeliveryLocation'])
         report_instance = ReportInstance(dir, rpt)
         log.msg("Creating report -- dest is %s" % str(rpt['ReportDeliveryLocation']))
         self._update_subscriptions(report_instance)

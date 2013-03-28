@@ -49,9 +49,10 @@ from smap.archiver import settings, client
 HISTFILE = os.path.expanduser('~/.smap-query-history')
 
 def stringify_times(obj):
+    if not isinstance(obj, list): return
     for v in obj:
         if not isinstance(v, dict): continue
-        if 'Readings' in v:
+        if 'Readings' in v and isinstance(v['Readings'], list):
             for i in xrange(0, len(v['Readings'])):
                 try:
                     v['Readings'][i][0] = time.ctime(v['Readings'][i][0] / 1000)
@@ -116,7 +117,7 @@ def run_query(opts, q):
 
 gnuplot_args = [["set", "xdata", "time"],
                 ["set", "timefmt", '"%s"'],
-#                 ["set", "term", "dumb"],
+                ["set", "term", "dumb"],
                 ["unset", "key"]]
 def get_gnuplot():
     return '\n'.join(map(' '.join, gnuplot_args))

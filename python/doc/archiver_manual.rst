@@ -33,9 +33,13 @@ Then do a `sudo /etc/init.d/monit restart`.
 ReadingDB
 ~~~~~~~~~
 
-Install readingdb's build dependencies (check the `README <https://github.com/stevedh/readingdb>`_).  On Ubuntu 11::
+Install readingdb's build dependencies (check the `README
+<https://github.com/stevedh/readingdb>`_).  On Ubuntu 11::
 
-  $ sudo apt-get install libdb4.8 libdb4.8-dev libprotobuf-c0 libprotobuf-c0-dev protobuf-c-compiler zlib1g zlib1g-dev build-essential autoconf libtool python python-dev python-numpy swig check 
+  $ sudo apt-get install libdb4.8 libdb4.8-dev libprotobuf-c0   \
+       libprotobuf-c0-dev protobuf-c-compiler zlib1g zlib1g-dev \
+       build-essential autoconf libtool python python-dev       \
+       python-numpy swig check 
 
 Next, checkout readingdb::
 

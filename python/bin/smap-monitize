@@ -76,7 +76,10 @@ ports = set()
 
 try:
     uid, gid = getpwnam(opts.user)[2:4]
-except (OSError, KeyError), e:
+except KeyError:
+    print >>sys.stderr, "Warning: user %s not found; using current user" % opts.user
+    uid, gid = os.getuid(), os.getgid()
+except OSError, e:
     print >>sys.stderr, "Error finding uid for %s: %s" % (opts.user, str(e))
     sys.exit(1)
 

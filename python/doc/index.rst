@@ -37,7 +37,7 @@ in this ecosystem.
    drivers 
    archiver
    
-
+   tools
    internals
    driver_index
 
