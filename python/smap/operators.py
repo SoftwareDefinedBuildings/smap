@@ -200,7 +200,7 @@ class OperatorDriver(driver.SmapDriver):
             for path, op in oplist.itervalues():
                 op.reset()
 
-    def _data(self, newdata, process=True):
+    def _data(self, uuids, newdata, process=True):
         """Process incoming data by pushing it through the operators
         
         process: don't actually process the operators, just add the
@@ -208,17 +208,11 @@ class OperatorDriver(driver.SmapDriver):
         """
         # print "_data", len(newdata)
         pushlist = set([])
-        for v in newdata.itervalues():
-            if not 'uuid' in v: 
-                continue
-            source_id = str(v['uuid'])
+        for source_id, data in zip(uuids, newdata):
             if not source_id in self.operators: 
                 continue
 
             # prepare the data
-            data = v['Readings']
-            if not isinstance(data, np.ndarray):
-                data = np.array(data)
             if len(data) == 0:
                 data = np.reshape(data, (0, 2))
 

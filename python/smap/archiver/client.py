@@ -95,6 +95,19 @@ results together."""
                 rv[id] = util.dict_merge(rv[id], v)
     return rv.values()
 
+def make_qdict(key, private):
+    """return a query dict to be passed with all requests"""
+    rv = {}
+    if key:
+        if isinstance(key, list):
+            rv['key'] = key
+        else:
+            rv['key'] = [key]
+    if private:
+        rv['private'] = ['']
+    return rv
+
+
 class SmapClient:
     def __init__(self, base=conf['default backend'],
                  key=None, private=False, timeout=50.0):
@@ -109,18 +122,6 @@ class SmapClient:
         self.key = key
         self.private = private
 
-    def _build_qdict(self):
-        """return a query dict to be passed with all requests"""
-        rv = {}
-        if self.key:
-            if isinstance(self.key, list):
-                rv['key'] = self.key
-            else:
-                rv['key'] = [self.key]
-        if self.private:
-            rv['private'] = ['']
-        return rv
-
     def query(self, q):
         """Send a query using the ARD query language to the server, and return
 the result.
@@ -130,7 +131,8 @@ the result.
 """
         try:
             fp = urllib2.urlopen(self.base + '/api/query?' + 
-                                 urllib.urlencode(self._build_qdict(), doseq=True),
+                                 urllib.urlencode(make_qdict(self.key, self.private), 
+                                                  doseq=True),
                                  data=q, 
                                  timeout=self.timeout)
             rv = parser(fp.read())
@@ -187,7 +189,7 @@ uuids.  Attempts to use cached data and load missing data in parallel.
   :py:class:`numpy.array` of data in the same order as the input list of
   uuids
         """
-        qdict = self._build_qdict()
+        qdict = make_qdict(self.key, self.private)
         qdict['limit'] = [str(int(limit))]
         data, urls = {}, []
         start, end = start * 1000, end * 1000
@@ -301,21 +303,29 @@ programs.  For instance::
  def data_callback(data):
      print data
 
- r = RepublishClient("http://localhost:8079/republish", data_callback)
+ r = RepublishClient("http://localhost:8079/", data_callback)
  r.connect()
  reactor.callLater(5, reactor.stop)
  reactor.run()
 
     """
-    def __init__(self, url, datacb, reconnect=True, restrict=None, connect_error=None):
+    def __init__(self, url, datacb, 
+                 restrict=None, 
+                 format="numpy",
+                 reconnect=True, 
+                 connect_error=None,
+                 key=None, private=False):
         """
-:param str url: url of the source
+:param str url: url of the archiver
 :param datacb: callable to be called with each new sMAP object
-:param bool reconnect: weather to reconnect if the socket connection is dropped.
 :param str restrict: "where" clause restricting data to be delivered.
+:param str format: "numpy" or "raw", determining the arguments to the data callback.
+:param bool reconnect: weather to reconnect if the socket connection is dropped.
 :param connect_error: callback to be called when the archiver returns an HTTP error code.
     This is only evaluated once, when connecting.  Will be called with a 
     :py:class:`twisted.web.client.Response` object as the first argument.
+:param key: keys needed to access private data
+:param bool private: 
         """
         self.url = url
         self.datacb = datacb
@@ -324,6 +334,9 @@ programs.  For instance::
         self.failcount = 0
         self.restrict = restrict
         self.connect_error = connect_error
+        self.format = format
+        self.key = key
+        self.private = private
 
     class DataReceiver(LineReceiver):
         """Make our own LineReceiver to read back the streaming data
@@ -332,14 +345,26 @@ programs.  For instance::
         MAX_LENGTH = 1e7
         delimiter = '\n\n'
 
-        def __init__(self, client):
+        def __init__(self, client, format):
+            if not format in ["raw", "numpy"]:
+                raise ValueError("Valid formats are raw and numpy")
             self.client = client
+            self.format = format
 
         def lineReceived(self, line):
             self.failcount = 0
+            if not len(line.strip()): return
             try:
                 obj = json.loads(line)
-                self.client.datacb(obj)
+                if self.format == "raw":
+                    self.client.datacb(obj)
+                else:
+                    uuids, data = [], []
+                    for v in obj.itervalues():
+                        if 'uuid' in v:
+                            uuids.append(v['uuid'])
+                            data.append(np.array(v['Readings']))
+                    self.client.datacb(uuids, data)
             except:
                 log.err()
                 print line
@@ -354,7 +379,7 @@ programs.  For instance::
 
     def __request(self, response):
         if response.code == 200:
-            receiver = RepublishClient.DataReceiver(self)
+            receiver = RepublishClient.DataReceiver(self, self.format)
             receiver.setLineMode()
             response.deliverBody(receiver)
             self.receiver = receiver
@@ -376,15 +401,14 @@ programs.  For instance::
 before this connecting.
         """
         self.closing = False
+        url = self.url + '/republish?' + \
+            urllib.urlencode(make_qdict(self.key, self.private), 
+                             doseq=True)
+        print url
         if not self.restrict:
-            d = self.agent.request('GET',
-                                   self.url + '/republish',
-                                   Headers(),
-                                   None)
+            d = self.agent.request('GET', url, Headers(), None)
         else:
-            d = self.agent.request('POST',
-                                   self.url + '/republish',
-                                   Headers(),
+            d = self.agent.request('POST', url, Headers(), 
                                    FileBodyProducer(StringIO(str(self.restrict))))
         d.addCallback(self.__request)
         d.addErrback(self._connect_failed)

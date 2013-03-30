@@ -42,7 +42,7 @@ from twisted.python import log
 from smap import core, util
 from smap.driver import SmapDriver
 from smap.archiver.queryparse import parse_opex
-from smap.archiver.client import SmapClient, RepublishClient
+from smap.archiver.client import SmapClient
 from smap.operators import null, OperatorDriver
 from smap.ops.grouping import GroupByTagOperator
 

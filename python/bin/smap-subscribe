@@ -1,0 +1,116 @@
+#!/usr/bin/python
+"""
+Copyright (c) 2013 Regents of the University of California
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions 
+are met:
+
+ - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+ - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+"""
+@author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+"""
+
+import sys
+import time
+import optparse
+import uuid
+
+from twisted.internet import reactor, defer
+from twisted.python import util
+
+from smap import util
+from smap.contrib import dtutil
+from smap.archiver import settings
+from smap.archiver import client
+
+usage = 'usage: %prog [options] querys ...'
+parser = optparse.OptionParser(usage=usage)
+parser.add_option('-u', '--archiver-url', dest='url',
+                  default=settings.conf['default backend'],
+                  help="sMAP archiver URL")
+parser.add_option('-t', '--time-format', dest='timefmt',
+                  default=None,
+                  help="output time format string")
+parser.add_option('-z', '--time-zone', dest='timezone',
+                  default='Local',
+                  help="output time zone string (Olson tzinfo)")
+parser.add_option('-a', '--all', dest='all',
+                  default=False, action="store_true",
+                  help="output all data, not just the last reading")
+# TODO : add support for private streams
+parser.add_option('-k', '--key', dest='key', default='',
+                  help='api keys: k1[,k2 ...]')
+parser.add_option('-p', '--private', dest='private', default=False,
+                  help='display only results associated with the api key',
+                  action='store_true')
+
+if __name__ == '__main__':
+    opts, args = parser.parse_args()
+    if opts.timezone == 'Local':
+        tz = dtutil.tzlocal()
+    else:
+        tz = dtutil.gettz(opts.timezone)
+
+    def build_restrict(args):
+        clauses = []
+        for a in args:
+            try:
+                uuid.UUID(a)
+                clauses.append('uuid = "%s"' % a)
+            except:
+                clauses.append(a)
+        return ' or '.join(clauses)
+
+    def print_data(uuids, data):
+        """Format and print the readings we just got from the archiver"""
+        for u, vals in zip(uuids, data):
+            if not opts.all: vals = [vals[-1]]
+            for latest in vals:
+                ts = dtutil.ts2dt(latest[0] / 1000)
+                print u,
+                if opts.timefmt:
+                    print dtutil.strftime_tz(ts, opts.timefmt, tzstr=opts.timezone),
+                else:
+                    print dtutil.strftime_tz(ts, tzstr=opts.timezone),
+                print latest[1]
+
+    @defer.inlineCallbacks
+    def error(resp):
+        d = defer.Deferred()
+        resp.deliverBody(util.BufferProtocol(d))
+        err = yield d
+        print >>sys.stderr, "Error subscribing to channel, aborting"
+        print >>sys.stderr, ''
+        print >>sys.stderr, err
+        reactor.stop()
+
+    restrict = build_restrict(args)
+    rpc = client.RepublishClient(opts.url, print_data, 
+                                 restrict=restrict,
+                                 connect_error=error, 
+                                 key=opts.key.split(','),
+                                 private=opts.private)
+    rpc.connect()
+    reactor.run()
+

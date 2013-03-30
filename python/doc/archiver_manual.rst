@@ -21,14 +21,14 @@ the instruction linearly; if you do them out-of-order, you may have to
 hunt through earlier sections to satisfy all the dependencies.
 
 Before getting started, you'll want to configure monit.  First,
-install it using `sudo apt-get install monit`.  Then, edit
-`/etc/monit/monitrc` and make sure the following is uncommented::
+install it using ``sudo apt-get install monit``.  Then, edit
+``/etc/monit/monitrc`` and make sure the following is uncommented::
 
   set httpd port 2812 and
       use address localhost
       allow localhost
 
-Then do a `sudo /etc/init.d/monit restart`.
+Then do a ``sudo /etc/init.d/monit restart``.
 
 ReadingDB
 ~~~~~~~~~
@@ -62,8 +62,8 @@ Finally, start the service.  A service config file is automatically created in `
   $ sudo monit reload
   $ sudo monit start readingdb
 
-At this point, you can check to make sure it got started using `ps
--eaf|grep readingdb`.  The data is put in `/var/lib/readingdb` by
+At this point, you can check to make sure it got started using ``ps
+-eaf|grep readingdb``.  The data is put in ``/var/lib/readingdb`` by
 default.
 
 PostgreSQL
@@ -105,7 +105,7 @@ Next, we need to check out the powerdb2 project::
   $ svn checkout http://smap-data.googlecode.com/svn/branches/powerdb2
   $ cd powerdb2/
 
-Now, edit `settings.py` and change the field with the database
+Now, edit ``settings.py`` and change the field with the database
 password to be whatever you just created.  If you have any other
 site-specific database options, you should also edit them now.  Once
 that works, you can go ahead and create the database tables::
