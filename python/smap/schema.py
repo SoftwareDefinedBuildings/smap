@@ -34,6 +34,7 @@ import os
 import sys
 import json
 import uuid
+from cStringIO import StringIO
 from avro import schema, io
 
 import util
@@ -53,13 +54,12 @@ SCHEMAS = [
     "Actuator", 
     "Properties", "Metadata", 
     "TimeSeries", "Collection",
-    "Reporting"]
+    "Reporting",
+
+    ]
 SCHEMA_OBJECTS = []
 
-# load all the schemas when we check an object
-for sf in SCHEMAS:
-    #print "Loading", sf
-	
+def load_schema(sf):
     dirs = [os.path.dirname(sys.modules[__name__].__file__),
             os.path.join(os.path.dirname(sys.modules[__name__].__file__),
                          os.path.join(os.pardir, os.pardir)),
@@ -75,10 +75,44 @@ for sf in SCHEMAS:
             pass
     if obj == None:
         raise Exception('Cannot load schema: ' + sf.lower())
-    
+
     s = schema.make_avsc_object(obj, SCHEMA_NAMES)
-    SCHEMA_OBJECTS.append(obj)
-        
+    return s
+
+# load all the schemas when we check an object
+for sf in SCHEMAS:
+    SCHEMA_OBJECTS.append(load_schema(sf))
+REPORT_SCHEMA = load_schema('ReportData')
+
+def convert_uuids(obj):
+    id = obj.get('uuid', None)
+    if util.is_string(id):
+        id = uuid.UUID(id)
+    if id: obj['uuid'] = id.bytes
+    return id
+
+def stringify_uuids(obj):
+    id = obj.get('uuid', None)
+    if id:
+        id = uuid.UUID(bytes=id)
+        obj['uuid'] = str(id)
+
+def convert_readings(obj):
+    r = obj.get('Readings', None)
+    if not r: return
+    for i, val in enumerate(r):
+        if r and not isinstance(val, list):
+            obj['Readings'][i] = list(val)
+
+def remove_none(obj):
+    dellist = []
+    for k, v in obj.iteritems():
+        if v == None: dellist.append(k)
+        elif isinstance(v, dict):
+            remove_none(v)
+    for k in dellist:
+        del obj[k]
+
 def validate(schema, obj):
     """Validate an object against its schema.
 
@@ -94,11 +128,7 @@ def validate(schema, obj):
     s = SCHEMA_NAMES.get_name(schema, None)
     # swap the uuid for the byte-packed encoding we use with avro
     try:
-        id = obj.get('uuid', None)
-        if util.is_string(id):
-            id = uuid.UUID(id)
-
-        if id: obj['uuid'] = id.bytes
+        id = convert_uuids(obj)
         rv = io.validate(s, obj)
         if id: obj['uuid'] = id
         return rv
@@ -117,4 +147,33 @@ def filter_fields(schema, obj):
             
     return rv
 
+def dump_report(datum):
+    # have to diddle with some of the values so avro doesn't choke
+
+    uuids = map(convert_uuids, datum.itervalues())
+    map(convert_readings, datum.itervalues())
+
+    # then just dump it to a string
+    out = StringIO()
+    dwriter = io.DatumWriter(writers_schema=REPORT_SCHEMA)
+    dwriter.write(datum, io.BinaryEncoder(out))
+
+    for id, p in zip(uuids, datum.itervalues()):
+        if id: p['uuid'] = id
+
+    return out.getvalue()
+
+def load_report(data):
+    input = StringIO(data)
+    dreader = io.DatumReader(writers_schema=REPORT_SCHEMA, 
+                             readers_schema=REPORT_SCHEMA)
+    v = dreader.read(io.BinaryDecoder(input))
+    map(stringify_uuids, v.itervalues())
+    remove_none(v)
+    print v
+    return v
+
+
+
 # validate("Timeseries", None)
+

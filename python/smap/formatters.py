@@ -37,6 +37,7 @@ from zope.interface import implements
 from twisted.internet.task import cooperate
 from twisted.web import iweb
 
+from smap import schema
 from smap.sjson import AsyncJSON, dumps
 from smap.util import push_metadata, join_path, split_path
 from smap.contrib import dtutil
@@ -70,10 +71,17 @@ class AsyncFormatter(object):
     def _unregister(self, passthrough): 
         return passthrough
 
-class GzipJson(AsyncFormatter):
+class StaticProducer(AsyncFormatter):
+    BLKSZ = 1024
+
+    def _produce(self):
+        for i in xrange(0, len(self._value), self.BLKSZ):
+            self._consumer.write(self._value[i:i+self.BLKSZ])
+            yield None
+
+class GzipJson(StaticProducer):
     content_type = 'application/json'
     content_encoding = 'gzip'
-    BLKSZ = 1024
 
     def __init__(self, value):
         value = dumps(value)
@@ -81,10 +89,17 @@ class GzipJson(AsyncFormatter):
         print "%i -> %i" % (len(value), len(self._value))
         self.length = len(self._value)
 
-    def _produce(self):
-        for i in xrange(0, len(self._value), self.BLKSZ):
-            self._consumer.write(self._value[i:i+self.BLKSZ])
-            yield None
+class GzipAvro(StaticProducer):
+    content_type = 'avro/binary'
+    content_encoding = 'gzip'
+
+    def __init__(self, value):
+        json = dumps(value)
+        avro = schema.dump_report(value)
+        self._value = zlib.compress(avro)
+        print "json: %i gzip-json: %i avro: %i gzip-avro: %i" % (
+            len(json), len(zlib.compress(json)), len(avro), len(self._value))
+        self.length = len(self._value)
 
 class AsyncSmapToCsv(AsyncFormatter):
     """Convert a sMAP report to a simplified CSV format for dumb clients"""
@@ -145,6 +160,7 @@ class AsyncSmapToDROMS(AsyncFormatter):
 __FORMATTERS__ = {
     'json': AsyncJSON,
     'gzip-json': GzipJson,
+    'gzip-avro': GzipAvro,
     'csv': AsyncSmapToCsv,
     'droms': AsyncSmapToDROMS
     }

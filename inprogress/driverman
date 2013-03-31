@@ -1,0 +1,164 @@
+#!/usr/bin/python
+import psutil
+import os
+import sys
+import threading
+import time
+import urllib2
+
+#TODO: add debugging feature (-d) that shows twistd stderr
+
+
+class RunableDriver(object):
+    """Encapsulates/abstracts away smap driver control"""
+
+    def __init__(self, inipath):
+        name = inipath.split("/")
+        name = name[len(name)-1].split(".")[0]
+        self.piddir = "/var/smap/" + name
+        self.pidpath = self.piddir + "/" + name + ".pid"
+        try:
+            #make the logs dir if necessary
+            os.makedirs(self.piddir)
+        except:
+            pass
+        self.inipath = inipath
+        self.proc = None
+    
+    def start(self):
+        self.proc = psutil.Popen(["twistd", "-n", "--pidfile", self.pidpath, 
+                                                        "smap", self.inipath],
+                    stderr=open(os.devnull, 'w'), 
+                    stdout=open(os.devnull, 'w')
+                    )
+
+    def stop(self):
+        self.proc.kill()
+
+    def restart(self):
+        self.stop()
+        self.start()
+
+
+class DriverMonitor(threading.Thread):
+    def __init__(self, runabled):
+        self.drv = runabled
+        threading.Thread.__init__(self)
+
+    def run(self):
+        self.drv.start()
+        while True:
+            time.sleep(30)
+            if not self.check():
+                print("driver failed")
+                self.drv.restart()
+            else:
+                print("driver running")
+                #do nothing if driver running
+
+    def check(self):
+        #right now this is hardcoded to check the feed for miso, add args for
+        #actual use
+        timep = 5
+        source = "ISO Data"
+        driver = "miso.MIsoDriver"
+        # baseurl needs to eventually be pulled from the ini file for the driver
+        baseurl = "http://localhost/backend/api/query?"
+        query1 = 'select * where Metadata/SourceName = "' 
+        query1 = query1 + source 
+        query1 = query1 + '" and Path like "/DriverStats/' + driver + '%"'
+        result = eval(urllib2.urlopen(baseurl, query1).read())
+        uuid = result[0]["uuid"]
+        print("checking: " + uuid)
+
+        # now check for data
+        # dataurl needs to eventually be pulled from the ini file for the driver
+        dataurl = "http://localhost/backend/api/data/uuid/"
+        endtime = int(time.time()*1000)
+        starttime = endtime-(60000*int(timep))
+        dataquery = uuid + "?starttime=" + str(starttime) 
+        dataquery = dataquery + "&endtime=" +  str(endtime)
+        dq = urllib2.urlopen(dataurl + dataquery)
+        resp = eval(dq.readlines()[0])[0]
+        dq.close()
+
+        #see if at least one point in user defined time window
+        count = len(resp["Readings"])
+        if count == 0:
+            print("Driver ERROR")
+            return False
+        else:
+            print("Driver Running")
+            return True
+
+
+class UserLoop(object):
+    CMDS = ["start", "stop", "monitor", "exit", "printrun"]
+    #eventually pull these from a user specified directory
+    INIS = {}
+    Running = {}
+
+    def __init__(self):
+        #populate dict of drivers and their config files
+        path = "/home/sagar/local_smap_inis"
+        dir_list = os.listdir(path)
+        for ini in dir_list:
+            self.INIS[ini.split(".")[0]] = path + "/" + ini
+    
+    def repl(self):
+        print("available inis are:")
+        print(self.INIS)
+        while True:
+            try:
+                inp = raw_input("d> ")
+                inp = self.tokenize(inp)
+                self.evaluate(inp)
+            except Exception as e:
+                print("ERR")
+                print(e)
+
+
+    def tokenize(self, st):
+        tokens = st.split(" ")
+        return tokens
+    
+
+    def evaluate(self, userin):
+        cmd = userin[0]
+        try:
+            arg = userin[1]
+            arg = self.INIS[arg]
+        except:
+            arg = None
+        if cmd not in self.CMDS:
+            raise Exception()
+        if arg:
+            eval("self." + cmd + "('" + arg + "')")
+        else:
+            eval("self." + cmd + "()")
+
+    def start(self, ini):
+        #just for testing, this should actually start a DriverMonitor
+        temp = RunableDriver(ini)
+        self.Running[ini] = temp
+        temp.start()
+
+    def printrun(self):
+        print(self.Running)
+
+    def monitor(self, ini):
+        th = DriverMonitor(RunableDriver(ini))
+        th.daemon = True
+        th.start()
+
+    def stop(self, ini):
+        self.Running[ini].stop()
+        del self.Running[ini]
+
+    def exit(self):
+        sys.exit(0)
+    
+
+if __name__ == '__main__':
+    uloop = UserLoop()
+    uloop.repl()

@@ -1,0 +1,4 @@
+check program testwrapper with path "/home/sagar/dev/smap-data/python/monit/testwrapper.sh"
+	start program = "/etc/smap/isone.sh" as uid 118 and gid 65534
+	stop program = "/bin/sh -c '/bin/kill $(cat /var/smap/isone/twistd.pid)'"
+    if status != 0 then restart

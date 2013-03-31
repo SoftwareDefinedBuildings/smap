@@ -33,7 +33,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import zlib
 
 import smap.sjson as json
+from smap.schema import load_report
 from smap.formatters import load_csv
+from smap.core import SmapException
 
 def read(request):
     content = request.content.read()
@@ -44,6 +46,8 @@ def read(request):
         obj = json.loads(content)
     elif request.getHeader("Content-Type") in ["text/csv"]:
         obj = load_csv(content)
+    elif request.getHeader("Content-Type") in ["avro/binary"]:
+        obj = load_report(content)
     else:
         raise SmapException("Invalid Content-Type\n", 400)
     return obj
