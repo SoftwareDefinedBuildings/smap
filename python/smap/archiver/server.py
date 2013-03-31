@@ -39,10 +39,7 @@ from smap import subscriber
 from smap import util
 from smap.server import RootResource, setResponseCode
 from smap.core import SmapException
-import smap.sjson as json
-from smap.archiver import settings, data, api, republisher
-
-from smap.formatters import load_csv
+from smap.archiver import settings, data, api, republisher, transfer
 
 class DataResource(resource.Resource):
     """This resource manages the functionality of the add/ resource,
@@ -67,13 +64,7 @@ class DataResource(resource.Resource):
             # send the object to the republisher
             public = subid[0][1]
             subid = subid[0][0]
-            if request.getHeader("Content-Type") in ["application/json", None]:
-                obj = json.loads(request.content.read())
-            elif request.getHeader("Content-Type") in ["text/csv"]:
-                obj = load_csv(request.content.read())
-            else:
-                raise SmapException("Invalid Content-Type\n", 400)
-
+            obj = transfer.read(request)
             self.republisher.republish(request.prepath[-1], public, obj)
             util.push_metadata(obj)
             return subid, obj
@@ -85,7 +76,6 @@ class DataResource(resource.Resource):
 
     def render_POST(self, request):
         """Handle new data"""
-
         # first check if the api key is valid
         d = self.db.runQuery("SELECT id, public FROM subscription WHERE key = %s", 
                              (request.prepath[-1],))

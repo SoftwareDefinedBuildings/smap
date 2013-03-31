@@ -31,12 +31,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import re
+import zlib
 
 from zope.interface import implements
 from twisted.internet.task import cooperate
 from twisted.web import iweb
 
-from smap.sjson import AsyncJSON
+from smap.sjson import AsyncJSON, dumps
 from smap.util import push_metadata, join_path, split_path
 from smap.contrib import dtutil
 # from smap.core import SmapException
@@ -44,6 +45,7 @@ from smap.contrib import dtutil
 class AsyncFormatter(object):
     """Boilerplate for an async producer"""
     implements(iweb.IBodyProducer)
+    content_encoding = None
 
     def __init__(self, value):
         self._value = value
@@ -67,6 +69,22 @@ class AsyncFormatter(object):
 
     def _unregister(self, passthrough): 
         return passthrough
+
+class GzipJson(AsyncFormatter):
+    content_type = 'application/json'
+    content_encoding = 'gzip'
+    BLKSZ = 1024
+
+    def __init__(self, value):
+        value = dumps(value)
+        self._value = zlib.compress(value)
+        print "%i -> %i" % (len(value), len(self._value))
+        self.length = len(self._value)
+
+    def _produce(self):
+        for i in xrange(0, len(self._value), self.BLKSZ):
+            self._consumer.write(self._value[i:i+self.BLKSZ])
+            yield None
 
 class AsyncSmapToCsv(AsyncFormatter):
     """Convert a sMAP report to a simplified CSV format for dumb clients"""
@@ -122,8 +140,11 @@ class AsyncSmapToDROMS(AsyncFormatter):
                     yield None
                 
 
+
+
 __FORMATTERS__ = {
     'json': AsyncJSON,
+    'gzip-json': GzipJson,
     'csv': AsyncSmapToCsv,
     'droms': AsyncSmapToDROMS
     }

@@ -85,6 +85,7 @@ def load(fp):
 class AsyncJSON(object):
     implements(iweb.IBodyProducer)
     content_type = 'application/json'
+    content_encoding = None
 
     def __init__(self, value):
         self._value = value

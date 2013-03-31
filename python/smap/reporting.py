@@ -308,10 +308,12 @@ class ReportInstance(dict):
 
         try:
             formatter = get_formatter(self.get('Format', 'json'))
+            headers = {'Content-type' : [formatter.content_type]}
+            if formatter.content_encoding:
+                headers['Content-encoding'] = [formatter.content_encoding]
             d = agent.request('POST',
                               dest_url,
-                              Headers({'Content-type' : 
-                                       [formatter.content_type]}),
+                              Headers(headers),
                               formatter(data))
         except:
             log.err()
