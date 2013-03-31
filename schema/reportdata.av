@@ -1,0 +1,7 @@
+{
+  "name" : "ReportData",
+  "type" : "map",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "Class representing a data report",
+  "values" : ["Collection", "Timeseries"]
+}
