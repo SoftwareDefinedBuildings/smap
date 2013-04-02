@@ -140,13 +140,15 @@ def plot(dat):
 
     with open(pfile, "w") as fp:
         for line in data['Readings']:
+            line[0] /= 1000
             print >>fp, ' '.join(map(str, line))
         
     with open(pscript, "w") as fp:
         print >>fp, get_gnuplot()
         print >>fp, """
 plot %s
-    """ % ','.join(['"%s" using ($1):%i with linesp' % (pfile, x+2) for x in xrange(0, len(data['Readings'][0]))])
+    """ % ','.join(['"%s" using ($1):%i with linesp' % (pfile, x+2) 
+                    for x in xrange(0, len(data['Readings'][0]))])
 
     with open('/dev/null', 'w') as null:
         p = subprocess.Popen("gnuplot %s" % pscript, 

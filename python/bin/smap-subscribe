@@ -36,7 +36,7 @@ import time
 import optparse
 import uuid
 
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, task
 from twisted.python import util
 
 from smap import util
@@ -58,6 +58,9 @@ parser.add_option('-z', '--time-zone', dest='timezone',
 parser.add_option('-a', '--all', dest='all',
                   default=False, action="store_true",
                   help="output all data, not just the last reading")
+parser.add_option('-c', '--count', dest='count',
+                  default=False, action="store_true",
+                  help="count distinct streams")
 # TODO : add support for private streams
 parser.add_option('-k', '--key', dest='key', default='',
                   help='api keys: k1[,k2 ...]')
@@ -67,6 +70,8 @@ parser.add_option('-p', '--private', dest='private', default=False,
 
 if __name__ == '__main__':
     opts, args = parser.parse_args()
+    start, uniq, count = time.time(), set([]), 0
+
     if opts.timezone == 'Local':
         tz = dtutil.tzlocal()
     else:
@@ -83,8 +88,15 @@ if __name__ == '__main__':
         return ' or '.join(clauses)
 
     def print_data(uuids, data):
+        global uniq
+        global count
         """Format and print the readings we just got from the archiver"""
         for u, vals in zip(uuids, data):
+            uniq.add(u)
+            count += len(vals)
+            if opts.count:
+                continue
+
             if not opts.all: vals = [vals[-1]]
             for latest in vals:
                 ts = dtutil.ts2dt(latest[0] / 1000)
@@ -104,6 +116,24 @@ if __name__ == '__main__':
         print >>sys.stderr, ''
         print >>sys.stderr, err
         reactor.stop()
+
+    def print_counts():
+        global uniq
+        global count
+        sys.stderr.write("%i\t%i\r" % (len(uniq), count))
+        sys.stderr.flush()
+
+    def print_final_stats():
+        global uniq
+        global count
+        sys.stderr.write("\n%i\t%i\t%02fs\t%.02f/s\n" % (len(uniq),
+                                                         count, 
+                                                         (time.time() - start),
+                                                         count / (time.time() - start)))
+
+    if opts.count:
+        task.LoopingCall(print_counts).start(1)
+    reactor.addSystemEventTrigger("after", "shutdown", print_final_stats)
 
     restrict = build_restrict(args)
     rpc = client.RepublishClient(opts.url, print_data, 

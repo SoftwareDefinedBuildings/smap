@@ -389,7 +389,7 @@ programs.  For instance::
     def _reconnect(self):
         """Exponential backup on the reconnect policy"""
         if self.reconnect and not self.closing:
-            print "connection failed, reconnecting in", (self.failcount ** 2)
+            log.msg("connection failed, reconnecting in", (self.failcount ** 2))
             reactor.callLater(self.failcount ** 2, self.connect)
 
     def _connect_failed(self, reason):
@@ -404,7 +404,7 @@ before this connecting.
         url = self.url + '/republish?' + \
             urllib.urlencode(make_qdict(self.key, self.private), 
                              doseq=True)
-        print url
+
         if not self.restrict:
             d = self.agent.request('GET', url, Headers(), None)
         else:
