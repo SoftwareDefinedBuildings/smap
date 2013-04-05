@@ -233,7 +233,8 @@ class OperatorDriver(driver.SmapDriver):
 
     def setup(self, opts, restrict=None, shelveoperators=False, cache=True, raw=False):
         self.load_chunk_size = datetime.timedelta(hours=int(opts.get('ChunkSize', 24)))
-        self.source_url = opts.get('SourceUrl', 'http://ar1.openbms.org:8079')
+        self.source_url = opts.get('SourceUrl', 'http://new.openbms.org/backend')
+#        self.source_url = opts.get('SourceUrl', 'http://ar1.openbms.org:8079')
         if not raw and restrict:
             self.restrict = '(' + restrict + ') and not has Metadata/Extra/Operator'
         else:
@@ -318,12 +319,8 @@ class OperatorDriver(driver.SmapDriver):
         return d
 
     def load_data(self, data, offset):
-        dobj = dict((('/%s' % str(uid), {
-                    'uuid' : str(uid), 
-                    'Readings' : dv}) for uid, dv in 
-                     zip(self.load_uids[offset:offset+self.load_xsec_size], 
-                         data)))
-        self._data(dobj)
+        uuids = self.load_uids[offset:offset+self.load_xsec_size]
+        self._data(uuids, data)
 
 
 class GroupedOperatorDriver(OperatorDriver):
