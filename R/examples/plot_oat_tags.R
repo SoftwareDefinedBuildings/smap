@@ -1,15 +1,12 @@
-source("smapClient.R")
-c <- RSmapClient("http://new.openbms.org/backend")
+library(RSmap)
+RSmapClient("http://new.openbms.org/backend")
 
 start <- as.numeric(strptime("3-29-2013", "%m-%d-%Y"))*1000
 end <- as.numeric(strptime("3-31-2013", "%m-%d-%Y"))*1000
 
-oat <- list("395005af-a42c-587f-9c46-860f3061ef0d",
-         "9f091650-3973-5abd-b154-cee055714e59",
-         "5d8f73d5-0596-5932-b92e-b80f030a3bf7",
-         "d64e8d73-f0e9-5927-bbeb-8d45ab927ca5")
-
-data <- c$.data_uuid(oat, start, end)
+data <- RSmap.data("Metadata/Extra/Type = 'oat'", start, end)
+tags <- RSmap.tags("Metadata/Extra/Type = 'oat'")
+N <- length(data)
 
 # returns a vector containing the min and max of the data
 getExtents <- function(d){
@@ -19,7 +16,6 @@ getExtents <- function(d){
   ex <- unlist(ex)
   c(min(ex), max(ex))
 }
-
 ylim <- getExtents(data)
 
 # convert to UTC seconds for R plot
@@ -36,12 +32,34 @@ plot(time_UTC_sec
    , col=col[1]
    , ylim=ylim
    , xlab="Datetime"
-   , ylab="Outside air temperature [°F]")
+   , ylab="Outside air temperature")
 
 # format the x-axis to be the local time
 axis.POSIXct(side=1, as.POSIXct(time_UTC_sec, origin="1970-01-01"),  format="%m-%d-%y")
 
 # plot the rest of the series
-for (i in 2:length(data)){
+for (i in 2:N){
   lines(data[[i]]$time/1000, data[[i]]$value, col=col[i])  
 }
+
+# extract the uuids from data and tags
+uuids_data <- sapply(data, function(el){
+  el$uuid
+})
+uuids_tags <- sapply(tags, function(el){
+  el$uuid
+})
+
+# create a correspondence between uuids in tags/data
+uuid_corr <- rep(NA, N)
+for (i in 1:N){
+  uuid_corr[i] <- which(uuids_tags==uuids_data[i])
+}
+
+# extract some metadata for a legend and render it
+legend_labels <- rep(NA, length(N))
+for (i in 1:N){
+  t <- tags[[uuid_corr[i]]]
+  legend_labels[i] <- paste(t$Metadata["SourceName"], " [", t$Properties["UnitofMeasure"], "]")
+}
+legend(start/1000, 45, legend_labels, lty=1, col=col, box.lwd = 0)

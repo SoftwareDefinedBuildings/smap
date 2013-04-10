@@ -1,0 +1,46 @@
+.RSmap <- new.env()
+.RSmap.postQuery <-
+function(query){
+  r <- dynCurlReader()
+  curlPerform(postfields=query
+    , url=.RSmap$data$urlEnc
+    , verbose=FALSE
+    , writefunction=r$update
+    , timeout=.RSmap$data$timeout)
+  res <- r$value()
+  if (res=="[]"){
+    list()
+  } else {
+    fromJSON(res)
+  }
+}
+.RSmap.refactorData <-
+function(data){
+  uuids <- sapply(data, function(el){ el$uuid })
+  data <- lapply(data, function(el){ list(el) })
+  data <- lapply(data, .RSmap.refactorTSData) 
+  .RSmap.tagUuids(data, uuids)
+}
+.RSmap.refactorTSData <-
+function(data){
+  if (length(data)==0) return(data)
+  d <- sapply(data, function(el){
+    M <- length(el$Readings)
+    i <- 1
+    res <- data.frame(time=rep(NA, M), value=rep(NA, M))
+    for (val in el$Readings){
+      res$time[i] = val[1]
+      res$value[i] = val[2]
+      i <- i + 1
+    }
+    res
+  })
+  d[,1]
+}
+.RSmap.tagUuids <-
+function(data, uuids){
+  for (i in 1:length(uuids)){
+    data[[i]]$uuid <- uuids[i]
+  }
+  data
+}

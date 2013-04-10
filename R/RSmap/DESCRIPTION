@@ -1,0 +1,10 @@
+Package: RSmap
+Type: Package
+Title: sMAP client bindings and utilities for R
+Version: 1.0
+Date: 2013-04-09
+Author: Tyler Hoyt
+Maintainer: Tyler Hoyt <thoyt@berkeley.edu>
+Depends: R (>= 1.8.0), RCurl, RJSONIO
+Description: This package allows the creation of a sMAP http client and provides useful functions for querying an archive. For example, a client has the ability to retrieve the latest data, access data by stream uuid, or get the metadata for a given uuid.
+License: GPL 

@@ -1,0 +1,9 @@
+exportPattern("^[[:alpha:]]+")
+export(RSmap.data_uuid,
+RSmap.data,
+RSmap.latest,
+RSmap.next,
+RSmap.prev,
+RSmap,
+RSmap.tags)
+import(RCurl, RJSONIO)
