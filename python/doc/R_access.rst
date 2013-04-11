@@ -20,7 +20,7 @@ The RSmap package requires three other R packages:
 The use of RCurl also requires `libcurl <http://curl.haxx.se/download.html>`_.
 If you run into problems installing ``RCurl``, you may need to install it.
 
-To install RSmap, :download:`download </R/RSmap_1.0.tar.gz>` the package
+To install RSmap, :download:`download <http://smap-data.googlecode.com/svn/trunk/R/RSmap_1.0.tar.gz>`_ the package
 archive and install directly from R, making sure you're in the
 correct directory::
 
@@ -35,7 +35,7 @@ To use the bindings, simply load the library and create a connection::
   library(RSmap)
   RSmap("http://www.openbms.org/backend")
 
-You can :download:`download </R/examples/plot_oat.R>` a working copy of
+You can :download:`download <resources/R/plot_oat.R>` a working copy of
 this example, and then follow along with the explanation.
 
 Basic access by UUID
@@ -128,7 +128,7 @@ Now we're ready to set up the plot, format the axis, and draw the series::
     lines(data[[i]]$time/1000, data[[i]]$value, col=col[i])  
   }
 
-.. image:: resources/plot_oat_R.*
+.. image:: resources/R/plot_oat_R.*
 
 Whether the data was retrieved with ``RSmap.data_uuid``, ``RSmap.next``, 
 ``RSmap.prev``, or any of the functions that retrieve time series data, 
@@ -160,7 +160,7 @@ The metadata is returned as a nested list structure, which you can
 inspect and match up with returned data using the ``uuids``.
 
 The following
-:download:`example </R/examples/plot_oat_tags.R>` puts this all together
+:download:`example <resources/R/plot_oat_tags.R>` puts this all together
 by creating a legend for the plot, using ``data`` and ``tags``.
 
 In order to explore what tags and values are available, you can try

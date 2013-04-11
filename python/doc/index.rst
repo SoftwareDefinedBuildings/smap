@@ -32,6 +32,7 @@ in this ecosystem.
    intro
    install
    python_access
+   R_access
    tutorial
 
    drivers 
