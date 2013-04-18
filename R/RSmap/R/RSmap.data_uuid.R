@@ -1,9 +1,10 @@
 RSmap.data_uuid <-
-function(uuids, start, end, limit){
+function(uuids, start, end, limit=-1){
   f <- function(uuid){
     query <- paste("select data in (", start
                    , ", ", end, ") "
-                   , "where uuid='", uuid, "'"
+                   , "limit ", format(limit, scientific=FALSE)
+                   , " where uuid='", uuid, "'"
                    , sep="")   
     res <- .RSmap.postQuery(query)
     if(length(res)==0){

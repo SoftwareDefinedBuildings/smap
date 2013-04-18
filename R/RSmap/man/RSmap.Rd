@@ -5,7 +5,12 @@
 RSmap
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+    Create a connection to a sMAP archive located at \code{url}. The url should
+    point the the root resource of the archive. API keys can be provided as
+    a list, as \code{c(<key1>, <key2>)}. Set \code{private} to \code{TRUE} if you
+    only want to get private streams. This determines the url and other
+    parameters used in the other RSmap functions when you retrieve data, and is
+    required to use the other RSmap functions.
 }
 \usage{
 RSmap(url, key = NULL, private = FALSE, timeout = 50)
@@ -13,16 +18,16 @@ RSmap(url, key = NULL, private = FALSE, timeout = 50)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{url}{
-%%     ~~Describe \code{url} here~~
+A sMAP archiver URL.
 }
   \item{key}{
-%%     ~~Describe \code{key} here~~
+An API key or list of API keys.
 }
   \item{private}{
-%%     ~~Describe \code{private} here~~
+Set to TRUE to only retrieve private data according to the subscriptions indicated by the API key(s). 
 }
   \item{timeout}{
-%%     ~~Describe \code{timeout} here~~
+Amount of time to wait for a server response, in seconds.
 }
 }
 \details{
@@ -39,8 +44,9 @@ RSmap(url, key = NULL, private = FALSE, timeout = 50)
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Tyler Hoyt
 }
+
 \note{
 %%  ~~further notes~~
 }
@@ -51,9 +57,9 @@ RSmap(url, key = NULL, private = FALSE, timeout = 50)
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+
+# Create a connection to the openbms archiver
+RSmap("http://new.openbms.org/backend")
 
 ## The function is currently defined as
 function (url, key = NULL, private = FALSE, timeout = 50) 

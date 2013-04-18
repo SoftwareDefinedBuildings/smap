@@ -28,11 +28,10 @@ function(data){
     M <- length(el$Readings)
     i <- 1
     res <- data.frame(time=rep(NA, M), value=rep(NA, M))
-    for (val in el$Readings){
-      res$time[i] = val[1]
-      res$value[i] = val[2]
-      i <- i + 1
-    }
+    readings <- unlist(el$Readings)
+    MM <- length(readings)
+    res$time <- readings[seq(1, MM, 2)]
+    res$value <- readings[seq(2, MM, 2)]
     res
   })
   d[,1]

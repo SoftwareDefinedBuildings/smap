@@ -2,8 +2,8 @@ RSmap.data <-
 function(where, start, end, limit=10000, streamlimit=10){
   query <- paste("select data in (", start
                  , ",", end, ")"
-                 , "limit", limit
-                 , "streamlimit", streamlimit
+                 , "limit", format(limit, scientific = FALSE)
+                 , "streamlimit", format(streamlimit, scientific=FALSE)
                  , "where", where)
   data <- .RSmap.postQuery(query)
   if (length(data)==0){  

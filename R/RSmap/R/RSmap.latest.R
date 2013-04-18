@@ -1,7 +1,7 @@
 RSmap.latest <-
 function(where, limit=1, streamlimit=10){
-    query <- paste("select data before now limit", limit
-                   , "streamlimit", streamlimit
+    query <- paste("select data before now limit", format(limit, scientific=FALSE)
+                   , "streamlimit", format(streamlimit, scientific=FALSE)
                    , "where", where)
     data <- .RSmap.postQuery(query)
     if (length(data)==0){  

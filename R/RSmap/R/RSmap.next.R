@@ -1,8 +1,8 @@
 RSmap.next <-
 function(where, ref, limit=1, streamlimit=10){
   query <- paste("select data after", ref
-                 , "limit", limit
-                 , "streamlimit", streamlimit
+                 , "limit", format(limit, scientific=FALSE)
+                 , "streamlimit", format(streamlimit, scientific=FALSE)
                  , "where", where)
   data <- .RSmap.postQuery(query)
   if (length(data)==0){  

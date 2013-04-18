@@ -5,7 +5,8 @@
 RSmap.data
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+Load data for streams matching a particular query.
+
 }
 \usage{
 RSmap.data(where, start, end, limit = 10000, streamlimit = 10)
@@ -13,18 +14,20 @@ RSmap.data(where, start, end, limit = 10000, streamlimit = 10)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{where}{
-%%     ~~Describe \code{where} here~~
+    The ArchiverQuery selector for finding time series
 }
   \item{start}{
-%%     ~~Describe \code{start} here~~
+    Query start time in UTC seconds (inclusive)
 }
   \item{end}{
-%%     ~~Describe \code{end} here~~
+    Query end time in UTC seconds (exclusive)
 }
   \item{limit}{
+    The maximum number of points to retrieve per stream
 %%     ~~Describe \code{limit} here~~
 }
   \item{streamlimit}{
+    The maximum number of streams to retrieve
 %%     ~~Describe \code{streamlimit} here~~
 }
 }
@@ -32,17 +35,13 @@ RSmap.data(where, start, end, limit = 10000, streamlimit = 10)
 %%  ~~ If necessary, more details than the description above ~~
 }
 \value{
-%%  ~Describe the value returned
-%%  If it is a LIST, use
-%%  \item{comp1 }{Description of 'comp1'}
-%%  \item{comp2 }{Description of 'comp2'}
-%% ...
+Returns a list of data frames with properties \code{time}, \code{value}, and \code{uuid} containing the data corresponding to one of the uuids from the input.
 }
 \references{
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Tyler Hoyt
 }
 \note{
 %%  ~~further notes~~
@@ -54,9 +53,14 @@ RSmap.data(where, start, end, limit = 10000, streamlimit = 10)
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+## define the connection
+RSmap("http://new.openbms.org/backend")
+## set start and end times
+start <- as.numeric(strptime("3-30-2013", "%m-%d-%Y"))*1000
+end <- as.numeric(strptime("3-31-2013", "%m-%d-%Y"))*1000
+## retrieve data
+data <- RSmap.data("Metadata/Extra/Type = 'oat'", start, end)
+
 
 ## The function is currently defined as
 function (where, start, end, limit = 10000, streamlimit = 10) 

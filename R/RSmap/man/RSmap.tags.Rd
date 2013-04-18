@@ -5,6 +5,7 @@
 RSmap.tags
 }
 \description{
+    Load the tags for all streams matching the where clause.
 %%  ~~ A concise (1-5 lines) description of what the function does. ~~
 }
 \usage{
@@ -13,13 +14,15 @@ RSmap.tags(where)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{where}{
-%%     ~~Describe \code{where} here~~
+The ArchiverQuery selector for finding time series
 }
 }
 \details{
 %%  ~~ If necessary, more details than the description above ~~
 }
 \value{
+    Returns an R nested list structure containing the metadata of the streams 
+    matching the where clause.
 %%  ~Describe the value returned
 %%  If it is a LIST, use
 %%  \item{comp1 }{Description of 'comp1'}
@@ -30,7 +33,7 @@ RSmap.tags(where)
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Tyler Hoyt
 }
 \note{
 %%  ~~further notes~~
@@ -42,9 +45,8 @@ RSmap.tags(where)
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+RSmap("http://new.openbms.org/backend")
+tags <- RSmap.tags("Metadata/Extra/Type = 'oat'")
 
 ## The function is currently defined as
 function (where) 

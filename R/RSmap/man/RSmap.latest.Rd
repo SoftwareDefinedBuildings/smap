@@ -5,6 +5,7 @@
 RSmap.latest
 }
 \description{
+    Load the last data in a set of time-series.
 %%  ~~ A concise (1-5 lines) description of what the function does. ~~
 }
 \usage{
@@ -13,12 +14,14 @@ RSmap.latest(where, limit = 1, streamlimit = 10)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{where}{
-%%     ~~Describe \code{where} here~~
+    The ArchiverQuery selector for finding time series
 }
   \item{limit}{
+    The maximum number of points to retrieve per stream
 %%     ~~Describe \code{limit} here~~
 }
   \item{streamlimit}{
+    The maximum number of streams to retrieve
 %%     ~~Describe \code{streamlimit} here~~
 }
 }
@@ -26,6 +29,7 @@ RSmap.latest(where, limit = 1, streamlimit = 10)
 %%  ~~ If necessary, more details than the description above ~~
 }
 \value{
+Returns a list of data frames with properties \code{time}, \code{value}, and \code{uuid} containing the data corresponding to one of the uuids from the input.
 %%  ~Describe the value returned
 %%  If it is a LIST, use
 %%  \item{comp1 }{Description of 'comp1'}
@@ -36,7 +40,7 @@ RSmap.latest(where, limit = 1, streamlimit = 10)
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Tyler Hoyt
 }
 \note{
 %%  ~~further notes~~
@@ -48,9 +52,14 @@ RSmap.latest(where, limit = 1, streamlimit = 10)
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+# define 
+## define the connection
+RSmap("http://new.openbms.org/backend")
+## set start and end times
+start <- as.numeric(strptime("3-30-2013", "%m-%d-%Y"))*1000
+end <- as.numeric(strptime("3-31-2013", "%m-%d-%Y"))*1000
+## retrieve data
+data <- RSmap.data("Metadata/Extra/Type = 'oat'", start, end)
 
 ## The function is currently defined as
 function (where, limit = 1, streamlimit = 10) 

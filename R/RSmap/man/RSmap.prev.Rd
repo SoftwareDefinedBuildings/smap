@@ -5,7 +5,7 @@
 RSmap.prev
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+    Load data before a reference time.
 }
 \usage{
 RSmap.prev(where, ref, limit = 1, streamlimit = 10)
@@ -13,22 +13,23 @@ RSmap.prev(where, ref, limit = 1, streamlimit = 10)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{where}{
-%%     ~~Describe \code{where} here~~
+    The ArchiverQuery selector for finding time series
 }
   \item{ref}{
-%%     ~~Describe \code{ref} here~~
+    Reference timestamp in UTC seconds before which to retrieve data
 }
   \item{limit}{
-%%     ~~Describe \code{limit} here~~
+    The maximum number of points to retrieve per stream
 }
   \item{streamlimit}{
-%%     ~~Describe \code{streamlimit} here~~
+    The maximum number of streams to retrieve
 }
 }
 \details{
 %%  ~~ If necessary, more details than the description above ~~
 }
 \value{
+Returns a list of data frames with properties \code{time}, \code{value}, and \code{uuid} containing the data corresponding to one of the uuids from the input.
 %%  ~Describe the value returned
 %%  If it is a LIST, use
 %%  \item{comp1 }{Description of 'comp1'}
@@ -39,7 +40,7 @@ RSmap.prev(where, ref, limit = 1, streamlimit = 10)
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Tyler Hoyt
 }
 \note{
 %%  ~~further notes~~
@@ -51,9 +52,9 @@ RSmap.prev(where, ref, limit = 1, streamlimit = 10)
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
+RSmap("http://new.openbms.org/backend")
+ref <- as.numeric(strptime("3-29-2013", "\%m-\%d-\%Y"))*1000
+data <- RSmap.prev("Metadata/Extra/Type = 'oat'", ref)
 
 ## The function is currently defined as
 function (where, ref, limit = 1, streamlimit = 10) 
