@@ -39,11 +39,14 @@ Based on Razvan Musaloiu-E.'s tos.py
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import logging
+
 from twisted.internet import reactor, protocol
 
 class TOSSerialClient(protocol.Protocol):
     HDLC_FLAG_BYTE = 0x7e
     HDLC_CTLESC_BYTE = 0x7d
+    DEBUG = None
 
     def __init__(self):
         self.packet = []
@@ -89,8 +92,9 @@ class TOSSerialClient(protocol.Protocol):
         packet_crc = self._decode(packet[-2:])
 
         if crc != packet_crc:
-            print "Warning: wrong CRC! %x != %x %s" % \
-                  (crc, packet_crc, ["%2x" % i for i in packet])
+            print ("wrong CRC: %x != %x %s (%s)" % \
+                  (crc, packet_crc, ["%2x" % i for i in packet], str(self.DEBUG)))
+            return
 
         if len(packet):
             self.packetReceived(''.join(map(chr, packet[:-2])))
