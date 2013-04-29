@@ -5,7 +5,7 @@
 RSmap.data
 }
 \description{
-Load data for streams matching a particular query.
+Load data for streams matching a particular where clause.
 
 }
 \usage{

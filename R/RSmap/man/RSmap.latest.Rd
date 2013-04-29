@@ -52,7 +52,6 @@ Tyler Hoyt
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-# define 
 ## define the connection
 RSmap("http://new.openbms.org/backend")
 ## set start and end times

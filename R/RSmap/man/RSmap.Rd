@@ -6,7 +6,7 @@ RSmap
 }
 \description{
     Create a connection to a sMAP archive located at \code{url}. The url should
-    point the the root resource of the archive. API keys can be provided as
+    point to the root resource of the archive. API keys can be provided as
     a list, as \code{c(<key1>, <key2>)}. Set \code{private} to \code{TRUE} if you
     only want to get private streams. This determines the url and other
     parameters used in the other RSmap functions when you retrieve data, and is
