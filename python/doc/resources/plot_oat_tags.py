@@ -6,7 +6,9 @@ locating the streams using a metadata query.
 
 from smap.archiver.client import SmapClient
 from smap.contrib import dtutil
+
 from matplotlib import pyplot
+from matplotlib import dates
 
 # make a client
 c = SmapClient("http://www.openbms.org/backend")
@@ -19,12 +21,6 @@ end   = dtutil.dt2ts(dtutil.strptime_tz("1-2-2013", "%m-%d-%Y"))
 tags = c.tags("Metadata/Extra/Type = 'oat'")
 uuids, data = c.data("Metadata/Extra/Type = 'oat'", start, end)
 
-# pylab timestamps are floating point days since year 1; dtutil knows
-# how to convert
-def convert_time_vector(tvec):
-  return map(lambda t: dtutil.ts2pylabts(t, tzstr='America/Los_Angeles'), 
-             tvec / 1000)
-
 # make a dict mapping uuids to data vectors
 data_map = dict(zip(uuids, data))
 
@@ -34,8 +30,10 @@ for timeseries in tags:
   # since we have the tags, we can add some metadata
   label = "%s (%s)" % (timeseries['Metadata/SourceName'],
                        timeseries['Properties/UnitofMeasure'])
-  pyplot.plot_date(convert_time_vector(d[:, 0]), d[:, 1], '-', 
-                   label=label)
+  # we can plot all of the series in their appropriate time zones
+  pyplot.plot_date(dates.epoch2num(d[:, 0] / 1000), d[:, 1], '-', 
+                   label=label,
+                   tz=timeseries['Properties/Timezone'])
 
 pyplot.legend(loc="lower center")
 pyplot.show()

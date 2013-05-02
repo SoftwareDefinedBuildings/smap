@@ -5,14 +5,16 @@
 
 from smap.archiver.client import SmapClient
 from smap.contrib import dtutil
+
 from matplotlib import pyplot
+from matplotlib import dates
 
 # make a client
 c = SmapClient("http://www.openbms.org/backend")
 
 # start and end values are Unix timestamps
-start = dtutil.dt2ts(dtutil.strptime_tz("1-1-2013", "%m-%d-%Y"))
-end   = dtutil.dt2ts(dtutil.strptime_tz("1-2-2013", "%m-%d-%Y"))
+start = dtutil.dt2ts(dtutil.strptime_tz("3-1-2013", "%m-%d-%Y"))
+end   = dtutil.dt2ts(dtutil.strptime_tz("3-2-2013", "%m-%d-%Y"))
 
 # hard-code the UUIDs we want to download
 oat = [
@@ -26,14 +28,10 @@ oat = [
 # perform the download
 data = c.data_uuid(oat, start, end)
 
-# pylab timestamps are floating point days since year 1; dtutil knows
-# how to convert
-def convert_time_vector(tvec):
-  return map(lambda t: dtutil.ts2pylabts(t, tzstr='America/Los_Angeles'), 
-             tvec / 1000)
-
 # plot all the data
+#  use the epoch2num to convert to pylab date formats
 for d in data:
-  pyplot.plot_date(convert_time_vector(d[:, 0]), d[:, 1], '-')
+  pyplot.plot_date(dates.epoch2num(d[:, 0] / 1000), d[:, 1], '-',
+                   tz='America/Los_Angeles')
 
 pyplot.show()

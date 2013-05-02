@@ -71,19 +71,16 @@ Plotting this data
 
 Making a time-series plot in :py:mod:`matplotlib` might be the next
 thing you want to do.  It expects a slightly different date format
-than sMAP uses; :py:mod:`smap.contrib.dtutil` contains the right
+than sMAP uses; :py:mod:`matplotlib.dates` contains the right
 conversion utilities.
 
 Continuing the previous example::
 
-  from matplotlib import pyplot
-
-  def convert_time_vector(tvec):
-    return map(lambda t: dtutil.ts2pylabts(t, tzstr='America/Los_Angeles'), 
-               tvec / 1000)
+  from matplotlib import pyplot, dates
 
   for d in data:
-    pyplot.plot_date(convert_time_vector(d[:, 0]), d[:, 1], '-')
+    pyplot.plot_date(dates.epoch2num(d[:, 0] / 1000), d[:, 1], '-',
+                     tz='America/Los_Angeles')
 
   pyplot.show()
 
