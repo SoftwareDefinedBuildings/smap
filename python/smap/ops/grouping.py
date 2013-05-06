@@ -315,7 +315,6 @@ class GroupByDatetimeField(Operator):
         rv = util.flatten(rv)
         # now we have to insert nans to indicate missing data so the
         # rows from all streams are aligned.
-        print join_union(rv)
         return join_union(rv)
         
 class InterpolateOperator(Operator):
