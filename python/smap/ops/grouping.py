@@ -37,12 +37,31 @@ import numpy as np
 import time
 import bisect
 
+from scipy.interpolate import UnivariateSpline
 from twisted.python import log
 
 from smap import util, core
 from smap.operators import *
 from smap.ops.util import PrintOperator, MaskedDTList
 from smap.contrib import dtutil
+
+DT_FIELDS = ['year', 'month', 'day', 'hour', 'minute', 'second']
+
+def make_bin_snapper(field, width):
+    field_idx = DT_FIELDS.index(field)
+    def snapper(point):
+        kwargs = {}
+        for f in DT_FIELDS[field_idx+1:]:
+            kwargs[f + 's'] = getattr(point, f)
+
+        # snap the final bin differently.
+        fval = getattr(point, DT_FIELDS[field_idx])
+        kwargs[DT_FIELDS[field_idx] + 's'] = \
+           int(fval % width)
+        td = datetime.timedelta(**kwargs)
+        # print point, td
+        return point - td
+    return snapper
 
 def make_inclusive(range):
     if util.is_string(range):
@@ -158,14 +177,13 @@ class GroupByDatetimeField(Operator):
     name = 'window'
     operator_name = 'window'
     operator_constructors = [(lambda x: x,)]
-    DT_FIELDS = ['year', 'month', 'day', 'hour', 'minute', 'second']
     def __init__(self, inputs, group_operator, **kwargs):
         field = kwargs.get('field', 'day') 
         width = int(kwargs.get("width", 1))
         slide = int(kwargs.get("slide", width))
         inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
         snap_times = bool(kwargs.get("snap_times", True))
-        if not field in self.DT_FIELDS:
+        if not field in DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
         if not slide <= width:
             raise core.SmapException("window: Cannot slide more than the window width!")
@@ -178,7 +196,7 @@ class GroupByDatetimeField(Operator):
         self.ops = map(lambda x: group_operator([x]), inputs)
         # self.ops = [[op([x]) for op in ops] for x in inputs]
         self.comparator = self.make_bin_comparator(field, width)
-        self.snapper = self.make_bin_snapper(field, slide)
+        self.snapper = make_bin_snapper(field, slide)
         self.snap_times = snap_times
         self.bin_width = datetime.timedelta(**{field + 's': width})
         self.bin_slide = datetime.timedelta(**{field + 's': slide})
@@ -202,21 +220,6 @@ class GroupByDatetimeField(Operator):
             return cmp(point - ref, td)
         return comparator
 
-    def make_bin_snapper(self, field, width):
-        field_idx = self.DT_FIELDS.index(field)
-        def snapper(point):
-            kwargs = {}
-            for f in self.DT_FIELDS[field_idx+1:]:
-                kwargs[f + 's'] = getattr(point, f)
-
-            # snap the final bin differently.
-            fval = getattr(point, self.DT_FIELDS[field_idx])
-            kwargs[self.DT_FIELDS[field_idx] + 's'] = \
-                int(fval % width)
-            td = datetime.timedelta(**kwargs)
-            # print point, td
-            return point - td
-        return snapper
 
     def process_one(self, data, op, tz,
                     prev=None,
@@ -312,8 +315,119 @@ class GroupByDatetimeField(Operator):
         rv = util.flatten(rv)
         # now we have to insert nans to indicate missing data so the
         # rows from all streams are aligned.
+        print join_union(rv)
         return join_union(rv)
         
+class InterpolateOperator(Operator):
+    """ Interpolation operator built on top of scipy/numpy interpolation
+
+    Usage: interpolate(method="linear", field="minute", width=1, max_time_delta=None)
+
+    Available methods are 'spline' which utilizes scipy.interpolate.UnivariateSpline
+    and plain old 'linear' which utilizes numpy.interp. The step-width in the mesh
+    is determined by the width field. If max_time_delta is provided, gaps greater than
+    this value in the source data will be removed from the mesh. This prevents the
+    operator from interpolating gaps considered too large by the user.
+    """
+    name = 'interpolate'
+    operator_name = 'interpolate'
+    operator_constructors = [()]
+
+    def __init__(self, inputs, **kwargs):
+        interpolation_methods = ['linear', 'spline']
+        self.method = kwargs.get('method', 'linear').lower()
+        self.field = kwargs.get('field', 'minute') 
+        width_in = int(kwargs.get('width', 1))
+        delta_in = int(kwargs.get('max_time_delta', None))
+        self.width = datetime.timedelta(**{self.field + 's': width_in}).seconds * 1000
+        self.max_time_delta = datetime.timedelta(**{self.field + 's': delta_in}).seconds * 1000
+        
+        if not self.method in interpolation_methods:
+            raise core.SmapException("Invalid interpolation method: " + self.method)
+        if not self.field in DT_FIELDS:
+            raise core.SmapException("Invalid datetime field: " + self.field)
+        if self.max_time_delta < self.width:
+            raise core.SmapException("max_time_delta must be greater than the width.")
+
+        self.tz = dtutil.gettz(inputs[0]['Properties/Timezone'])
+        self.snapper = make_bin_snapper(self.field, self.width)
+        self.state = {'prev': None, 'prev_datetimes': None}
+        Operator.__init__(self, inputs, outputs=OP_N_TO_N)
+        
+        # debug 
+        # from matplotlib import pyplot
+        # from matplotlib import dates
+        # self.last = False
+
+    def detect_gaps(self, times):
+        diffs = np.diff(times) 
+        gap_exists = np.greater(diffs, self.max_time_delta)
+        gap_inds = np.nonzero(gap_exists)[0]
+        gaps = np.vstack((times[gap_inds], times[gap_inds+1])).T
+        return gaps
+
+    def process_one(self, data, tz, 
+                    prev=None,
+                    prev_datetimes=None):
+        times, values = data[:,0], data[:,1]
+        
+        if (prev is not None):
+            times = np.append(prev_datetimes, times)
+            values = np.append(prev, values)
+            st = self.snapper(dtutil.ts2dt(prev_datetimes[-1] / 1000))
+        else:
+            st = self.snapper(dtutil.ts2dt(times[0] / 1000))
+        st = dtutil.dt2ts(st) * 1000 + self.width
+        et = int(times[-1])
+        mesh = np.arange(st, et, self.width)
+        
+        if (self.max_time_delta): 
+            gaps = self.detect_gaps(times)
+       
+        remove = np.array([False] * len(mesh))
+        for gap in gaps:
+            gt = np.greater(mesh, gap[0])
+            lt = np.less(mesh, gap[1])
+            this_gap = np.logical_and(gt, lt)
+            remove = np.logical_or(remove, this_gap)
+        remove_inds = np.nonzero(remove)[0]
+        mesh = np.delete(mesh, remove_inds)
+        
+        if (self.method == 'linear'):
+            outvals = np.interp(mesh, times, values)
+            prev = np.array([values[-1]])
+            prev_datetimes = np.array([times[-1]])
+        elif (self.method == 'spline'):
+            s = UnivariateSpline(times, values, s=0) 
+            outvals = s(mesh) 
+            # 10 points = empirical
+            prev = np.array(values[-10:])
+            prev_datetimes = np.array(times[-10:])
+        output = np.vstack((mesh,outvals)).T
+        state = { 'prev': prev,
+                  'prev_datetimes': prev_datetimes,
+                }
+        
+        return output, state
+
+    def process(self, data):
+        N = len(self.inputs)
+        rv = [null] * N
+        for i in xrange(N):
+            if data[i] is None: continue
+            if (len(data[i][:,0]) == 0 or len(data[i][:,1]) == 0): continue
+            rv[i], self.state = self.process_one(data[i], self.tz, 
+                prev=self.state['prev'], 
+                prev_datetimes=self.state['prev_datetimes'])
+            
+        # debug 
+        #for i in xrange(N):
+        #    pyplot.plot_date(dates.epoch2num(rv[i][:, 0] / 1000), rv[i][:, 1], '-', tz='America/Los_Angeles')
+        #if (self.last):
+        #    pyplot.show()
+        #self.last = True
+       
+        return [np.concatenate(rv)]
 
 class GroupByTagOperator(Operator):
     """Group streams by values of a shared tag
