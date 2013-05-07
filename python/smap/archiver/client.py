@@ -156,11 +156,8 @@ the result.
         """Construct a list of urls we need to load for a single uuid"""
         if cache:
             cache = tscache.TimeseriesCache(uuid)
-           # try:
             cached_data = cache.read(0, start, end) 
-           # except EOFError:
-           #   cached_data = []
-           # cache.close()
+            cache.close()
         else:
             cached_data = []
         
