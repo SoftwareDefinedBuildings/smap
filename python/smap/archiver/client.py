@@ -136,9 +136,9 @@ the result.
                                  data=q, 
                                  timeout=self.timeout)
             rv = parser(fp.read())
-        except urllib2.HTTPError:
+        except urllib2.HTTPError, err:
             log.err("Bad request running query: ""%s"" " % q)
-            raise SmapException()
+            raise SmapException("Archiver query HTTP request error %s" % err.code)
         fp.close()
         return rv
 
@@ -156,11 +156,14 @@ the result.
         """Construct a list of urls we need to load for a single uuid"""
         if cache:
             cache = tscache.TimeseriesCache(uuid)
+           # try:
             cached_data = cache.read(0, start, end) 
-            cache.close()
+           # except EOFError:
+           #   cached_data = []
+           # cache.close()
         else:
             cached_data = []
-
+        
         cached_data = [((0, start), None)] + \
             cached_data + \
             [((end, 0), None)]
@@ -168,7 +171,7 @@ the result.
         for idx in range(0, len(cached_data) - 1):
             fetch_start, fetch_end = cached_data[idx][0][1], cached_data[idx+1][0][0]
             load_list.append([(fetch_start, fetch_end)])
-            
+        
         return load_list, map(operator.itemgetter(1), cached_data[1:-1])
 
     @staticmethod
@@ -198,7 +201,6 @@ uuids.  Attempts to use cached data and load missing data in parallel.
         # construct a list of all holes in the cache
         for u in uuids:
             data[u] = self._data_uuid(u, start, end, cache)
-
             # these are the regions of missing data
             for region in data[u][0]:
                 qdict['starttime'] = [str(region[0][0])]
