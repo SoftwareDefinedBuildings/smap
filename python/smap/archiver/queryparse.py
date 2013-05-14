@@ -790,8 +790,6 @@ class QueryParser:
             print q[1]
         if not run: return defer.succeed([])
         
-        def eb(error):
-            print error
         deferreds = []
 
         for ext_, q_ in zip(ext[1:], q[1:]):
@@ -807,7 +805,6 @@ class QueryParser:
                 d.addCallback(print_time, time.time())
                 d.addCallback(ext_)
 
-            d.addErrback(eb)
             deferreds.append(d)
 
         if len(deferreds) > 1:
@@ -816,7 +813,6 @@ class QueryParser:
                 d.addCallback(ext[0])
         else:
             d = deferreds[0]
-        d.addErrback(eb)
 
         return d
 
