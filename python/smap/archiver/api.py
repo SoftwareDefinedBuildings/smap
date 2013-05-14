@@ -358,13 +358,9 @@ class Api(resource.Resource):
         This lets clients look at tags and get data.
         """
         if len(request.prepath) == 1:
-            if 'q' in request.args:
-                print "q"
-                return self.render_POST(request, request.args['q'])
-            else:
-                return self.send_reply((request, {'Contents': ['streams', 'query', 'data', 
-                                                               'next', 'prev', 'tags',
-                                                               'operators']}))
+            return self.send_reply((request, {'Contents': ['streams', 'query', 'data', 
+                                                           'next', 'prev', 'tags',
+                                                           'operators']}))
         # start by looking up the set of streams we are going to operate on
         path = map(lambda x: x.replace('__', '/'), request.prepath[2:])
         path = map(urllib.unquote, path)
@@ -378,13 +374,16 @@ class Api(resource.Resource):
                 return server.NOT_DONE_YET
             path.append('uuid')            
         if method == 'query':
-            # this allows a user to enumerate tags
-            d = build_query(self.db,
-                            request,
-                            zip(path[::2], 
-                                path[1::2] + [None]))
-            d.addCallback(lambda r: self.generic_extract_result(request, r))
-            d.addCallback(self.send_reply)
+            if 'q' in request.args:
+                return self.render_POST(request, request.args['q'][0])
+            else:
+                # this allows a user to enumerate tags
+                d = build_query(self.db,
+                                request,
+                                zip(path[::2], 
+                                    path[1::2] + [None]))
+                d.addCallback(lambda r: self.generic_extract_result(request, r))
+                d.addCallback(self.send_reply)
         elif method == 'tags':
             # retrieve tags
             d = build_tag_query(self.db,
