@@ -40,7 +40,7 @@ from smap import operators
 import numpy as np
 from scipy import stats
 
-def vector_operator_factory(name, op, constructors=[()]):
+def vector_operator_factory(name, op, constructors=[()], block_streaming=True):
     """Make a new vector operator class (type) from its name and operator"""
     classname = name.capitalize() + "VectorOperator"
     class Metaclass(type):
@@ -50,6 +50,7 @@ def vector_operator_factory(name, op, constructors=[()]):
             klass.name = name
             klass.operator_name = name
             klass.operator_constructors = constructors
+            klass.block_streaming = block_streaming
             return klass
 
     class Op(operators.VectorOperator):
@@ -59,7 +60,10 @@ def vector_operator_factory(name, op, constructors=[()]):
 
 def _op_from_vector_ops(name, nameop, argop, constructors=[()]):
     """Generate a sMAP operator from a pair of operators which can
-    work on either axis."""
+    work on either axis.
+
+    Th
+    """
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
         if np.size(data) == 0: return operators.null
@@ -82,7 +86,8 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
     pick a time stamp
 
     The input operators need to be "compressive" and only output one
-    value for each input vector
+    value for each input vector.  This means that they are not able to
+    work in streaming mode.
     """
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
@@ -114,6 +119,7 @@ prod = _op_from_compressive_op('prod', np.prod)
 nanmean = _op_from_compressive_op('nanmean', stats.nanmean)
 
 # ufuncs operate element-by-element on arrays
+#  these operators trivially support streaming
 def _op_from_ufunc(name, op, constructors=[()]):
     def _operator(data, *args, **kwargs):
         if 'axis' in kwargs:
@@ -121,7 +127,8 @@ def _op_from_ufunc(name, op, constructors=[()]):
         d = op(data[:, 1:], *args, **kwargs)
         return np.hstack((data[:, 0].reshape((d.shape[0], 1)), d))
     _operator.__doc__ = op.__doc__
-    _opclass = vector_operator_factory(name, _operator, constructors)
+    _opclass = vector_operator_factory(name, _operator, constructors,
+                                       block_streaming=False)
     _opclass.type = 'ufunc'
     return _opclass
 
@@ -164,7 +171,7 @@ def _first(data, axis=0):
         if len(rv.shape) != 2:
             rv = np.reshape(rv, (1, rv.shape[0]))
         return rv
-first = vector_operator_factory('first', _first)
+first = vector_operator_factory('first', _first, block_streaming=False)
 
 def _count(data, axis=0):
     """Return the number of rows or columns of data"""

@@ -53,6 +53,7 @@ from data import escape_string, data_load_result, makeErrback
 import queryparse as qp
 from querygen import build_authcheck
 import settings
+import stream
 
 class ApiResource(resource.Resource):
     def __init__(self, db):
@@ -249,10 +250,8 @@ class Api(resource.Resource):
     def send_data_reply(self, (request, result)):
         """After reading back some data, format it and send it to the client
         """
-        if not 'format' in request.args or 'json' in  request.args['format']:
-            request.setHeader('Content-type', 'application/json')
-            request.write(json.dumps(result))
-            request.finish()
+        if not 'format' in request.args or 'json' in request.args['format']:
+            return self.send_reply((request, result))
         elif 'format' in request.args and 'csv' in request.args['format']:
             if len(result) > 1:
                 request.setResponseCode(400)
@@ -277,14 +276,32 @@ class Api(resource.Resource):
     def send_reply(self, (request, result)):
         """Send a generic json reply.
         """
+        if not 'callback' in request.args:
+            return self.send_json(request, result)
+        else:
+            return self.send_jsonp(request.args['callback'][0], request, result)
+
+    def send_json(self, request, result):
         try:
             request.setHeader('Content-type', 'application/json')
             request.write(json.dumps(result))
             request.finish()
+            return server.NOT_DONE_YET
         except Exception, e:
             log.err()
             raise
 
+    def send_jsonp(self, callback, request, result):
+        try:
+            request.setHeader('Content-type', 'text/javascript')
+            request.write(callback + '(')
+            request.write(json.dumps(result))
+            request.write(');')
+            request.finish()
+            return server.NOT_DONE_YET
+        except Exception, e:
+            log.err()
+            raise
 
     def send_error(self, request, error):
         setResponseCode(request, error, 400)
@@ -306,7 +323,7 @@ class Api(resource.Resource):
         else:
             return self
 
-    def render_POST(self, request):
+    def render_POST(self, request, query=None):
         """The POST method is only used for sql-like queries.
 
         The logic for parsing the query, building the true SQL
@@ -315,7 +332,7 @@ class Api(resource.Resource):
         """
         # make a parser and parse the request
         parser = qp.QueryParser(request)
-        query = request.content.read() 
+        if not query: query = request.content.read() 
         try: 
             # run the query locally
             d = parser.runquery(self.db, query)
@@ -341,8 +358,13 @@ class Api(resource.Resource):
         This lets clients look at tags and get data.
         """
         if len(request.prepath) == 1:
-            return json.dumps({'Contents': ['streams', 'query', 'data', 
-                                            'next', 'prev', 'tags']})
+            if 'q' in request.args:
+                print "q"
+                return self.render_POST(request, request.args['q'])
+            else:
+                return self.send_reply((request, {'Contents': ['streams', 'query', 'data', 
+                                                               'next', 'prev', 'tags',
+                                                               'operators']}))
         # start by looking up the set of streams we are going to operate on
         path = map(lambda x: x.replace('__', '/'), request.prepath[2:])
         path = map(urllib.unquote, path)
@@ -381,10 +403,11 @@ id IN """ + build_inner_query(request,
             d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)
+        elif method == 'operators':
+            self.send_reply((request, stream.installed_ops.keys()))
         else:
             request.setResponseCode(404)
             request.finish()
-            return server.NOT_DONE_YET
 
         return server.NOT_DONE_YET
 

@@ -114,12 +114,12 @@ class GroupByTimeOperator(Operator):
 
         if startts == np.inf or endts == 0:
             return rv
-
         startts = int(startts - (startts % self.chunk_length))
         endts = int((endts - (endts % self.chunk_length)) - \
                         (self.chunk_length * self.chunk_delay))
  
         # iterate over the groups
+
         for time in xrange(startts, endts, self.chunk_length):
             # print "group starting", time
 
@@ -157,7 +157,7 @@ class GroupByDatetimeField(Operator):
 
     usage:
        window($1, group_operator(), field="day", 
-              width=1, increment=None)
+              width=1, increment=None, skip_missing=True)
 
     This operator first bins data in the time dimension using datetime
     objects; for instance, if you say field = "day", the operator will
@@ -173,6 +173,11 @@ class GroupByDatetimeField(Operator):
     The window increment determines how far forward the begining of
     the window advances each time; by default, increment=width.  This
     can be used to implement sliding-window filters.
+
+    skip_missing controls whether output values will be produced for
+    bins without and points in them.  If set to true, the operator
+    will output a point with the timestamp of the bin start with a
+    value of NaN.
     """ 
     name = 'window'
     operator_name = 'window'
@@ -183,6 +188,8 @@ class GroupByDatetimeField(Operator):
         slide = int(kwargs.get("slide", width))
         inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
         snap_times = bool(kwargs.get("snap_times", True))
+        skip_empty = util.to_bool(kwargs.get("skip_empty", False))
+
         if not field in DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
         if not slide <= width:
@@ -198,6 +205,7 @@ class GroupByDatetimeField(Operator):
         self.comparator = self.make_bin_comparator(field, width)
         self.snapper = make_bin_snapper(field, slide)
         self.snap_times = snap_times
+        self.skip_empty = skip_empty
         self.bin_width = datetime.timedelta(**{field + 's': width})
         self.bin_slide = datetime.timedelta(**{field + 's': slide})
         self.name = "window(%s, field=%s, width=%i, inclusive=%s, snap_times=%s)" % ( \
@@ -223,7 +231,9 @@ class GroupByDatetimeField(Operator):
 
     def process_one(self, data, op, tz,
                     prev=None,
-                    prev_datetimes=None):
+                    prev_datetimes=None,
+                    first=False, last=False,
+                    region=(None, None)):
         # print "PRCESSING"
         tic = time.time()
         if prev == None:
@@ -244,10 +254,21 @@ class GroupByDatetimeField(Operator):
                 'prev_datetimes': prev_datetimes,
                 }
 
-        # find all the blocks in the time window.
-        bin_start, truncate_to = self.snapper(prev_datetimes[0]), 0
-        # print bin_start
+        # we might want to produce readings before the first data point
+        if first and region[0]:
+            bin_start = self.snapper(dtutil.ts2dt(region[0] / 1000))
+        else:
+            bin_start = self.snapper(prev_datetimes[0])
+        truncate_to = 0
+
         while True:
+
+            if last:
+                if not region[1] and truncate_to == len(prev_datetimes):
+                    break
+                if region[1] and region[1] <= dtutil.dt2ts(bin_start) * 1000:
+                    break
+
             bin_end = bin_start + self.bin_slide
 
             # perform a binary search to find the next window boundary
@@ -256,26 +277,28 @@ class GroupByDatetimeField(Operator):
             truncate_to = bin_start_idx
 
             # ignore bins which aren't full
-            if bin_end_idx == len(prev_datetimes): break
+            if bin_end_idx == len(prev_datetimes) and not last:
+                break
+
             # skip empty bins
-            if bin_start_idx == bin_end_idx: 
+            if bin_start_idx == bin_end_idx:
+                # maybe we were supposed to produce output even if
+                # there's no data in the bin
+                if not self.skip_empty:
+                    t = dtutil.dt2ts(bin_start) * 1000
+                    output = extend(output, 
+                                    [np.array([[t, np.nan]])] * len(self.outputs))
+
                 bin_start += self.bin_slide
                 continue
 
-            if self.comparator(bin_start, prev_datetimes[bin_end_idx]):
+            if (bin_end_idx < len(prev_datetimes) and 
+                self.comparator(bin_start, prev_datetimes[bin_end_idx])):
                 take_end = bin_end_idx + 1
             else:
                 take_end = bin_end_idx
 
             opdata = op([prev[bin_start_idx:take_end, :]])
-#             opdata = [op([prev[bin_start_idx:take_end, :]]) for op in ops]
-#             opdata = util.flatten(opdata)
-#             print "THAT", opdata
-# #             print [opdata[0][:, 0]]
-# #             print [o[:, 1:] for o in opdata]
-#             opdata = [np.column_stack([opdata[0][:, 0]] + [o[:, 1:] 
-#                                                            for o in opdata])]
-#             print "THIS ONE", opdata
             
             # snap the times to the beginning of the
             # window, if we were asked to.  do this here
@@ -307,6 +330,9 @@ class GroupByDatetimeField(Operator):
     def process(self, data):
         rv = [null] * len(self.inputs)
         for i in xrange(0, len(self.inputs)):
+            self.state[i]['first'] = data.first
+            self.state[i]['last'] = data.last
+            self.state[i]['region'] = data.region
             rv[i], self.state[i] = self.process_one(data[i],
                                                     self.ops[i],
                                                     self.tzs[i],

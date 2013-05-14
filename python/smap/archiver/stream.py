@@ -78,6 +78,7 @@ def lookup_operator_by_name(name, args, kwargs):
         raise qg.QueryException("No valid constructor for operator %s: %s" % 
                                 (name, str(args)))
 
+
 class OperatorApplicator(object):
     """Make a closure that will apply the operator expresion to a
     specific set of streams and metadata."""
@@ -174,7 +175,7 @@ class OperatorApplicator(object):
                                      self.streamids)
         if not last:
             d.addCallback(self.start_next)
-        d.addCallback(self.apply_operator, last)
+        d.addCallback(self.apply_operator, self.chunk_idx == 1, last)
         d.addErrback(self.abort)
         self._loading = True
         return d
@@ -201,12 +202,16 @@ class OperatorApplicator(object):
             self.load_chunk()
         return data
 
-    def apply_operator(self, opdata, last):
+    def apply_operator(self, opdata, first, last):
         tic = time.time()
 
         # process
         for d in opdata:
             d[:, 0] *= 1000
+
+        opdata = operators.DataChunk((self.data_spec['start'],
+                                      self.data_spec['end']), 
+                                     first, last, opdata)
         redata = self.op.process(opdata)
 
         log.msg("STATS: Operator processing took %0.6fs" % (time.time() - tic))
@@ -226,8 +231,6 @@ class OperatorApplicator(object):
     def build_result(self, (d, s)):
         obj = dict(s)
         if isinstance(d, np.ndarray):
-#             d[:,0] = np.int_(d[:, 0])
-#             d[:,0] *= 1000
             obj['Readings'] = d.tolist()
         else:
             obj['Readings'] = d

@@ -60,6 +60,19 @@ def mknull(n):
 OP_N_TO_1 = 1
 OP_N_TO_N = 2
 
+class DataChunk(list):
+    """Wrapper object holding raw time series data being processed
+
+    The chunk boundaries contains an (start, end) tuple of timestamps 
+    """
+    def __init__(self, region, first, last, *args, **kwargs):
+        # the time window being processed
+        self.region = region
+        # if this is the first and/or last chunk of data -- can be used to flush buffers
+        self.first, self.last = first, last
+        list.__init__(self, *args, **kwargs)
+
+
 class Operator(object):
     # data type of operator output
     data_type = ('double', float)
@@ -112,6 +125,8 @@ class Operator(object):
 
 
     def __call__(self, input, **kwargs):
+        if not isinstance(input, DataChunk):
+            input = DataChunk((None, None), False, False, input)
         return self.process(input, **kwargs)
 
     def reset(self):
@@ -480,7 +495,8 @@ class VectorOperator(Operator):
         # if we operate in parallel then we also produce n output
         # operators
         outputs = OP_N_TO_N
-        self.block_streaming = True
+        self.block_streaming = (self.axis == 0)
+            
         self.op = parallelize(self.base_operator,
                               len(inputs),
                               *opargs,
@@ -519,5 +535,6 @@ class CompositionOperator(Operator):
 
 def make_composition_operator(ops):
     class _TmpOp(CompositionOperator):
+        name = 'none'
         oplist = ops
     return _TmpOp

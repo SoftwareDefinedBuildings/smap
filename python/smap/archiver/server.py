@@ -31,7 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 from twisted.internet import reactor
-from twisted.web import resource, server
+from twisted.web import resource, server, static
 from twisted.web.resource import NoResource
 from twisted.python import log
 
@@ -104,7 +104,7 @@ class DataResource(resource.Resource):
         return server.NOT_DONE_YET
 
 def getSite(db, 
-            resources=['add', 'api', 'republish'],
+            resources=['add', 'api', 'republish', 'static'],
             repub=None):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': resources})
@@ -116,5 +116,8 @@ def getSite(db,
         root.putChild('add', DataResource(db, repub))
     if 'api' in resources:
         root.putChild('api', api.Api(db))
+    if 'static' in resources:
+        print "static"
+        root.putChild('static', static.File('static'))
     return server.Site(root)
 

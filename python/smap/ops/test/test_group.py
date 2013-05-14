@@ -222,6 +222,59 @@ class TestGroupByDatetime(unittest.TestCase):
         self.assertEquals(np.sum(rv[0][:, 0] - self.testdata[:-2:2, 0]), 0)
         self.assertEquals(np.sum(rv[0][:, 1] - self.testdata[:-2:2, 1]), 0)
 
+    def test_flush(self):
+        now = dtutil.strptime_tz("1 1 2000 0", "%m %d %Y %H", tzstr="America/Los_Angeles")
+        now = dtutil.dt2ts(now)
+        self.setUp(now)
+
+        op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
+                                           field='hour',
+                                           width=1)
+        rv = op(operators.DataChunk((now * 1000, 
+                                     now * 1000 + (self.hours * 3600 * 1000)), 
+                                    True, True, 
+                                    [self.testdata]))
+
+        # if we don't properly flush the last hour, we should only get hours - 1 results
+        self.assertEquals((rv[0][-1, 0] - (now *  1000)) / (3600 * 1000), self.hours - 1)
+
+    def test_fill_missing(self):
+
+        now = dtutil.strptime_tz("1 1 2000 0", "%m %d %Y %H", tzstr="America/Los_Angeles")
+        now = dtutil.dt2ts(now)
+        self.setUp(now)
+
+
+        # check that we fill the end correctly
+        op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
+                                           field='hour',
+                                           width=1,
+                                           skip_missing=False)
+        now *= 1000
+        rv = op(operators.DataChunk((now,
+                                     now + ((self.hours + 5) * 3600 * 1000)), 
+                                    True, True, 
+                                    [self.testdata]))
+        self.assertEqual(len(rv[0]), self.hours + 5)
+        self.assertEqual(np.sum(np.isnan(rv[0][-5:, 1])), 5)
+        self.assertEqual(np.sum(np.isnan(rv[0][:-5, 1])), 0)
+
+
+        # and the beginning
+        op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
+                                           field='hour',
+                                           width=1,
+                                           skip_missing=False)
+        rv = op(operators.DataChunk((now - (5 * 3600 * 1000),
+                                     now + ((self.hours) * 3600 * 1000)), 
+                                    True, True, 
+                                    [self.testdata]))
+        self.assertEqual(len(rv[0]), self.hours + 5)
+        self.assertEqual(np.sum(np.isnan(rv[0][:5, 1])), 5)
+        self.assertEqual(np.sum(np.isnan(rv[0][5:, 1])), 0)
+
+
+
 class TestMaskedDTList(unittest.TestCase):
     hours = 1000
     def setUp(self):
@@ -305,17 +358,26 @@ class TestTranspose(unittest.TestCase):
 class TestVectorOperator(unittest.TestCase):
     def setUp(self):
         self.TestClass = arithmetic.max
+        self.inputs = make_input_meta(5)
 
     def test_stream_axis(self):
         """This is the default operator the vector operator uses"""
-        inputs = make_input_meta(5)
-        op = self.TestClass(inputs, axis=1)
+        op = self.TestClass(self.inputs, axis=1)
+        self.assertEquals(op.block_streaming, False)
         data = make_test_data(5)
         rv = op(data)
-        self.assertEquals(np.sum(rv - data[-1]), 0)
+        self.assertEquals(np.sum(rv[-1] - data[-1]), 0)
 
     def test_time_axis(self):
-        inputs = make_input_meta(5)
-        op = self.TestClass(inputs, axis=1)
+        op = self.TestClass(self.inputs, axis=1)
+        self.assertEquals(op.block_streaming, False)
         data = make_test_data(5)
         rv = op(data)
+
+    def test_streaming(self):
+        """Check that block_streaming is twiddled appropriately"""
+        self.assertEquals(self.TestClass(self.inputs, axis=0).block_streaming, True)
+        self.assertEquals(self.TestClass(self.inputs, axis=1).block_streaming, False)
+
+        self.assertEquals(arithmetic.count(self.inputs, axis=0).block_streaming, True)
+        self.assertEquals(arithmetic.count(self.inputs, axis=1).block_streaming, False)
