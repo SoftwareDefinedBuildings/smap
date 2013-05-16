@@ -20,7 +20,7 @@ The RSmap package requires three other R packages:
 The use of RCurl also requires `libcurl <http://curl.haxx.se/download.html>`_.
 If you run into problems installing ``RCurl``, you may need to install it.
 
-To install RSmap, :download:`download <http://smap-data.googlecode.com/svn/trunk/R/RSmap_1.0.tar.gz>`_ the package
+To install RSmap, `download <http://smap-data.googlecode.com/svn/trunk/R/RSmap_1.0.tar.gz>`_ the package
 archive and install directly from R, making sure you're in the
 correct directory::
 
