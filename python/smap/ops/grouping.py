@@ -188,7 +188,7 @@ class GroupByDatetimeField(Operator):
         slide = int(kwargs.get("slide", width))
         inclusive = make_inclusive(kwargs.get("inclusive", "inc-exc"))
         snap_times = bool(kwargs.get("snap_times", True))
-        skip_empty = util.to_bool(kwargs.get("skip_empty", False))
+        skip_empty = util.to_bool(kwargs.get("skip_empty", True))
 
         if not field in DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + field)
@@ -287,7 +287,7 @@ class GroupByDatetimeField(Operator):
                 if not self.skip_empty:
                     t = dtutil.dt2ts(bin_start) * 1000
                     output = extend(output, 
-                                    [np.array([[t, np.nan]])] * len(self.outputs))
+                                    [np.array([[t, np.nan]])])
 
                 bin_start += self.bin_slide
                 continue

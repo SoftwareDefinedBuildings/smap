@@ -49,6 +49,7 @@ is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
 def to_bool(s):
     if isinstance(s, bool): return s
+    elif isinstance(s, int): return not s == 0
     else: return s.lower().strip() in ['true', '1']
 
 def now():
