@@ -339,7 +339,7 @@ def syncMaybeDeferred(fn, *args):
     """
     rv = fn(*args)
     if issubclass(rv.__class__, defer.Deferred):
-        return state
+        return rv 
     else:
         return defer.succeed(rv)
 
