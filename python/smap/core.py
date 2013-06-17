@@ -62,7 +62,7 @@ class Timeseries(dict):
     scalars, with associated units.
 
     The sMAP profile requires each time series to be associated with a
-    data type (long, double, or string), unit of measure, and
+    data type (long or double), unit of measure, and
     timezone.
     """
     implements(ITimeseries)
@@ -90,7 +90,7 @@ class Timeseries(dict):
         """
 :param new_uuid: a :py:class:`uuid.UUID`
 :param string unit: the engineering units of this timeseries
-:param string data_type: the data type of the data.  options are ``long``, ``double``, and ``string``.
+:param string data_type: the data type of the data. Options are ``long`` or ``double``
 :param string timezone: a tzinfo-style timezone.
 :param string description: the value of sMAP Description field.
 :param int buffersz: how many readings to present when the timeseries is retrieved with a ``GET``.
