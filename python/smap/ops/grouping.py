@@ -339,6 +339,7 @@ class GroupByDatetimeField(Operator):
                                                     **self.state[i])
         # flatten the individual stream results
         rv = util.flatten(rv)
+         
         # now we have to insert nans to indicate missing data so the
         # rows from all streams are aligned.
         return join_union(rv)
@@ -363,7 +364,8 @@ class InterpolateOperator(Operator):
         self.method = kwargs.get('method', 'linear').lower()
         self.field = kwargs.get('field', 'minute') 
         width_in = int(kwargs.get('width', 1))
-        delta_in = int(kwargs.get('max_time_delta', None))
+        delta_in = kwargs.get('max_time_delta', None)
+        if delta_in is not None: delta_in = int(delta_in)
         self.width = datetime.timedelta(**{self.field + 's': width_in}).seconds * 1000
         self.max_time_delta = datetime.timedelta(**{self.field + 's': delta_in}).seconds * 1000
         
@@ -374,15 +376,17 @@ class InterpolateOperator(Operator):
         if self.max_time_delta < self.width:
             raise core.SmapException("max_time_delta must be greater than the width.")
 
-        self.tz = dtutil.gettz(inputs[0]['Properties/Timezone'])
         self.snapper = make_bin_snapper(self.field, self.width)
-        self.state = {'prev': None, 'prev_datetimes': None}
+        self.tzs = map(lambda x: dtutil.gettz(x['Properties/Timezone']), inputs)
         Operator.__init__(self, inputs, outputs=OP_N_TO_N)
-        
+        self.reset()
         # debug 
         # from matplotlib import pyplot
         # from matplotlib import dates
         # self.last = False
+
+    def reset(self):
+        self.state = [{'prev': None, 'prev_datetimes': None}] * len(self.inputs)
 
     def detect_gaps(self, times):
         diffs = np.diff(times) 
@@ -395,7 +399,7 @@ class InterpolateOperator(Operator):
                     prev=None,
                     prev_datetimes=None):
         times, values = data[:,0], data[:,1]
-        
+
         if (prev is not None):
             times = np.append(prev_datetimes, times)
             values = np.append(prev, values)
@@ -441,18 +445,18 @@ class InterpolateOperator(Operator):
         for i in xrange(N):
             if data[i] is None: continue
             if (len(data[i][:,0]) == 0 or len(data[i][:,1]) == 0): continue
-            rv[i], self.state = self.process_one(data[i], self.tz, 
-                prev=self.state['prev'], 
-                prev_datetimes=self.state['prev_datetimes'])
-            
+            rv[i], self.state[i] = self.process_one(data[i], self.tzs[i], 
+                prev=self.state[i]['prev'], 
+                prev_datetimes=self.state[i]['prev_datetimes'])
+        
         # debug 
         #for i in xrange(N):
         #    pyplot.plot_date(dates.epoch2num(rv[i][:, 0] / 1000), rv[i][:, 1], '-', tz='America/Los_Angeles')
         #if (self.last):
         #    pyplot.show()
         #self.last = True
-       
-        return [np.concatenate(rv)]
+        
+        return rv
 
 class GroupByTagOperator(Operator):
     """Group streams by values of a shared tag
