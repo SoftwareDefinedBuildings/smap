@@ -1,7 +1,7 @@
 .. _archiver-install-manual:
 
-Installation instructions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+First steps
+~~~~~~~~~~~
 
 In order to set up the archiver, you'll need to install and configure:
 
@@ -108,7 +108,7 @@ use::
   postgres=# \d
   postgres@box$ exit
 
-Okay, that was unpleasent.  But we're ready to install the web frontend now!
+Okay, that was unpleasant.  But we're ready to install the web frontend now!
 
 powerdb2
 ~~~~~~~~
