@@ -54,6 +54,7 @@ class StandardizeUnitsOperator(Operator):
     units = {
         re.compile('W(atts)?') : ('kW', 0.001),
         'Kilowatts' : ('kW', 1.0),
+        re.compile('[Hh](orse)?[Pp](ower)?') : ('kW', 0.7457),
         'pounds/hour' : ('lbs/hr', 1.0),
         re.compile('[Ll]bs/h(ou)?r') : ('lbs/hr', 1.0),
         'lbs/min' : ('lbs/hr', 60),
