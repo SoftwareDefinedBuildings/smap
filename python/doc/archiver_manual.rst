@@ -1,7 +1,7 @@
 .. _archiver-install-manual:
 
-Manual Archiver Installation
-----------------------------
+Installation instructions
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to set up the archiver, you'll need to install and configure:
 
@@ -16,7 +16,7 @@ To get started, create a new directory for all of the sources::
   $ cd ~/sources
 
 These instructions apply for Ubuntu 11.10 and may require translation
-for your system.  For the purposes of this guide, I assume you follow
+for your system. For the purposes of this guide, I assume you follow
 the instruction linearly; if you do them out-of-order, you may have to
 hunt through earlier sections to satisfy all the dependencies.
 
@@ -33,8 +33,27 @@ Then do a ``sudo /etc/init.d/monit restart``.
 ReadingDB
 ~~~~~~~~~
 
-Install readingdb's build dependencies (check the `README
-<https://github.com/stevedh/readingdb>`_).  On Ubuntu 11::
+ReadingDB and its dependencies can be installed easily with Debian
+packages. If you are on Ubuntu oneiric (11.10) or precise (12.04), 
+you can add our package repository using::
+
+  $ sudo add-apt-repository ppa:stevedh/smap
+  $ sudo apt-get update
+
+The archive is here (`<https://launchpad.net/~stevedh/+archive/smap>`_).
+
+You can then install readingdb using apt::
+  
+  $ sudo apt-get install readingdb readingdb-python
+
+If this worked properly you can now skip to the PostgreSQL section.
+If not, you can install readingdb's dependencies and 
+build it from source. Note that this is significantly trickier, so
+the above method is recommended if it's available.
+
+To begin the manual installation, install readingdb's build 
+dependencies (check the `README <https://github.com/stevedh/readingdb>`_).
+On Ubuntu 11::
 
   $ sudo apt-get install libdb4.8 libdb4.8-dev libprotobuf-c0   \
        libprotobuf-c0-dev protobuf-c-compiler zlib1g zlib1g-dev \
@@ -137,18 +156,18 @@ required::
   $ cd ~/sources
   $ sudo apt-get install python-twisted python-scipy
   $ sudo pip install ply
-  $ svn checkout http://smap-data.googlecode.com/svn/trunk smap-data
+  $ svn checkout http://smap-data.googlecode.com/svn/trunk smap-data-read-only
 
 You can actually install pretty much everything now::
 
-  $ cd smap-data/python
+  $ cd smap-data-read-only/python
   $ sudo python setup.py install
 
 If it all went well, you'll be able to run `twistd` with no arguments;
 it prints out a list of plugins at the end and you should see both
 `smap` and `smap-archiver` in there.
 
-Finally, copy some files into `/etc/` to complete the setup::
+Copy some files into `/etc/` to complete the setup::
 
   $ sudo mkdir /etc/smap
   $ sudo cp conf/archiver.ini /etc/smap
@@ -162,10 +181,3 @@ Finally, you can reload monit and start the archiver::
 
   $ monit reload
   $ monit start archiver
-
-Next steps
-~~~~~~~~~~
-
-If you got this far, you should be proud of yourself.  At this point
-you're probably ready to start adding data, perhaps by following the
-:ref:`driver-tutorial`.
