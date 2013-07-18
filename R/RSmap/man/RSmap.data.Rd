@@ -56,8 +56,8 @@ Tyler Hoyt
 ## define the connection
 RSmap("http://new.openbms.org/backend")
 ## set start and end times
-start <- as.numeric(strptime("3-30-2013", "%m-%d-%Y"))*1000
-end <- as.numeric(strptime("3-31-2013", "%m-%d-%Y"))*1000
+start <- as.numeric(strptime("3-30-2013", "\%m-\%d-\%Y"))*1000
+end <- as.numeric(strptime("3-31-2013", "\%m-\%d-\%Y"))*1000
 ## retrieve data
 data <- RSmap.data("Metadata/Extra/Type = 'oat'", start, end)
 

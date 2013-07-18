@@ -60,8 +60,8 @@ Tyler Hoyt
 ## define the connection
 RSmap("http://new.openbms.org/backend")
 ## set start and end times
-start <- as.numeric(strptime("3-30-2013", "%m-%d-%Y"))*1000
-end <- as.numeric(strptime("3-31-2013", "%m-%d-%Y"))*1000
+start <- as.numeric(strptime("3-30-2013", "\%m-\%d-\%Y"))*1000
+end <- as.numeric(strptime("3-31-2013", "\%m-\%d-\%Y"))*1000
 ## define list of uuids
 oat <- list("395005af-a42c-587f-9c46-860f3061ef0d",
          "9f091650-3973-5abd-b154-cee055714e59",

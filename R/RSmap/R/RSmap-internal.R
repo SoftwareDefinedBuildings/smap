@@ -29,12 +29,16 @@ function(data){
     i <- 1
     res <- data.frame(time=rep(NA, M), value=rep(NA, M))
     readings <- unlist(el$Readings)
-    MM <- length(readings)
+    MM <- max(length(readings), 2)
     res$time <- readings[seq(1, MM, 2)]
     res$value <- readings[seq(2, MM, 2)]
     res
   })
-  d[,1]
+  if (is.null(dim(d))){
+    list()
+  } else {
+    d[,1]
+  }
 }
 .RSmap.tagUuids <-
 function(data, uuids){
