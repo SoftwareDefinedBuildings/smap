@@ -1,5 +1,6 @@
 RSmap.prev <-
 function(where, ref, limit=1, streamlimit=10){
+  if (!is.numeric(ref)) { stop("Invalid reference time: must be numeric") } 
   query <- paste("select data before", ref
                  , "limit", format(limit, scientific=FALSE)
                  , "streamlimit", format(streamlimit, scientific=FALSE)

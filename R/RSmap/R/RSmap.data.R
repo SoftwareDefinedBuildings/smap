@@ -1,5 +1,7 @@
 RSmap.data <-
 function(where, start, end, limit=10000, streamlimit=10){
+  if(!is.numeric(start)){ stop("Invalid start time: must be numeric UTC milliseconds") }
+  if(!is.numeric(end)){ stop("Invalid end time: must be numeric UTC milliseconds") }
   query <- paste("select data in (", start
                  , ",", end, ")"
                  , "limit", format(limit, scientific = FALSE)

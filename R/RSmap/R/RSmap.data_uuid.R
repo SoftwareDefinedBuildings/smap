@@ -1,5 +1,7 @@
 RSmap.data_uuid <-
 function(uuids, start, end, limit=-1){
+  if(!is.numeric(start)){ stop("Invalid start time: must be numeric UTC milliseconds") }
+  if(!is.numeric(end)){ stop("Invalid end time: must be numeric UTC milliseconds") }
   f <- function(uuid){
     query <- paste("select data in (", start
                    , ", ", end, ") "

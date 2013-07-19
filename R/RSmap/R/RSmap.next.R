@@ -1,5 +1,6 @@
 RSmap.next <-
 function(where, ref, limit=1, streamlimit=10){
+  if(!is.numeric(ref)){ stop("Invalid reference time: must be numeric UTC milliseconds") }
   query <- paste("select data after", ref
                  , "limit", format(limit, scientific=FALSE)
                  , "streamlimit", format(streamlimit, scientific=FALSE)
