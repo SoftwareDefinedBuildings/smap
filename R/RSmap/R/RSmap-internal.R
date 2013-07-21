@@ -2,11 +2,15 @@
 .RSmap.postQuery <-
 function(query){
   r <- dynCurlReader()
-  curlPerform(postfields=query
-    , url=.RSmap$data$urlEnc
-    , verbose=FALSE
-    , writefunction=r$update
-    , timeout=.RSmap$data$timeout)
+  tryCatch({
+    curlPerform(postfields=query
+      , url=.RSmap$data$urlEnc
+      , verbose=FALSE
+      , writefunction=r$update
+      , timeout=.RSmap$data$timeout)
+  }, error = function(e) {
+    stop('cURL error')
+  })
   res <- r$value()
   if (res=="[]"){
     list()

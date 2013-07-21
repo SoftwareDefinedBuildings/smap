@@ -1,5 +1,7 @@
 RSmap.next <-
 function(where, ref, limit=1, streamlimit=10){
+  scipen <- .Options$scipen
+  options(scipen=999)
   if(!is.numeric(ref)){ stop("Invalid reference time: must be numeric UTC milliseconds") }
   query <- paste("select data after", ref
                  , "limit", format(limit, scientific=FALSE)
@@ -11,5 +13,6 @@ function(where, ref, limit=1, streamlimit=10){
   } else {
     data <- .RSmap.refactorData(data)
   }
+  options(scipen=scipen)
   data
 }

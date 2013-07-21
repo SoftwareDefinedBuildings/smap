@@ -1,5 +1,7 @@
 RSmap.data <-
 function(where, start, end, limit=10000, streamlimit=10){
+  scipen <- .Options$scipen
+  options(scipen=999)
   if(!is.numeric(start)){ stop("Invalid start time: must be numeric UTC milliseconds") }
   if(!is.numeric(end)){ stop("Invalid end time: must be numeric UTC milliseconds") }
   query <- paste("select data in (", start
@@ -13,5 +15,6 @@ function(where, start, end, limit=10000, streamlimit=10){
   } else {
     data <- .RSmap.refactorData(data)
   }
+  options(scipen=scipen)
   data
 }
