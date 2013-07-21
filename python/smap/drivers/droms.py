@@ -51,7 +51,7 @@ class Driver(SmapDriver):
         self.paths = opts.get('Paths', default_paths)
         self.expr = opts.get('Expr', "window(mean, field='minute', width=15)")
         self.rate = float(opts.get('Rate', 60))
-        self.user = opts.get('User:')
+        self.user = opts.get('User')
         self.password = opts.get('Password')
         self.auth = requests.auth.HTTPBasicAuth(self.username, self.password)
         self.params = {'key': key } 
@@ -68,7 +68,7 @@ class Driver(SmapDriver):
         self.writeDROMSzip()
         self.postDROMSzip()
 
-    def writeDROMScsv(value):
+    def writeDROMScsv(self, value):
         fcsv = open('meterdata.csv','w')
         fcsv.write(','.join(['DateTime', 'MeterId', 'Value1', 'Value2']) + '\n')
         for path, val in value:
@@ -86,12 +86,12 @@ class Driver(SmapDriver):
                 fcsv.write(','.join([ts,channel,str(v)]) + '\n')
         fcsv.close()
 
-    def writeDROMSzip():
+    def writeDROMSzip(self):
         z = zipfile.ZipFile('meterdata.zip','w')
         z.write('meterdata.csv')
         z.close()
 
-    def postDROMSzip():
+    def postDROMSzip(self):
         tenant_url = self.url
         api_path = "api/v1/meters"
         files = {'file': ('meterdata.zip', open('meterdata.zip', 'rb'))}

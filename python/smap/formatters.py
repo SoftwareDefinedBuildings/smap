@@ -118,51 +118,11 @@ class AsyncSmapToCsv(AsyncFormatter):
                                             for p in val['Readings'])))
             yield None
 
-class AsyncSmapToDROMS(AsyncFormatter):
-    content_type = 'text/csv'
-    def _produce(self):
-        data = {}
-        channels = set([])
-        # find all the values with the same timestamp...
-        for path, val in self._value.iteritems():
-            if not 'Readings' in val: continue
-
-            cmps = split_path(path)
-            meter = cmps[0]
-            channel = join_path(cmps[1:])
-            channels.add(channel)
-
-            for d in val['Readings']:
-                if not d[0] in data:
-                    data[d[0]] = {}
-                if not meter in data[d[0]]:
-                    data[d[0]][meter] = {}
-                data[d[0]][meter][channel] = d[1]
-
-        channels = list(channels); channels.sort()
-        self._consumer.write(','.join(['DateTime', 'MeterId'] + channels) + '\n')
-        yield None
-
-        for ts, data in data.iteritems():
-            ts = dtutil.strftime_tz(dtutil.ts2dt(ts / 1000), 
-                                    "%m/%d/%y %H:%M", 
-                                    tzstr='Local')
-            for meter, ch_data in data.iteritems():
-                row = [''] * len(channels)
-                for channel, datum in ch_data.iteritems():
-                    row[channels.index(channel)] = datum
-                    self._consumer.write(','.join([ts, meter] + map(str, row)) + '\n')
-                    yield None
-                
-
-
-
 __FORMATTERS__ = {
     'json': AsyncJSON,
     'gzip-json': GzipJson,
     'gzip-avro': GzipAvro,
     'csv': AsyncSmapToCsv,
-    'droms': AsyncSmapToDROMS
     }
 
 def get_formatter(format):
