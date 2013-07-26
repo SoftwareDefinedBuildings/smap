@@ -364,16 +364,19 @@ class InterpolateOperator(Operator):
         self.method = kwargs.get('method', 'linear').lower()
         self.field = kwargs.get('field', 'minute') 
         width_in = int(kwargs.get('width', 1))
-        delta_in = kwargs.get('max_time_delta', None)
-        if delta_in is not None: delta_in = int(delta_in)
         self.width = datetime.timedelta(**{self.field + 's': width_in}).seconds * 1000
-        self.max_time_delta = datetime.timedelta(**{self.field + 's': delta_in}).seconds * 1000
-        
+        delta_in = kwargs.get('max_time_delta', None)
+        if delta_in is not None: 
+          delta_in = int(delta_in)
+          self.max_time_delta = datetime.timedelta(**{self.field + 's': delta_in}).seconds * 1000
+        else:
+          self.max_time_delta = None
+
         if not self.method in interpolation_methods:
             raise core.SmapException("Invalid interpolation method: " + self.method)
         if not self.field in DT_FIELDS:
             raise core.SmapException("Invalid datetime field: " + self.field)
-        if self.max_time_delta < self.width:
+        if self.max_time_delta is not None and self.max_time_delta < self.width:
             raise core.SmapException("max_time_delta must be greater than the width.")
 
         self.snapper = make_bin_snapper(self.field, self.width)
@@ -412,15 +415,14 @@ class InterpolateOperator(Operator):
         
         if (self.max_time_delta): 
             gaps = self.detect_gaps(times)
-       
-        remove = np.array([False] * len(mesh))
-        for gap in gaps:
-            gt = np.greater(mesh, gap[0])
-            lt = np.less(mesh, gap[1])
-            this_gap = np.logical_and(gt, lt)
-            remove = np.logical_or(remove, this_gap)
-        remove_inds = np.nonzero(remove)[0]
-        mesh = np.delete(mesh, remove_inds)
+            remove = np.array([False] * len(mesh))
+            for gap in gaps:
+                gt = np.greater(mesh, gap[0])
+                lt = np.less(mesh, gap[1])
+                this_gap = np.logical_and(gt, lt)
+                remove = np.logical_or(remove, this_gap)
+            remove_inds = np.nonzero(remove)[0]
+            mesh = np.delete(mesh, remove_inds)
         
         if (self.method == 'linear'):
             outvals = np.interp(mesh, times, values)
