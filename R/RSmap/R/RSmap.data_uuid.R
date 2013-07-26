@@ -17,8 +17,8 @@ function(uuids, start, end, limit=-1){
       res <- .RSmap.refactorTSData(res)
       res$uuid = uuid
     }
+    options(scipen=scipen)
     res
   }
-  options(scipen=scipen)
   lapply(uuids, f)
 }
