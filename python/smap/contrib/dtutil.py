@@ -105,6 +105,10 @@ def ts(str, format='%x %X', tzstr='Local'):
 def iso8601(ts, tzinfo=utc):
   return str(ts.astimezone(tzinfo)).replace(' ', 'T')
 
+def excel(ts, tzinfo=utc):
+  # strip off the timezone offset and also
+  return ts.astimezone(tzinfo).strftime("%m/%d/%Y %H:%M:%S")
+
 def olson(cname, offset):
   """Convert a libc name (like EST) to an olson tz name
   (America/New_York)"""

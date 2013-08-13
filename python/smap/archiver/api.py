@@ -223,7 +223,10 @@ class Api(resource.Resource):
             if request.args['timefmt'][0] == 'iso8601': 
                 fmt = dtutil.iso8601
                 tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
-            elif True or request.args['timefmt'][0] == 'unix': 
+            elif request.args['timefmt'][0] == 'excel':
+                fmt = fmt = dtutil.excel
+                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
+            else:
                 fmt = lambda dt, tz: dtutil.strftime_tz(dt, '%s')
                 tz = dtutil.gettz('Utc')
             def row_action(row):
@@ -237,7 +240,7 @@ class Api(resource.Resource):
         """CSV replies are easy"""
         request.setHeader('Content-disposition', 'attachment; filename=%s.csv' % 
                           result[0]['uuid'])
-        if 'tags' in request.args and tags[0][0]:
+        if tags[0][0]:
             tags = tags[0][1][0][0]
         else:
             tags = None
@@ -260,7 +263,8 @@ class Api(resource.Resource):
                 return
             # return cvs
             request.setHeader('Content-type', 'text/csv')
-            if 'tags' in request.args:
+            if ('tags' in request.args or
+                ('timefmt' in request.args and request.args['timefmt'][0] in ['excel', 'iso8060'])):
                 dl = []
                 for str in result:
                     dl.append(build_tag_query(self.db, request, [('uuid', str['uuid'])]))
