@@ -16,8 +16,8 @@ class SmapSchemas:
         "UnitofTime", "Duration", 
         "ReadingType", "ReadingValue",
 
-        'InstrumentMetadata', 'LocationMetadata',
-        
+        'InstrumentMetadata', 'LocationMetadata', 'OperatorMetadata',
+        'Job',
         # timeseries subobjects
         "Actuator", 
         "Properties", "Metadata", 
@@ -27,7 +27,8 @@ class SmapSchemas:
         self.names = schema.Names()
         for sf in self.SCHEMAS:
             print "Loading", sf
-            with open(os.path.join(schemadir, sf.lower() + ".av"), "r") as fp:
+            sfname = os.path.join(schemadir, sf.lower() + ".av")
+            with open(sfname, "r") as fp:
                 obj = json.load(fp)
                 s = schema.make_avsc_object(obj, self.names)
 
@@ -43,6 +44,11 @@ class SmapSchemas:
 
 if __name__ == '__main__':
     import time
+    myactions = [{'Path':'/binary/point0', 'State': 0}]
+    myjob = {
+        'StartTime': int(time.time() * 1000),
+        'Actions': myactions
+        }
     myreading = {
         'Reading' : 12,
         'ReadingTime' : int(time.time())
@@ -70,7 +76,7 @@ if __name__ == '__main__':
             'ts0'
             ]
         }
-    print mycollection
+    #print mycollection
 
     import random
     now = int(time.time())  * 1000
@@ -84,5 +90,6 @@ if __name__ == '__main__':
     # s.write(sys.stderr, myreading, 'ReadingRecord')
     # s.write(sys.stderr, mytimeseries, 'Timeseries')
     # s.write(sys.stderr, myparameter, 'Parameter')
-    s.write(sys.stderr, mycollection, 'Collection')
-    #print s.read(sys.stdin, 'Timeseries')
+    # s.write(sys.stderr, mycollection, 'Collection')
+    s.write(sys.stderr, myjob, 'Job')
+    # print s.read(sys.stdin, 'Timeseries')
