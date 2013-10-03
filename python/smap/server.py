@@ -75,6 +75,8 @@ class InstanceResource(resource.Resource):
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
         except Exception, e:
+            import traceback
+            traceback.print_exc()
             setResponseCode(request, exception, 500)
             request.finish()
 
@@ -93,8 +95,7 @@ class InstanceResource(resource.Resource):
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
         # you can only PUT actuators
-        obj = self.inst.lookup(util.join_path(request.postpath),
-                               pred=IActuator.providedBy)
+        obj = self.inst.lookup(util.join_path(request.postpath))
         d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
         d.addCallback(lambda x: self.send_reply(request, x))
         d.addErrback(lambda x: self.send_error(request, x))
