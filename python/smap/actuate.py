@@ -63,12 +63,16 @@ class SmapActuator(object):
       valid_state(self, state): boolean test if a particular state is valid for this actuator
       parse_state(self, state): string from HTTP request parsing the
           submitted state into the form the actuator accepts
+      translate_state(self, state)
           
     Actuators should also implement get and set methods.  The request
           object is included so that actuators my inspect the client
           request if they wish to perform checks based on the request.
       get_state(self, request): read the current state of this actuator
       set_state(self, request, val): write the state of the actuator
+
+    Generally speaking, implementors will choose one of the default
+    sMAP actuator models, and simply implement get and set methods.
     """
 
     # override all of these 
@@ -89,6 +93,11 @@ class SmapActuator(object):
 
     def set_state(self, request):
         raise NotImplementedError()
+
+    def get_description(self):
+        d = { 'Model': self.control_type }
+        d.update(self.control_description)
+        return d
 
 class BinaryActuator(SmapActuator):
     """A BinaryActuator is a controller which has only two states,
@@ -117,26 +126,26 @@ class NStateActuator(SmapActuator):
 in.  Although there may be restrictions on which state transisitions
 are possible, this profile does not express any of them.
     """
-    control_type = 'nstate'
+    control_type = 'discrete'
     control_description = {
-        'States' : []
+        'Values' : []
         }
 
     def __init__(self, states=[]):
         self.control_description = {
-            "States": states
+            "Values": states
             }
 
     def valid_state(self, state):
-        # return state >= 0 and state < len(self.control_description['States'])
-        return state in self.control_description['States']
+        # return state >= 0 and state < len(self.control_description['Values'])
+        return state in self.control_description['Values']
 
     def parse_state(self, state):
         return state
 
     def translate_state(self, state):
         try:
-            return self.control_description['States'].index(state)
+            return self.control_description['Values'].index(state)
         except:
             return None
 
@@ -148,15 +157,18 @@ specified.
     """
     control_type = 'continuous'
     control_description = {
-        "States": []
+        "MinValue": None,
+        "MaxValue": None,
         }
     def __init__(self, range=[0, 1]):
         self.control_description = {
-            'States' : range,
+            "MinValue": range[0],
+            "MaxValue": range[1],
             }
+
     def valid_state(self, state):
-        return state >= self.control_description['States'][0] and \
-            state <= self.control_description['States'][1]
+        return state >= self.control_description['MinValue'] and \
+            state <= self.control_description['MaxValue']
 
     def parse_state(self, state):
         return float(state)

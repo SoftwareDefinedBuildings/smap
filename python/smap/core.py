@@ -658,7 +658,10 @@ sMAP reporting functionality."""
         return collection
 
     def add_actuator(self, path, unit, impl, **kwargs):
-        return self.add_timeseries(path, unit, impl=impl, **kwargs)
+        ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
+        ts.FIELDS = ts.FIELDS + ["Actuator"]
+        ts["Actuator"] = impl.get_description()
+        return ts
 
     def set_metadata(self, path, *metadata):
         if len(metadata) > 1:
