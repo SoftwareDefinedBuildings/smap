@@ -44,11 +44,20 @@ from twisted.application.service import MultiService
 
 from smap import core, loader, smapconf
 from smap.server import getSite
+from smap.bonjour import broadcast
+from smap.util import buildkv
 
 try:
     from smap.ssl import SslServerContextFactory
 except ImportError:
     pass
+
+def make_dns_meta(inst):
+    root = inst.lookup("/")
+    if root and "Metadata" in root:
+        return dict(buildkv("Metadata", root["Metadata"]))
+    else:
+        return {}
 
 class Options(usage.Options):
     optParameters = [["data-dir", "d", None, "directory for data"],
@@ -88,14 +97,19 @@ class SmapServiceMaker(object):
 
         site = getSite(inst, docroot=smapconf.SERVER['docroot'])
         service = MultiService()
-
         # add HTTP and HTTPS servers to the twisted multiservice
+
+        meta = make_dns_meta(inst)
+
         if 'port' in smapconf.SERVER:
             service.addService(internet.TCPServer(int(smapconf.SERVER['port']), site))
+            broadcast(reactor, "_smap._tcp", int(smapconf.SERVER['port']), 'sMAP Server', meta)
         if 'sslport' in smapconf.SERVER:
             service.addService(internet.SSLServer(int(smapconf.SERVER['sslport']), 
                                                   site, 
                                                   SslServerContextFactory(smapconf.SERVER)))
+
         return service
 
 serviceMaker = SmapServiceMaker()
+

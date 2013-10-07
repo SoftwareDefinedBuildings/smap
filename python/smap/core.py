@@ -278,7 +278,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
 
     def _finish_render(self, request, state):
         # finish by adding the current state as the reading
-        if hasattr(state, "__iter__"):
+        if isinstance(state, dict):
+            return state
+        elif hasattr(state, "__iter__"):
             now, val = state
         else:
             now, val = util.now() * 1000, state
