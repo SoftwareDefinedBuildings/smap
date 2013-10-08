@@ -117,8 +117,9 @@ class OperatorApplicator(object):
         # save the metadata and streamids for loading
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
+        print "Start"
         if not len(opmeta):
-            self.consumer.write(json.dumps([]))
+            self.consumer.write([])
             self.consumer.unregisterProducer()
             self.consumer.finish()
             return 
@@ -157,7 +158,7 @@ class OperatorApplicator(object):
         start *= 1000
         end *= 1000
         last = False
-        # log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
+        log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
 
         if self.op.block_streaming or end >= self.data_spec['end']:
             end = self.data_spec['end']
@@ -191,8 +192,8 @@ class OperatorApplicator(object):
             'exception': str(error.value),
             'traceback': tb,
             }
-
-        self.consumer.write(json.dumps(error))
+        log.msg(str(error))
+        self.consumer.write(error)
         self.consumer.unregisterProducer()
         self.consumer.finish()
         return error
@@ -208,7 +209,6 @@ class OperatorApplicator(object):
         # process
         for d in opdata:
             d[:, 0] *= 1000
-
         opdata = operators.DataChunk((self.data_spec['start'],
                                       self.data_spec['end']), 
                                      first, last, opdata)
@@ -222,8 +222,7 @@ class OperatorApplicator(object):
         # print "processing and writing took", time.time() - tic
 
         if not self._stop:
-            self.consumer.write(json.dumps(redata))
-            self.consumer.write('\r\n')
+            self.consumer.write(redata)
             if last:
                 self.consumer.unregisterProducer()
                 self.consumer.finish()

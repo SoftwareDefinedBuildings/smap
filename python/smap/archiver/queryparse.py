@@ -50,7 +50,7 @@ from smap.contrib import dtutil
 from smap.archiver.data import escape_string
 from smap.archiver.querydata import extract_data
 from smap.archiver import querygen as qg
-from smap.archiver import data, stream, help, ast
+from smap.archiver import data, stream, help, ast, consumers
 
 import ply
 import ply.lex as lex
@@ -303,7 +303,8 @@ def p_apply_statement(t):
     else: group = None
     print "Extra restrictions", t[1].restrict
     app = stream.OperatorApplicator(t[1].ast, t[3].dparams,
-                                    t.parser.request, group=group)
+                                    consumers.make_outputfilter(t.parser.request), 
+                                    group=group)
     t[0] = ([app.start_processing, tag_extractor, data_extractor], 
             [None, tag_query, data_query])
 

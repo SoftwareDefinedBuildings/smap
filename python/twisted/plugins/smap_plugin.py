@@ -54,10 +54,10 @@ except ImportError:
 
 def make_dns_meta(inst):
     root = inst.lookup("/")
+    m = {"uuid": str(inst.root_uuid)}
     if root and "Metadata" in root:
-        return dict(buildkv("Metadata", root["Metadata"]))
-    else:
-        return {}
+        m.update(dict(buildkv("Metadata", root["Metadata"])))
+    return m
 
 class Options(usage.Options):
     optParameters = [["data-dir", "d", None, "directory for data"],

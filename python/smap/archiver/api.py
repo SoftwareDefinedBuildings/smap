@@ -54,6 +54,7 @@ import queryparse as qp
 from querygen import build_authcheck
 import settings
 import stream
+from consumers import make_time_formatter
 
 class ApiResource(resource.Resource):
     def __init__(self, db):
@@ -187,6 +188,7 @@ ORDER BY s.id ASC"""
     d.addCallback(log_time, time.time())
     return d
 
+
 class Api(resource.Resource):
     """Provide api calls against the databases for data and tag lookups.
     """
@@ -217,20 +219,9 @@ class Api(resource.Resource):
             request.write('\n# '.join((': '.join(x) for x in sorted(stags.iteritems()))))
             request.write('\n')
 
-        if 'timefmt' in request.args:
-            # potentially do timestamp stringification here.
-            # this could be a bit slow for large datasets...
-            if request.args['timefmt'][0] == 'iso8601': 
-                fmt = dtutil.iso8601
-                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
-            elif request.args['timefmt'][0] == 'excel':
-                fmt = fmt = dtutil.excel
-                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
-            else:
-                fmt = lambda dt, tz: dtutil.strftime_tz(dt, '%s')
-                tz = dtutil.gettz('Utc')
+            time_formatter = make_time_formatter(request, stags)
             def row_action(row):
-                row[0] = fmt(dtutil.ts2dt(row[0] / 1000), tz)
+                row[0] = time_formatter(row[0])
                 writer.writerow(row)
             map(row_action, stream['Readings'])
         else:
@@ -246,8 +237,7 @@ class Api(resource.Resource):
             tags = None
         self.write_one_stream(request, 
                               result[0], 
-                              tags)
-        
+                              tags)        
         request.finish()
 
     def send_data_reply(self, (request, result)):
@@ -308,6 +298,7 @@ class Api(resource.Resource):
             raise
 
     def send_error(self, request, error):
+        print "error", error
         setResponseCode(request, error, 400)
         try:
             request.write(str(error.value))

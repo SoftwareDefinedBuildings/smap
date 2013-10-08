@@ -512,7 +512,7 @@ class _OrderedOperator(Operator):
     def __init__(self, inputs, sort=None, reverse=False):
         # set default sort differently for the different methods
         if sort:
-            keys = zip(map(operator.itemgetter(sort), inputs), range(0, len(inputs)))
+            keys = zip(map(lambda x: x.get(sort, ''), inputs), range(0, len(inputs)))
             keys.sort(key=lambda x: x[0], reverse=reverse)
             self.order = map(operator.itemgetter(1), keys)
         else:
@@ -521,6 +521,8 @@ class _OrderedOperator(Operator):
                                                  str(sort), 
                                                  str(reverse))
         Operator.__init__(self, inputs)
+        if sort:
+            self.outputs[0][sort] = ','.join(map(operator.itemgetter(0), keys))
 
     def process(self, data):
         if not self.order:
