@@ -22,7 +22,8 @@
 *
 * Based on BACnet stack: Copyright 2006 Steve Karg <skarg@users.sourceforge.net>
 * Copyright 2010 Andrew Krioukov <krioukov@cs.berkeley.edu>
-*
+* Bugs and GIL fixes, Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+
 * Python interface to BACnet using BACnet stack library
 *********************************************************************/
 #include <stddef.h>
