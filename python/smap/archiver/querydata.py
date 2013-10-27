@@ -53,6 +53,7 @@ def _errback(error):
 
 def extract_data(streams, method, start, end, limit=10, streamlimit=10, ndarray=False):
     request = Request()
+    print "in ED, we have this for streams:",streams
     request.args = {
         'starttime' : [start],
         'endtime' : [end],

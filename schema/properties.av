@@ -6,6 +6,7 @@
   "fields" : [
      {"name" : "UnitofMeasure", "type" : "string"},
      {"name" : "ReadingType", "type" : "ReadingType"},
-     {"name" : "Timezone", "type" : ["null", "string"], "default" : "UTC"}
+     {"name" : "Timezone", "type" : ["null", "string"], "default" : "UTC"},
+     {"name" : "UnitofTime", "type" : "string"}
   ]
 }

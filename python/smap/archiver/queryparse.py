@@ -304,6 +304,7 @@ def p_apply_statement(t):
     print "Extra restrictions", t[1].restrict
     app = stream.OperatorApplicator(t[1].ast, t[3].dparams,
                                     t.parser.request, group=group)
+    #MPA TODO find out how this works so that unitoftime is propogated in
     t[0] = ([app.start_processing, tag_extractor, data_extractor], 
             [None, tag_query, data_query])
 
@@ -374,14 +375,17 @@ def p_data_clause(t):
         'limit' : [limit[0]],
         'streamlimit' : [limit[1]],
         })
-
-    t[0] = data_selector("distinct(s.uuid), s.id",
-                         lambda streams: data.data_load_result(t.parser.request,
-                                                               method,
-                                                               streams,
-                                                               ndarray=False,
-                                                               as_smapobj=True,
-                                                               send=True), {
+    def taggit(strm):
+        print "TAGGIT XT called: ",strm
+        return data.data_load_result(t.parser.request,
+                               method,
+                               streams,
+                               ndarray=False,
+                               as_smapobj=True,
+                               send=True)
+        
+    t[0] = data_selector("distinct(s.uuid), s.id, metadata -> 'Properties/UnitofTime', metadata->'Properties/Timezone'",
+                         taggit, {
             'start' : start,
             'end' : end,
             'method' : method,

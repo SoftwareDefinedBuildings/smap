@@ -75,6 +75,7 @@ class ArchiverServiceMaker(object):
                 print '\n'.join(map(str, objgraph.most_common_types(limit=10)))
             task.LoopingCall(stats).start(2)
 
+        print "using this for dbm:", settings.conf['database']['module']
         cp = adbapi.ConnectionPool(settings.conf['database']['module'],
                                    host=settings.conf['database']['host'],
                                    database=settings.conf['database']['db'],

@@ -32,7 +32,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
 import urlparse
-
+import time
 from twisted.internet import reactor, task, defer, threads
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
@@ -145,6 +145,7 @@ class DataBuffer:
         :param string key: The key for the data stream
         :param string val: The new value for the object.  Copied.
         """
+        print "reportiny.pu add k,v:",(key, val)
         tail = self.data.tail()
 
         # length of the head

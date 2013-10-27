@@ -36,6 +36,7 @@ import pprint
 import time
 import logging
 
+import pandas as pd
 import numpy as np
 
 from twisted.internet import reactor, threads, defer
@@ -138,11 +139,10 @@ class SmapData:
         """Send data to a readingdb backend
         """
         r = None
-        divisor = settings.conf['readingdb']['divisor']
         try:
             r = rdb_pool.get()
             for ts in obj.itervalues():
-                data = [(x[0] / divisor, 0, x[1]) 
+                data = [(x[0], 0, x[1]) 
                         for x in ts['Readings'] if x[0] > 0]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
@@ -223,7 +223,7 @@ class DataRequester:
     it either as a numpy matix, a list, or a smap object with
     readings.
     """
-    def __init__(self, ndarray=False, as_smapobj=True):
+    def __init__(self, ndarray=False, as_smapobj=True, do_pandas=True):
         """
 :param ndarray: return the data as a numpy matrix
 :param: as_smapobj: return the data as a list of sMAP objects (dicts,
@@ -231,26 +231,52 @@ class DataRequester:
         """
         self.ndarray = ndarray
         self.as_smapobj = as_smapobj
+        self.do_pandas = do_pandas
 
-    def load_data(self, request, method, streamids):
+    def load_data(self, request, method, streaminfos):
         """
 :param: request: a twisted http request
 :param method: 'data', 'prev', or 'next'
-:param streamids: a list of (uuid, streamid) tuples data is requested for.
+:param streaminfos: a list of (uuid, streamid, timeunit, timezone) tuples data is requested for.
         """
-        now = int(time.time()) * 1000
-
-        self.streamids = streamids
-        ids = map(operator.itemgetter(1), streamids)
-        divisor = settings.conf['readingdb']['divisor']
-
+        
+        
+        print "DRLD req, met, strid: ",request,method,streaminfos
+        self.streaminfos = streaminfos
+        ids = map(operator.itemgetter(1), streaminfos)
+        units = map(operator.itemgetter(2), streaminfos)
+        timezones = map(operator.itemgetter(3), streaminfos)
+        # TODO be more elegant than bailing out if the time units for different streams are not the same
+        # My guess is that we merge them by creating multiple rdb queries and joining them later...
+        
+        assert all(map(lambda x: x==units[0], units)), "Time units in multiple stream query not the same"
+        stream_unit = units[0].lower()
+        query_unit = request.args.get('unit',["ms"])[0]
+        
+        unit_defs = {"ns":1000000000.,"us":1000000.,"ms":1000.,"s":1}
+        
+        now = time.time()
+        starttime = request.args.get('starttime', [None])[0]
+        endtime = request.args.get('endtime',[None])[0]
+        if starttime is None:
+            starttime = int((now - 3600 * 24) * unit_defs[stream_unit])
+        else:
+            starttime = int(int(starttime) * unit_defs[stream_unit] / unit_defs[query_unit])
+            
+        if endtime is None:
+            endtime = int(now * unit_defs[stream_unit])
+        else:
+            endtime = int(int(endtime) * unit_defs[stream_unit] / unit_defs[query_unit])
+                
         # args are a bit different for different requests
         if method == 'data':
             method = settings.rdb.db_query
+            print "we are shoving in ",starttime,"and ",endtime
+            print "the ids are",ids
             args = [
                 ids,
-                int(request.args.get('starttime', [now - 3600 * 24 * 1000])[0]) / divisor,
-                int(request.args.get('endtime', [now])[0]) / divisor
+                starttime,
+                endtime
                 ]
             kwargs = {
                 'limit': int(request.args.get('limit', [10000000])[0])
@@ -262,7 +288,7 @@ class DataRequester:
                 method = settings.rdb.db_next
             args = [
                 ids,
-                int(request.args.get('starttime', [now])[0]) / divisor
+                starttime
                 ]
             kwargs = {
                 'n': int(request.args.get('limit', [1])[0])
@@ -272,29 +298,78 @@ class DataRequester:
         # run the request in a (twisted) thread.
         d = threads.deferToThread(method, *args, **kwargs)
 
-        # d.addCallback(self.check_data)
-
+        # modify the results to be the required unit
+        # we use an integer multiplier because we cannot afford to lose the precision
+        # in our integer timestamps. It would convert to double if we accidently
+        # had a floating point multiplier
+        # if the multiplier is less than one, we would have bigger problems though,
+        # so we just bite the pillow
+        print "Stream unit is: ",stream_unit
+        print "Query unit is: ",query_unit
+        multiplier = unit_defs[query_unit] / unit_defs[stream_unit]
+        print "Resultant multiplier is %06f"%multiplier
+        if multiplier >=1 : 
+            multiplier = int(multiplier)
+        else:
+            pass
+            #TODO this is a policy thing that needs discussion
+            #assert False, "Bailing hard: unit multiplier is less than 1: %f" % multiplier
+        d.addCallback(self.modify_units, streaminfos, multiplier, query_unit)
+         
         # add the data munging if requested
         if not self.ndarray or self.as_smapobj:
-            d.addCallback(self.screw_data, streamids)
+            d.addCallback(self.screw_data, streaminfos)
         return d
 
+    def modify_units(self, data, streaminfos, multiplier, unit):
+        print "MU, data is: ",data
+        #We also refactor the array of u64's into dt64's.
+        rv = []
+        for streaminfo, streamdata in zip(streaminfos, data):
+            print "SD is: ",streamdata
+            print "SD 0 is :",streamdata[0]
+            
+            #this should be zero alloc
+            tz = streaminfo[3]
+            np.multiply(streamdata[0], multiplier, streamdata[0])
+            #This too. It encodes the unit into the stream, but no TZ info
+            dt = streamdata[0] if self.as_smapobj else streamdata[0].view("datetime64[%s]"%unit)
+            #This will get us units and TZ
+            if self.do_pandas and not self.as_smapobj:
+                s = pd.Series(streamdata[1],index=dt)
+                #According to my tests, this is all zcopy (modifying the ndarray modifies the final result)
+                s.index = s.index.tz_localize("UTC") #The ints were units since UTC epoch
+                s.index = s.index.tz_convert(tz) #But our dates are not in that timezone
+                df = pandas.DataFrame(s)
+                rv.append(df)
+            else:
+                rv.append((dt,streamdata[1]))
+
+        return rv
+        
+        #TODO: make sure there is an input sanitiser that just drops requests if the date range
+        #cannot be stuck in a 63 bit number, as opposed to dying in the readingdb C module.
+        #This probably exists on the live code
     def check_data(self, data):
         """Run a check to see if the the data we get back from
         readingdb is sensible."""
+        print "DATA CHECK: ",data
         for d in data:
             times = set(d[:, 0])
             assert len(times) == len(d[:, 0])
         return data
 
     def screw_data(self, data, streamids):
+        #This will need a change
         rv = []
-        for (uid, id), d in zip(streamids, data):
+        for (uid, id, unit, tz), d in zip(streamids, data):
             if not self.ndarray:
-                d[:,0] = np.int_(d[:, 0])
-                d[:,0] *= settings.conf['readingdb']['divisor']
-                d = d.tolist()
+                d = (d[0].tolist(), d[1].tolist())
             if self.as_smapobj:
+                #Note that this matches current behaviour in that there
+                #are no timezone changes to the data. The time is in units since the UTC epoch
+                #we HAVE the tz if we decide to do something funny here later
+                d = zip(d[0],d[1])
                 rv.append({'uuid': uid,
                            'Readings': d})
             else:
@@ -326,9 +401,10 @@ def data_load_result(request, method, result, send=False, **loadargs):
 :return: a deferred which will fire with the result of loading the requested data.
     """
     count = int(request.args.get('streamlimit', ['1000'])[0])
+    print "XT DLR: ",request, method, result, send, loadargs
     if count == 0:
         count = len(result)
-
+    print "XT DLR LN: ",len(result)
     if len(result) > 0:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])

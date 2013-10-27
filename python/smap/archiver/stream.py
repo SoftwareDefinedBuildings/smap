@@ -89,7 +89,7 @@ class OperatorApplicator(object):
         self.op = op
         self.data_spec = data_spec
         self.group = group.pop() if group else None
-        self.requester = data.DataRequester(ndarray=True, as_smapobj=False)
+        self.requester = data.DataRequester(ndarray=True, as_smapobj=False, do_pandas=True)
         self.consumer = consumer
 
         self._paused = self._stop = self._error = False
@@ -114,6 +114,7 @@ class OperatorApplicator(object):
         """data: a list with two elements: the first is the metadata,
         and the second is the stream information we will need to fetch
         the actual data"""
+        print "start_processing data: ",data
         # save the metadata and streamids for loading
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
@@ -126,11 +127,11 @@ class OperatorApplicator(object):
         # sort the streamids to be in the same order as the operator inputs
         meta_uid_order = dict(zip(map(operator.itemgetter('uuid'), opmeta), 
                                   xrange(0, len(opmeta))))
-        self.streamids = data[1][1]
-        self.streamids.sort(key=lambda elt: meta_uid_order[elt[0]])
+        self.streaminfos = data[1][1]
+        self.streaminfos.sort(key=lambda elt: meta_uid_order[elt[0]])
 
         # use a heuristic for how much data we want to load at once...
-        self.chunk_length = (3600 * 24 * self.DATA_DAYS) / len(self.streamids)
+        self.chunk_length = (3600 * 24 * self.DATA_DAYS * util.time_mult(frm='s',to=self.streaminfos[0][2])) / len(self.streaminfos)
         if self.chunk_length < 300:
             self.chunk_length = 300
 
@@ -150,6 +151,7 @@ class OperatorApplicator(object):
     def load_chunk(self):
         """load a chunk of data for the operator"""
         # decide on a new chunk to load
+        #TODO wtf is going on here? Ohwell, hopefully it doesn matter much
         start = (self.data_spec['start'] / 1000) + \
             (self.chunk_idx * self.chunk_length)
         end = (self.data_spec['start'] / 1000) + \
@@ -164,15 +166,17 @@ class OperatorApplicator(object):
             last = True
         self.chunk_idx += 1
 
+        #okay, we totally pretend to be an HTTP request here...
         self.args = {
             'starttime' : [start],
             'endtime' : [end],
             'limit' : [self.data_spec['limit'][0]],
-            'streamlimit' : [self.data_spec['limit'][1]]
+            'streamlimit' : [self.data_spec['limit'][1]],
+            'unit' : ['ms'] #because I think thats what we think we are...
         }
         d = self.requester.load_data(self, 
                                      self.data_spec['method'], 
-                                     self.streamids)
+                                     self.streaminfos)
         if not last:
             d.addCallback(self.start_next)
         d.addCallback(self.apply_operator, self.chunk_idx == 1, last)
@@ -182,6 +186,7 @@ class OperatorApplicator(object):
 
     def abort(self, error):
         self._stop = True
+        print "STREAM ABORT:",error
         if hasattr(error, "getTraceback"):
             tb = str(error.getTraceback())
         else:
@@ -203,11 +208,8 @@ class OperatorApplicator(object):
         return data
 
     def apply_operator(self, opdata, first, last):
+        print "JJ app opp", opdata,first,last
         tic = time.time()
-
-        # process
-        for d in opdata:
-            d[:, 0] *= 1000
 
         opdata = operators.DataChunk((self.data_spec['start'],
                                       self.data_spec['end']), 
@@ -229,6 +231,7 @@ class OperatorApplicator(object):
                 self.consumer.finish()
 
     def build_result(self, (d, s)):
+        print "JJ build_result",d,s
         obj = dict(s)
         if isinstance(d, np.ndarray):
             obj['Readings'] = d.tolist()

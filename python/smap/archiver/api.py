@@ -253,6 +253,7 @@ class Api(resource.Resource):
     def send_data_reply(self, (request, result)):
         """After reading back some data, format it and send it to the client
         """
+        print "SDR: rq,rs",request,result
         if not 'format' in request.args or 'json' in request.args['format']:
             return self.send_reply((request, result))
         elif 'format' in request.args and 'csv' in request.args['format']:
@@ -322,6 +323,7 @@ class Api(resource.Resource):
         # except for streams, all api resources specify a set of
         # streams using a query path.  therefore they all operate on
         # sets of streams.
+        print "getcchild"
         if name == 'streams':
             return SubscriptionResource(self.db)
         else:
@@ -334,6 +336,7 @@ class Api(resource.Resource):
         statement, and parsing out the results are in the queryparse
         and querygen modules.
         """
+        print "rPOST", request, query
         # make a parser and parse the request
         parser = qp.QueryParser(request)
         if not query: query = request.content.read() 
@@ -361,10 +364,12 @@ class Api(resource.Resource):
 
         This lets clients look at tags and get data.
         """
+        print "rendering get"
         if len(request.prepath) == 1:
             return self.send_reply((request, {'Contents': ['streams', 'query', 'data', 
                                                            'next', 'prev', 'tags',
                                                            'operators']}))
+        print "XT4"                                                   
         # start by looking up the set of streams we are going to operate on
         path = map(lambda x: x.replace('__', '/'), request.prepath[2:])
         path = map(urllib.unquote, path)
@@ -372,6 +377,7 @@ class Api(resource.Resource):
 
         # dispatch based on the method name
         if method != 'query':
+            print "XT3"
             if len(path) % 2 != 0:
                 request.setResponseCode(400)
                 request.finish()
@@ -379,8 +385,10 @@ class Api(resource.Resource):
             path.append('uuid')            
         if method == 'query':
             if 'q' in request.args:
+                print "XT2"
                 return self.render_POST(request, request.args['q'][0])
             else:
+                print "XT1"
                 # this allows a user to enumerate tags
                 d = build_query(self.db,
                                 request,
@@ -397,15 +405,18 @@ class Api(resource.Resource):
             d.addCallback(lambda r: self.tag_extract_result(request, r))
             d.addCallback(self.send_reply)
         elif method in ['data', 'next', 'prev']:
+            print "XT7"
             # retrieve data
-            d = self.db.runQuery("""SELECT uuid, id FROM stream WHERE
+            d = self.db.runQuery("""SELECT uuid, id, metadata -> 'Properties/UnitofTime', metadata->'Properties/Timezone' FROM stream WHERE
 id IN """ + build_inner_query(request,
                               zip(path[::2], 
                                   path[1::2] + [None]))[0])
+            
             d.addCallback(log_time, time.time())
             d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)
+            print "Hit expected block"
         elif method == 'operators':
             self.send_reply((request, stream.installed_ops.keys()))
         else:

@@ -1,0 +1,6 @@
+python/smap/archiver/arq_tab.py
+twistd.log
+python/build
+*~
+*.pyc
+_trial_temp

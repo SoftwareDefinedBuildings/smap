@@ -66,12 +66,11 @@ def _op_from_vector_ops(name, nameop, argop, constructors=[()]):
     """
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
-        if np.size(data) == 0: return operators.null
+        if len(data) == 0: return operators.null
         if kwargs['axis'] == 0:
-            return data[argop(data[:, 1:], *args, **kwargs)]
+            return data.ix[argop(data.values, *args, **kwargs)]
         elif kwargs['axis'] == 1:
-            return np.dstack((data[:, 0], 
-                              nameop(data[:, 1:], *args, **kwargs)))[0]
+            return pd.DataFrame(nameop(data.values, *args, **kwargs), index=data.index)
     _operator.__doc__ = nameop.__doc__
     _opclass = vector_operator_factory(name, _operator, constructors)
     return _opclass
@@ -91,14 +90,15 @@ def _op_from_compressive_op(name, op, constructors=[()], timestamp=np.min):
     """
     def _operator(data, *args, **kwargs):
         if not 'axis' in kwargs: kwargs['axis'] = 1
-        if np.size(data) == 0: return operators.null
+        if len(data) == 0: return operators.null
         if kwargs['axis'] == 0:
-            v = np.hstack(([timestamp(data[:, 0])], 
-                           op(data[:, 1:], *args, **kwargs)))
-            v = v.reshape((1, len(v)))
-            return v
+            df = pd.DataFrame(op(data.values, *args, **kwargs), index=[timestamp(data.index.values)])
+            #v = np.hstack(([timestamp(data[:, 0])], 
+            #               op(data[:, 1:], *args, **kwargs)))
+            #v = v.reshape((1, len(v)))
+            return df
         elif kwargs['axis'] == 1:
-            return np.dstack((data[:, 0], op(data[:, 1:], *args, **kwargs)))[0]
+            return pd.DataFrame(op(data.values, *args, **kwargs), index=data.index)
     _operator.__doc__ = op.__doc__
     _opclass = vector_operator_factory(name, _operator, constructors)
     _opclass.type = 'compressive'
@@ -124,8 +124,7 @@ def _op_from_ufunc(name, op, constructors=[()]):
     def _operator(data, *args, **kwargs):
         if 'axis' in kwargs:
             del kwargs['axis']
-        d = op(data[:, 1:], *args, **kwargs)
-        return np.hstack((data[:, 0].reshape((d.shape[0], 1)), d))
+        return op(data, *args, **kwargs)
     _operator.__doc__ = op.__doc__
     _opclass = vector_operator_factory(name, _operator, constructors,
                                        block_streaming=False)
@@ -157,34 +156,39 @@ not_equal = _op_from_ufunc('not_equal', np.not_equal, [(int,),(float,)])
 
 def _diff(data, axis=1):
     """Compute discrete differences in either axis"""
-    rdata = np.diff(data[:, 1:], axis)
-    return np.column_stack((data[:, 0], rdata))
+    if axis == 1:
+        return pd.DataFrame(np.diff(data, axis=1), index=data.index)
+    else return data.diff()
+    
 diff = vector_operator_factory('diff', _diff)
 
 def _first(data, axis=0):
     """Return the first column or the first row of data.
     """
     if axis == 1:
-        return data[:, 0:2]
+        return data.iloc[:,0]
     elif axis == 0:
-        rv = data[0, :] if np.size(data) else operators.null
-        if len(rv.shape) != 2:
-            rv = np.reshape(rv, (1, rv.shape[0]))
-        return rv
+        return data.iloc[0] if len(data) > 0 else operators.null
+
 first = vector_operator_factory('first', _first, block_streaming=False)
 
 def _count(data, axis=0):
     """Return the number of rows or columns of data"""
     shape = np.shape(data)
-    if axis == 0: 
-        return shape[0]
+    if axis == 0:
+        return len(data)
     elif axis == 1: 
-        return np.ones(shape[0]) * shape[1]
+        #this is weird but ok.
+        return np.ones(len(data)) * len(data.columns)
+        
 count = _op_from_compressive_op('count', _count)
 
 def _product(data, axis=0):
+    #TODO start here.
     if axis == 0:
         return reduce(np.multiply, data[1:], data[0, :])
     if axis == 1:
         return reduce(np.multiply, data.T[1:], data[:, 0])
 product = _op_from_compressive_op('product', _product)
+
+

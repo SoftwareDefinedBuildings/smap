@@ -159,6 +159,7 @@ class ReportingInstanceResource(resource.Resource):
         try:
             request.setHeader('Content-type', 'application/json')
             obj = read_report(self, request, duplicate_error=False)
+            print "Got object: ",obj
             if not self.reports.update_report(obj):
                 self.reports.add_report(obj)
                 request.setResponseCode(201) # created

@@ -76,7 +76,8 @@ class Timeseries(dict):
     DEFAULTS = {
         'BufferSize' : 1,
         'Properties/Timezone' : 'America/Los_Angeles',
-        'Properties/ReadingType' : 'long'
+        'Properties/ReadingType' : 'long',
+        'TimeUnit' : "s",
         }
 
     def __init__(self,
@@ -86,7 +87,7 @@ class Timeseries(dict):
                  timezone=DEFAULTS['Properties/Timezone'],
                  description=None,
                  buffersz=DEFAULTS['BufferSize'],
-                 milliseconds=False):
+                 timeunit=DEFAULTS['TimeUnit']):
         """
 :param new_uuid: a :py:class:`uuid.UUID`
 :param string unit: the engineering units of this timeseries
@@ -94,10 +95,9 @@ class Timeseries(dict):
 :param string timezone: a tzinfo-style timezone.
 :param string description: the value of sMAP Description field.
 :param int buffersz: how many readings to present when the timeseries is retrieved with a ``GET``.
-:param bool milliseconds: if True, then the stream publishes time in
- units of Unix milliseconds.  Otherwise, normal unix timestamps are
- assumed
+:param string timeunit: what unit of time the timeseries uses
 """
+        print "TSI, param=",timeunit
         if isinstance(new_uuid, dict):
             if not schema.validate('Timeseries', new_uuid):
                 raise SmapSchemaException("Initializing timeseries failed -- invalid object")
@@ -105,15 +105,16 @@ class Timeseries(dict):
             reading_init = new_uuid['Readings']
         else:
             self.__setitem__("uuid", new_uuid)
+            print "At this point, we have: ", timeunit
             self.__setitem__("Properties", {
                     'UnitofMeasure' : unit,
                     'ReadingType' : data_type,
-                    'Timezone' : timezone})
+                    'Timezone' : timezone,
+                    'UnitofTime' : timeunit})
             if description:
                 self.__setitem__("Description", description)
             reading_init = []
         self.dirty = True
-        self.milliseconds = milliseconds
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
 
     def _check_type(self, value):
@@ -140,10 +141,10 @@ Can be called with 1, 2, or 3 arguments.  The forms are
 :raises SmapException: if the value's type does not match the stream
  type, or was called with an invalid number of arguments.
         """
+        
         seqno = None
         if len(args) == 1:
-            time = util.now()
-            if self.milliseconds: time *= 1000
+            time = util.now(self.__getitem__('Properties')['UnitofTime'])
             value = args[0]
         elif len(args) == 2:
             time, value = args
@@ -154,11 +155,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                 "(time, value), or (time, value, seqno)")
 
         # note that we got data now
-        self.inst.statslog.mark()
+        #self.inst.statslog.mark()
 
         time = int(time)
-        if not self.milliseconds:
-            time *= 1000
 
         if not self._check_type(value):
             raise SmapException("Attempted to add " + str(value) + 
@@ -494,6 +493,7 @@ sMAP reporting functionality."""
                 self.add_collection(util.join_path(path[:i]))
 
     def add_timeseries(self, path, *args, **kwargs):
+        print "adt invoked, a=",args, "kw=",kwargs
         """Add a timeseries to the smap server at the given path.  This will
         generate a UUID for the timeseries.
 

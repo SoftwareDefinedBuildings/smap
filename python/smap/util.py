@@ -52,8 +52,15 @@ def to_bool(s):
     elif isinstance(s, int): return not s == 0
     else: return s.lower().strip() in ['true', '1']
 
-def now():
-    return int(time.time())
+def time_mult(frm="s", to="ns"):
+    unit_defs = {"ns":1000000000,"us":1000000,"ms":1000,"s":1}
+    if (unit_defs[frm] > unit_defs[to]):
+        return float(unit_defs[to]) / unit_defs[frm]
+    return unit_defs[to] / unit_defs[frm]
+    
+def now(unit="s"):
+    t = time.time()*time_mult(to=unit)
+    return int(t)
 
 def split_path(path):
     path = re.split('/+', path)
