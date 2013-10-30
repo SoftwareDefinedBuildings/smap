@@ -158,7 +158,8 @@ def _diff(data, axis=1):
     """Compute discrete differences in either axis"""
     if axis == 1:
         return pd.DataFrame(np.diff(data, axis=1), index=data.index)
-    else return data.diff()
+    else:
+        return data.diff()
     
 diff = vector_operator_factory('diff', _diff)
 

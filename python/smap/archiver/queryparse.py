@@ -379,7 +379,7 @@ def p_data_clause(t):
         print "TAGGIT XT called: ",strm
         return data.data_load_result(t.parser.request,
                                method,
-                               streams,
+                               strm,
                                ndarray=False,
                                as_smapobj=True,
                                send=True)
