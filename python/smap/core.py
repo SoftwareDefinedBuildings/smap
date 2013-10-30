@@ -97,7 +97,6 @@ class Timeseries(dict):
 :param int buffersz: how many readings to present when the timeseries is retrieved with a ``GET``.
 :param string timeunit: what unit of time the timeseries uses
 """
-        print "TSI, param=",timeunit
         if isinstance(new_uuid, dict):
             if not schema.validate('Timeseries', new_uuid):
                 raise SmapSchemaException("Initializing timeseries failed -- invalid object")
@@ -105,7 +104,6 @@ class Timeseries(dict):
             reading_init = new_uuid['Readings']
         else:
             self.__setitem__("uuid", new_uuid)
-            print "At this point, we have: ", timeunit
             self.__setitem__("Properties", {
                     'UnitofMeasure' : unit,
                     'ReadingType' : data_type,
@@ -155,7 +153,8 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                 "(time, value), or (time, value, seqno)")
 
         # note that we got data now
-        #self.inst.statslog.mark()
+        if self.inst != None:
+            self.inst.statslog.mark()
 
         time = int(time)
 
@@ -493,7 +492,6 @@ sMAP reporting functionality."""
                 self.add_collection(util.join_path(path[:i]))
 
     def add_timeseries(self, path, *args, **kwargs):
-        print "adt invoked, a=",args, "kw=",kwargs
         """Add a timeseries to the smap server at the given path.  This will
         generate a UUID for the timeseries.
 

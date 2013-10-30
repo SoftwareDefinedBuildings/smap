@@ -304,7 +304,6 @@ def p_apply_statement(t):
     print "Extra restrictions", t[1].restrict
     app = stream.OperatorApplicator(t[1].ast, t[3].dparams,
                                     t.parser.request, group=group)
-    #MPA TODO find out how this works so that unitoftime is propogated in
     t[0] = ([app.start_processing, tag_extractor, data_extractor], 
             [None, tag_query, data_query])
 

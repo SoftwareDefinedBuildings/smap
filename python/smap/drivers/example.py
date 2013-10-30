@@ -37,7 +37,7 @@ from twisted.internet import threads
 
 class Driver(SmapDriver):
     def setup(self, opts):
-        self.add_timeseries('/sensor0', 'V', timeunit="ns")
+        self.add_timeseries('/sensor0', 'V', timeunit="s")
         self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument'
             })
@@ -49,7 +49,6 @@ class Driver(SmapDriver):
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
-        print "adding result", self.counter
         self.add('/sensor0', self.counter)
         self.counter += 1
 
@@ -62,7 +61,6 @@ class Driver(SmapDriver):
         et_utc = dtutil.dt2ts(et)
         ts = int(st_utc / 120) * 120 # round down to nearest 2-min increment
         while ts <= et_utc:
-            print "using a timestamp of: ",ts
             self.add('/sensor0', ts, self.counter)
             self.counter += 1
             ts += 120 # 2-min increments

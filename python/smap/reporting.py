@@ -145,7 +145,6 @@ class DataBuffer:
         :param string key: The key for the data stream
         :param string val: The new value for the object.  Copied.
         """
-        print "reportiny.pu add k,v:",(key, val)
         tail = self.data.tail()
 
         # length of the head

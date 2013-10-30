@@ -239,9 +239,6 @@ class DataRequester:
 :param method: 'data', 'prev', or 'next'
 :param streaminfos: a list of (uuid, streamid, timeunit, timezone) tuples data is requested for.
         """
-        
-        
-        print "DRLD req, met, strid: ",request,method,streaminfos
         self.streaminfos = streaminfos
         ids = map(operator.itemgetter(1), streaminfos)
         units = map(operator.itemgetter(2), streaminfos)
@@ -271,8 +268,6 @@ class DataRequester:
         # args are a bit different for different requests
         if method == 'data':
             method = settings.rdb.db_query
-            print "we are shoving in ",starttime,"and ",endtime
-            print "the ids are",ids
             args = [
                 ids,
                 starttime,
@@ -304,10 +299,7 @@ class DataRequester:
         # had a floating point multiplier
         # if the multiplier is less than one, we would have bigger problems though,
         # so we just bite the pillow
-        print "Stream unit is: ",stream_unit
-        print "Query unit is: ",query_unit
         multiplier = unit_defs[query_unit] / unit_defs[stream_unit]
-        print "Resultant multiplier is %06f"%multiplier
         if multiplier >=1 : 
             multiplier = int(multiplier)
         else:
@@ -322,13 +314,9 @@ class DataRequester:
         return d
 
     def modify_units(self, data, streaminfos, multiplier, unit):
-        print "MU, data is: ",data
         #We also refactor the array of u64's into dt64's.
         rv = []
         for streaminfo, streamdata in zip(streaminfos, data):
-            print "SD is: ",streamdata
-            print "SD 0 is :",streamdata[0]
-            
             #this should be zero alloc
             tz = streaminfo[3]
             np.multiply(streamdata[0], multiplier, streamdata[0])
@@ -353,7 +341,6 @@ class DataRequester:
     def check_data(self, data):
         """Run a check to see if the the data we get back from
         readingdb is sensible."""
-        print "DATA CHECK: ",data
         for d in data:
             times = set(d[:, 0])
             assert len(times) == len(d[:, 0])
@@ -401,10 +388,8 @@ def data_load_result(request, method, result, send=False, **loadargs):
 :return: a deferred which will fire with the result of loading the requested data.
     """
     count = int(request.args.get('streamlimit', ['1000'])[0])
-    print "XT DLR: ",request, method, result, send, loadargs
     if count == 0:
         count = len(result)
-    print "XT DLR LN: ",len(result)
     if len(result) > 0:
         loader = DataRequester(**loadargs)
         d = loader.load_data(request, method, result[:count])

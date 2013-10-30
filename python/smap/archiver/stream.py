@@ -114,7 +114,6 @@ class OperatorApplicator(object):
         """data: a list with two elements: the first is the metadata,
         and the second is the stream information we will need to fetch
         the actual data"""
-        print "start_processing data: ",data
         # save the metadata and streamids for loading
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
@@ -208,7 +207,6 @@ class OperatorApplicator(object):
         return data
 
     def apply_operator(self, opdata, first, last):
-        print "JJ app opp", opdata,first,last
         tic = time.time()
 
         opdata = operators.DataChunk((self.data_spec['start'],
@@ -231,7 +229,6 @@ class OperatorApplicator(object):
                 self.consumer.finish()
 
     def build_result(self, (d, s)):
-        print "JJ build_result",d,s
         obj = dict(s)
         if isinstance(d, np.ndarray):
             obj['Readings'] = d.tolist()

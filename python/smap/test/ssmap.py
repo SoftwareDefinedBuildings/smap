@@ -65,15 +65,5 @@ class Ssstream(object):
         r = requests.get(url)
         if r.status_code != 200: return None
         return json.loads(r.text)[0]["Readings"]
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         
