@@ -33,10 +33,24 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import os
 
+import logging
+from twisted.python import log
+
 # default configuration 
 SERVER = {
     'port' : 8080,
-}
+    }
+
+LOGGING = {
+    # configure logging to sentry via raven
+#         'raven': { 
+#             'dsn': 'twisted+http://a888206fd60f4307a7b1a880d1fe04fe:15ecf70787b0490880c712d8469459bd@localhost:9000/2'
+#             },
+    'console': {
+        'level': 'INFO'
+        }
+    
+    }
 
 # guess where the html might be...
 try:
@@ -47,3 +61,20 @@ try:
 except:
     SERVER['docroot'] = None
                            
+
+def start_logging():
+    observer = log.PythonLoggingObserver()
+    observer.start()
+    print LOGGING
+
+    for logtype, config in LOGGING.iteritems():
+        if logtype == "raven":
+            from raven.handlers.logging import SentryHandler
+            handler = SentryHandler(config["dsn"])
+            logging.getLogger().addHandler(handler)
+        elif logtype == 'console':
+            console = logging.StreamHandler()
+            console.setLevel(getattr(logging, config.get('level', 'info')))
+            formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+            console.setFormatter(formatter)
+            logging.getLogger().addHandler(console)
