@@ -63,7 +63,7 @@ bacnet_module = Extension('smap.iface.pybacnet._bacnet',
   include_dirs=inc_dir)
 
 setup(name="Smap",
-      version="2.0.558",
+      version="2.0.ecaeca",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",

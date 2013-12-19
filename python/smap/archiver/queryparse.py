@@ -311,8 +311,8 @@ def p_apply_statement(t):
     """apply_statement  : formula_pipe TO data_clause WHERE statement
                         | formula_pipe TO data_clause WHERE statement GROUP BY tag_list
     """
-    print "Existing restrictions", t[5]
-    restrict = add_formula_restrictions(t[5], t[1].restrict)
+    print "Existing restrictions", t[5].render()
+    restrict = add_formula_restrictions(t[5].render(), t[1].restrict)
     tag_extractor, tag_query = make_select_rv(t, 
                                               make_tag_select('*'), 
                                               restrict)
@@ -534,7 +534,7 @@ def p_set_list(t):
     if len(t) == 4:
         t[0] = [(t[1], t[3])]
     else:
-        t[0] = [(t[1], t[3])] + t[5]
+        t[0] = [(t[1], t[3])] + t[5].render()
 
 def p_statement(t):
     """statement : statement_unary
