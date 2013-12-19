@@ -208,6 +208,30 @@ def make_select_rv(t, sel, wherestmt='true'):
                           wherestmt,
                           qg.build_authcheck(t.parser.request)))
 
+def build_setstring(setvals, wherevals):
+    #  set tags 
+    regex = None
+    for stmt in wherevals:
+        if stmt.op == ast.Statement.OP_REGEX:
+            if regex == None:
+                regex = stmt
+            else:
+                raise qg.QueryException("Too many regexes in set.  Only one supported!")
+
+    if regex == None:
+        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, %s)" % 
+                                   (escape_string(t), escape_string(v)),
+                                   setvals))
+    else:
+        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, regexp_replace(metadata -> %s, '^.*%s.*$', %s))" % 
+                                   (escape_string(t), 
+                                    regex.args[0],
+                                    regex.args[1][1:-1].replace('\\\\', '\\'),
+                                    escape_string(v).replace('\\\\', '\\')),
+                                   setvals))
+    return new_tags;
+
+
 # top-level statement dispatching
 def p_query(t):
     """query : SELECT selector WHERE statement
@@ -222,7 +246,7 @@ def p_query(t):
              """
     if t[1] == 'select': 
         if len(t) == 5:
-            t[0] = make_select_rv(t, t[2], t[4])
+            t[0] = make_select_rv(t, t[2], t[4].render())
         elif len(t) == 3:
             t[0] = make_select_rv(t, t[2])
         
@@ -239,7 +263,7 @@ def p_query(t):
                      (%(auth)s)
                    ) RETURNING id, uuid
                 """ % { 
-                'restrict': t[3],
+                'restrict': t[3].render(),
                 'auth': qg.build_authcheck(t.parser.request, forceprivate=True) 
                 }
         else:
@@ -248,19 +272,16 @@ def p_query(t):
             q = "UPDATE stream SET metadata = metadata - ARRAY[" + del_tags + \
                 "] WHERE id IN " + \
                 "(SELECT s.id FROM stream s, subscription sub " + \
-                "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
+                "WHERE (" + t[4].render() + ") AND s.subscription_id = sub.id AND " + \
                 qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
             t[0] = None, q
 
     elif t[1] == 'set':
-        #  set tags 
-        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, %s)" % 
-                                   (escape_string(t), escape_string(v)),
-                               t[2]))
+        new_tags = build_setstring(t[2], t[4])
         q = "UPDATE stream SET metadata = metadata || " + new_tags + \
             " WHERE id IN "  + \
             "(SELECT s.id FROM stream s, subscription sub " + \
-            "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
+            "WHERE (" + t[4].render() + ") AND s.subscription_id = sub.id AND " + \
             qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
         t[0] = None, q
 
@@ -526,18 +547,18 @@ def p_statement(t):
     if len(t) == 2:
         t[0] = t[1]
     elif t[2] == 'and':
-        t[0] = '(%s) AND (%s)' % (t[1], t[3])
+        t[0] = ast.Statement(ast.Statement.OP_AND, t[1], t[3])
     elif t[2] == 'or':
-        t[0] = '(%s) OR (%s)' % (t[1], t[3])
+        t[0] = ast.Statement(ast.Statement.OP_OR, t[1], t[3])
     elif t[1] == 'not':
-        t[0] = 'NOT (%s)' % t[2]
+        t[0] = ast.Statement(ast.Statement.OP_NOT, t[2])
     else:
         t[0] = t[2]
 
 def p_statement_unary(t):
     """statement_unary : HAS LVALUE"""
     if t[1] == 'has':
-        t[0] = 's.metadata ? %s' % escape_string(t[2])
+        t[0] = ast.Statement(ast.Statement.OP_HAS, t[2])
 
 def p_statement_binary(t):
     """statement_binary : LVALUE '=' QSTRING
@@ -545,19 +566,14 @@ def p_statement_binary(t):
                         | LVALUE TILDE QSTRING
     """
     if t[1] == 'uuid':
-        t[0] = 's.uuid %s %s' % (t[2], escape_string(t[3]))
+        t[0] = ast.Statement(ast.Statement.OP_UUID, t[2], t[3])
     else:
-        if t[2] == '=':
-            q = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), 
-                                                  escape_string(t[3]))
+        if t[2] == '=': 
+            t[0] = ast.Statement(ast.Statement.OP_EQUALS, t[1], t[3])
         elif t[2] == 'like':
-            q = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), 
-                                                escape_string(t[3]))
+            t[0] = ast.Statement(ast.Statement.OP_LIKE, t[1], t[3])
         elif t[2] == '~':
-            q = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), 
-                                             escape_string(t[3]))
-
-        t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
+            t[0] = ast.Statement(ast.Statement.OP_REGEX, t[1], t[3])
 
 
 formula = collections.namedtuple('formula', 'ast restrict')
@@ -786,7 +802,7 @@ class QueryParser:
             q = [None, q]
             ext = [None, ext]
 
-        if verbose: 
+        if verbose:
             print q[1]
         if not run: return defer.succeed([])
         

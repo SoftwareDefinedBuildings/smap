@@ -30,7 +30,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
+import operator
+
 from smap import operators, util
+from smap.archiver.data import escape_string
 
 class AstNode(operators.Operator):
     def __init__(self, inputs, op, *children):
@@ -70,6 +73,61 @@ def nodemaker(op, *children):
 def leafmaker(op, *children):
     return lambda inputs: AstLeaf(inputs, op, *children)
 
+class Statement(object):
+    OP_UUID = 0
+    OP_HAS = 1
+    OP_EQUALS = 2
+    OP_LIKE = 3
+    OP_REGEX = 4
+    
+    OP_AND = 5
+    OP_OR = 6
+    OP_NOT = 7
+
+    def __init__(self, op, *args):
+        self.op = op
+        if self.op in [Statement.OP_UUID, Statement.OP_HAS, Statement.OP_EQUALS,
+                       Statement.OP_LIKE, Statement.OP_REGEX]:
+            self.args = tuple(map(escape_string, args))
+        else:
+            self.args = args
+
+    def __iter__(self):
+        """Iterate over all leaf statements"""
+        if self.op in [Statement.OP_UUID, Statement.OP_HAS, Statement.OP_EQUALS,
+                       Statement.OP_LIKE, Statement.OP_REGEX]:
+            yield self
+        else:
+            for arg in self.args:
+                for stmt in arg:
+                    yield stmt
+            yield self
+
+    def render(self):
+        if self.op == Statement.OP_UUID:
+            return 's.uuid %s %s' % (self.args[0][1:-1], self.args[1])
+        elif self.op == Statement.OP_HAS:
+            return 's.metadata ? %s' % self.args
+        elif self.op == Statement.OP_EQUALS:
+            q = "(s.metadata -> %s) = %s" % self.args
+            return  '(s.metadata ? %s) AND (%s)' % (self.args[0], q)
+        elif self.op == Statement.OP_LIKE:
+            q = "(s.metadata -> %s) LIKE %s" % self.args
+            return  '(s.metadata ? %s) AND (%s)' % (self.args[0], q)
+        elif self.op == Statement.OP_REGEX:
+            q = "(s.metadata -> %s) ~ %s" % self.args
+            return  '(s.metadata ? %s) AND (%s)' % (self.args[0], q)
+        elif self.op == Statement.OP_AND:
+            return '(%s) AND (%s)' % tuple(map(operator.methodcaller("render"), self.args))
+        elif self.op == Statement.OP_OR:
+            return '(%s) OR (%s)' % tuple(map(operator.methodcaller("render"), self.args))
+        elif self.op == Statement.OP_NOT:
+            return 'NOT (%s)' % tuple(map(operator.methodcaller("render"), self.args))
+
+    def __str__(self):
+        return str(self.op) + " " + str(self.args)
+    
+
 if __name__ == '__main__':
     import queryparse
     import uuid
@@ -92,3 +150,5 @@ if __name__ == '__main__':
     print op
     print c
     # print util.SetDict(op.restrict)
+
+
