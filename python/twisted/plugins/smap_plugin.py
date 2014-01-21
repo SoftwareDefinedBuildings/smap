@@ -76,6 +76,7 @@ class SmapServiceMaker(object):
             smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])
+        smapconf.start_logging()
         # override defaults with command-line args
         smapconf.SERVER.update(dict([(k.lower(), v) for (k, v) in
                                      options.iteritems() if v != None]))
