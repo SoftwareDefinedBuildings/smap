@@ -26,7 +26,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-
+import os
 from distutils.core import setup, Extension
 
 # import this to build the parser table so it will be installed
@@ -39,8 +39,31 @@ modbus_module = Extension('smap.iface.modbus._TCPModbusClient',
                                        "utility.c", "crc16.c", "DieWithError.c",
                                        "HandleModbusTCPClient.c"]))
 
+inc_dir = ['bacnet-stack-0.6.0/include', 
+           'bacnet-stack-0.6.0/demo/object',
+           'bacnet-stack-0.6.0/ports/linux']
+
+# Use absolute paths relative to setup.py
+# in order to build BACnet support, first download bacnet-stack-0.6 from here:
+# http://sourceforge.net/projects/bacnet/files/bacnet-stack/bacnet-stack-0.6.0/
+# 
+# build that source for your platform (on OSX, make sure you do
+# everything with CC=gcc; none of this works wtih LLVM).
+#
+# you should then be able to uncomment the bacnet extension module and
+# build pybacnet
+prefix = os.path.dirname(os.path.abspath(__file__))
+inc_dir = [os.path.join(prefix, dir) for dir in inc_dir]
+lib_path = os.path.join(prefix, 'bacnet-stack-0.6.0/lib')
+bacnet_module = Extension('smap.iface.pybacnet._bacnet',
+  sources=['smap/iface/pybacnet/bacnet.c', 'smap/iface/pybacnet/bacnet.i'],
+  swig_opts=['-I' + os.path.join(prefix, 'bacnet-stack-0.6.0/include')],
+  libraries=['bacnet'],
+  library_dirs=[lib_path],
+  include_dirs=inc_dir)
+
 setup(name="Smap",
-      version="2.0.558",
+      version="2.0.ecaeca",
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
@@ -61,6 +84,7 @@ setup(name="Smap",
         # interfaces for talking to different backends
         "smap.iface", "smap.iface.http", "smap.iface.modbus",
         "smap.iface.modbustcp",
+        "smap.iface.pybacnet",
 
         # hack to support ipv6 sockets -- needed for acme, at least
         "tx", "tx.ipv6", "tx.ipv6.application", "tx.ipv6.internet",
@@ -85,7 +109,10 @@ setup(name="Smap",
         # ('/etc/monit/conf.d', ['monit/archiver']),
         # ('/etc/smap/', ['conf/archiver.ini']),
         ],
-      # ext_modules=[modbus_module],
+      ext_modules=[
+        # modbus_module,
+        # bacnet_module,
+        ],
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
                'bin/smap-load-csv', 'bin/smap-tool',
