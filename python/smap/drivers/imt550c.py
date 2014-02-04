@@ -48,28 +48,33 @@ class IMT550C(driver.SmapDriver):
         self.password = opts.get('password', None)
         self.points0 = [
                           {"name": "temp", "unit": "F", "data_type": "double",
-                            "OID": "4.1.13", "range": (-200,2000), "access": 4,
+                            "OID": "4.1.13", "range": (-30.0,200.0), "access": 4, "mapping": lambda x: x*10,
                             "act_type": None}, # thermAverageTemp
-                          {"name": "tmode", "unit": "Mode", "data_type": "long",
-                            "OID": "4.1.1", "range": (1,2,3,4), "access": 6,
+                          {"name": "hvac_mode", "unit": "Mode", "data_type": "long",
+                            "OID": "4.1.1", "range": (0,1,2,3), "access": 6, "mapping": lambda x: x+1,
                             "act_type": "discrete"}, # thermHvacMode
+                          #TODO add thermHvacState, thermFanMode
                           {"name": "fmode", "unit": "Mode", "data_type": "long",
-                            "OID": "4.1.3", "range": (1,2,3), "access": 6,
+                            "OID": "4.1.3", "range": (1,2,3), "access": 6, "mapping": lambda x: x,
                             "act_type": "discrete"}, # thermFanMode
-                          {"name": "thermSetbackStatus", "unit": "Mode",
+                          {"name": "hold", "unit": "Mode",
                             "data_type": "long", "OID": "4.1.9",
-                            "range": (1,2,3), "access": 6,
+                            "range": (0,1), "access": 6, "mapping": lambda x: {x:x, 0:1, 1:2, 0:3}[x],
                             "act_type": "discrete"}, # hold/override
+                          {"name": "override", "unit": "Mode",
+                            "data_type": "long", "OID": "4.1.9",
+                            "range": (1,3), "access": 6, "mapping": lambda x: {x:x, 1:0, 3:1}[x],
+                            "act_type": "discrete"}, # hold/override                          
                           {"name": "t_heat", "unit": "F", "data_type": "double",
-                            "OID": "4.1.5", "range": (450,950), "access": 6,
+                            "OID": "4.1.5", "range": (450,950), "access": 6, "mapping": lambda x: x,
                             "act_type": "continuous"}, #thermSetbackHeat
                           {"name": "t_cool", "unit": "F", "data_type": "double",
-                            "OID": "4.1.6", "range": (450,950), "access": 6,
+                            "OID": "4.1.6", "range": (450,950), "access": 6,  "mapping": lambda x: x,
                             "act_type": "continuous"}, #thermSetbackCool
                           {"name": "thermConfigHumidityCool", "unit": "%RH",
                             "data_type": "double", "OID": "4.2.22",
-                            "range": (0,95), "access": 0,
-                            "act_type": "continuous"}
+                            "range": (0,95), "access": 0, "mapping": lambda x: x,
+                            "act_type": "continuous"} #TODO change to thermRelativeHumidity
                           #TODO needs better support in smap
                           #(continous and discrete and only inetgers, 0, 5-95)
                        ]
@@ -77,38 +82,40 @@ class IMT550C(driver.SmapDriver):
           self.add_timeseries('/' + p["name"], p["unit"],
               data_type=p["data_type"], timezone=self.tz)
           if p['access'] == 6:
-            if p['act_type'] == 'binary':
-              print "not implemented"
-            elif p['act_type'] == 'discrete':
+            if p['act_type'] == 'discrete':
               klass = DiscreteActuator
               setup={'model': 'discrete', 'ip':self.ip, 'states': p['range'],
-                  'user': self.user, 'password': self.password, 'OID': p['OID']}
+                  'user': self.user, 'password': self.password, 'OID': p['OID'], 'mapping': p['mapping']}
               self.add_actuator('/' + p['name'] + '_act', p['unit'], klass,
                   setup=setup, data_type = p['data_type'], write_limit=5)
             elif p['act_type'] == 'continuous':
               klass = ContinuousActuator
               setup={'model': 'continuous', 'ip':self.ip, 'range': p['range'],
-                  'user': self.user, 'password': self.password, 'OID': p['OID']}
+                  'user': self.user, 'password': self.password, 'OID': p['OID'],  'mapping': p['mapping']}
               self.add_actuator('/' + p['name'] + '_act', p['unit'], klass,
                   setup=setup, data_type = p['data_type'], write_limit=5)
+            else:
+              print "sth is wrong here"
 
     def start(self):
         # call self.read every self.rate seconds
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
+        #TODO add mapping
         url = 'http://' + self.ip + "/get"
         for p in self.points0:
+          #f = p['mapping'
           r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password),
               params="OID"+p["OID"])
           val = r.text.split('=', 1)[-1]
           if p["data_type"] == "long":
-            self.add("/" + p["name"], long(val))
+            self.add("/" + p["name"], p['mapping'](long(val)))
             #data_type = p["data_type"]
             #data_type_f = getattr(__builtin__, data_type)
             #val = data_type_f(val)
           else:
-            self.add("/" + p["name"], float(val))
+            self.add("/" + p["name"], p['mapping'](float(val)))
 
 class ThermoActuator(actuate.SmapActuator):
 
@@ -118,17 +125,24 @@ class ThermoActuator(actuate.SmapActuator):
         self.password = opts['password']
         self.url = 'http://' + self.ip
         self.OID = opts['OID']
+        self.mapping = opts['mapping']
+        print self
 
     def get_state(self, request):
         r = requests.get(self.url+"/get?OID"+self.OID+"=",
             auth=HTTPDigestAuth(self.user, self.password))
         rv = (r.text.split('=', 1)[-1])
-        return self.parse_state(rv)
+        print "GET STATE"
+        print rv
+        return self.mapping(self.parse_state(rv))
 
     def set_state(self, request, state):
-        payload = {"OID"+self.OID: int(state), "submit": "Submit"}
+        payload = {"OID"+self.OID: self.mapping(int(state)), "submit": "Submit"}
         r = requests.get('http://'+self.ip+"/pdp/",
-            auth=HTTPDigestAuth('admin', 'admin'), params=payload)
+            auth=HTTPDigestAuth(self.user, self.password), params=payload)
+        print r.text
+        print "SET THIS STATE:"
+        print self.mapping(state)
         return state
 
 class BinaryActuator(ThermoActuator, actuate.BinaryActuator):
