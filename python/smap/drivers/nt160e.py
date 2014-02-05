@@ -28,6 +28,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Jay Taneja <taneja@cs.berkeley.edu>
+@author Tyler Hoyt <thoyt@berkeley.edu>
 """
 
 import time
@@ -38,10 +39,11 @@ import logging,os,sys
 
 from twisted.internet import defer
 from twisted.web import client
-
 from twisted.python import log
 
-from smap import util
+from selenium import webdriver
+
+from smap import util, actuate
 from smap.driver import SmapDriver
 
 class NT160e(SmapDriver):
@@ -57,14 +59,20 @@ class NT160e(SmapDriver):
         'schedule_heat': ('C','printFSC\("Heat"'),
         'hvac_state': ('state','hvacStateS =')
     }
-
+    ACTUATORS = [
+        {'name': 'fan_mode', 'OID': 'OID4.1.3', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
+        {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
+        {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
+        {'name': 'cool_setting', 'OID': 'OID4.1.6', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous'},
+        {'name': 'heat_setting', 'OID': 'OID4.1.5', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous'}
+    ]
+       
     def convertTemperature(self, temp, scale):
         if scale.upper() == 'FAHRENHEIT':
             return (float(temp) - 32) / 1.8
         else:
             return float(temp)
 
-#    @defer.inlineCallbacks
     def scrape(self):
         current_values = {}
         try:
@@ -130,7 +138,6 @@ class NT160e(SmapDriver):
         if have_data == True:
             try:
                 for field in self.FIELDS.keys():
-#                    print reading_time,field,current_values[field]
                     self.add('/' + field, reading_time, current_values[field])
                 have_data = False
             except Exception,e:
@@ -160,9 +167,62 @@ class NT160e(SmapDriver):
                 'Metadata/Location/Country' : 'USA',
                 })
 
+        # Actuators
+        self.auth_url = 'https://' + self.auth[0] + ':' + self.auth[1] + '@' + self.baseurl
+        s = {'url': self.auth_url, 'uname': self.auth[0], 'password': self.auth[1]}
+        for a in self.ACTUATORS:
+            s['OID'] = a['OID']
+            if a['actuator_type'] == 'Discrete':
+                klass = DiscreteActuator
+            elif a['actuator_type'] == 'Continuous':
+                klass = ContinuousActuator
+            print 'adding actuator', klass, s
+            self.add_actuator('/' + a['name'], a['unit'], klass, setup=s, data_type=a['type'], write_limit=5)
+            print 'added'
+        
     def start(self):
         self.scraper = util.periodicSequentialCall(self.scrape)
         self.scraper.start(60)
 
     def stop(self):
         self.scraper.stop()
+
+if __name__=='__main__':
+    url = "http://admin:admin@192.168.1.82/index.shtml"
+    cmd = "document.getElementsByName('OID4.1.6')[0].value = 820;"
+    browser = webdriver.Firefox()
+    browser.get(url)
+    browser.execute_script(cmd)
+    browser.execute_script("document.getElementsByName('submit')[0].click();")
+    browser.quit()
+
+class _NT160eActuator(actuate.SmapActuator):
+
+    def setup(self, opts):
+        print 'NT160eActuator setup'
+        self.url = opts.get('auth_url')
+        self.uname = opts.get('uname')
+        self.password = opts.get('password')
+
+    def get_state(self, request):
+        pass
+
+    def set_state(self, request, state):
+        cmd = "document.getElementsByName('OID4.1.6')[0].value = 820;"
+        browser = webdriver.Firefox()
+        browser.get(self.auth_url)
+        browser.execute_script(cmd)
+        browser.execute_script("document.getElementsByName('submit')[0].click();")
+        browser.quit()
+
+class DiscreteActuator(_NT160eActuator, actuate.NStateActuator):
+    def setup(self, opts):
+        print 'DiscreteActuator setup'
+        actuate.NStateActuator.setup(self, opts)
+        _NT160eActuator.setup(self, opts)
+
+class ContinuousActuator(_NT160eActuator, actuate.ContinuousActuator):
+    def setup(self, opts):
+        print 'ContinuousActuator setup'
+        actuate.ContinuousActuator.setup(self, opts)
+        _NT160eActuator.setup(self, opts) 
