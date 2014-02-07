@@ -62,7 +62,7 @@ class HUE(driver.SmapDriver):
 
   def setup(self, opts):
     self.tz = opts.get('Metadata/Timezone', None)
-    self.rate = float(opts.get('Rate', 1))
+    self.rate = float(opts.get('Rate', 5))
     self.ip = opts.get('ip', None)
     self.user = opts.get('user', None)
     self.lights = []
