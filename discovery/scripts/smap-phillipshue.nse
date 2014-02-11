@@ -4,8 +4,8 @@ local ipOps = require "ipOps"
 local nmap = require "nmap"
 local shortport = require "shortport"
 local stdnse = require "stdnse"
+local json = require "json"
 local string = require "string"
-local url = require "url"
 
 description = [[
   Scans for Phillips Hue
@@ -28,18 +28,38 @@ action = function(host, port)
     return
   end
 
+  -- check if Phillips
+
   phillips = string.match(resp.body, 'hue personal wireless lighting')
   if not phillips then
     return
   end
-  stdnse.print_debug(0, "Detected Phillips Hue")
 
+  -- register nmap user. Press bridge button, but you don't need to
+  local new_user_req = {username = 'nmapscanuser', devicetype = 'nmapscanuser'}
+  local json_req = json.generate(new_user_req)
+  stdnse.print_debug(0, json_req)
+  local httpdata = http.post(host.ip, port, '/api', nil, nil, json_req)
+  if not httpdata.status == 200 then
+    return
+  end
+
+  local hue_config = http.get(host.ip, port, '/api/Nmap/config', nil)
+  stdnse.print_debug(0, hue_config.body)
+  local status, hue = json.parse(hue_config.body)
+
+  if not status then
+    return
+  end
+
+  stdnse.print_debug(0, "Detected Phillips Hue")
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
   output_tab.type = 'smap.drivers.hue.Hue'
   output_tab.Metadata__Instrument__Manufacturer = 'Phillips'
-  output_tab.Metadata__Instrument__Model = string.format('Hue')
+  output_tab.Metadata__Instrument__Model = hue['name']
+  output_tab.Metadata__SoftwareVersion = hue['swversion']
   output_tab.ip = host.ip
   output_tab.Rate = 1
   output_tab.user = ''
