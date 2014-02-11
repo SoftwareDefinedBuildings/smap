@@ -24,14 +24,6 @@ action = function(host, port)
 
   resp = http.get( host, port, '/' )
 
-  -- check for a redirect
---  if resp.location then
---    redirect_url = resp.location[#resp.location]
---    if resp.status and tostring( resp.status ):match( "30%d" ) then
---      return {redirect_url = redirect_url}, ("Did not follow redirect to %s"):format( redirect_url )
---    end
---  end
-
   if ( not(resp.body) ) then
     return
   end
@@ -45,15 +37,12 @@ action = function(host, port)
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
-  output_tab.type = 'smap.drivers.hue'
+  output_tab.type = 'smap.drivers.hue.Hue'
   output_tab.Metadata__Instrument__Manufacturer = 'Phillips'
   output_tab.Metadata__Instrument__Model = string.format('Hue')
   output_tab.ip = host.ip
   output_tab.Rate = 1
+  output_tab.user = ''
 
-  output_tab.login = ''
-  output_tab.password = ''
-
-  -- local output_str = string.format("%s%s", major, minor)
   return output_tab
 end
