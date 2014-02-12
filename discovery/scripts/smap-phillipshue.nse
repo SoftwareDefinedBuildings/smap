@@ -56,7 +56,7 @@ action = function(host, port)
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
-  output_tab.type = 'smap.drivers.hue.Hue'
+  output_tab.type = 'smap.drivers.hue.HUE'
   output_tab.Metadata__Instrument__Manufacturer = 'Phillips'
   output_tab.Metadata__Instrument__Model = hue['name']
   output_tab.Metadata__SoftwareVersion = hue['swversion']

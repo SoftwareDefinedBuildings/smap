@@ -118,4 +118,4 @@ setup(name="Smap",
                'bin/smap-load-csv', 'bin/smap-tool',
                'bin/smap-reporting', 'bin/smap-monitize'],
       install_requires = [
-        'twisted', 'configobj', 'avro', 'python-dateutil'])
+        'twisted', 'configobj', 'avro', 'python-dateutil', 'lockfile'])
