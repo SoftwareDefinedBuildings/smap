@@ -1,0 +1,17 @@
+Minimal common fucntionality:
+
+Name            Values            Access    Description      
+
+temp            -30.0...200.0     R         Temperature measured at thermostat,
+                                            if multiple sensors temperature average
+humidity        5...95            R         Humidity in percent
+hvac_state      0, 1, 2           R         0:off, 1:heat, 2:cool
+fan_state       0, 1              R         0:off, 1:on
+temp_heat       45.0...95.0       RW        Temperature in F
+temp_cool       45.0...95.0       RW        Temperature in F
+hold            0, 1              RW        0:Normal Mode, 1:Hold Mode
+                                            (holds current temperature)
+override        0, 1              RW        0:Normal Mode, 1:Override Mode
+                                            (return to normal with next schedule)
+hvac_mode       0, 1, 2, 3        RW        0:Inactive, 1:Heat only, 2:Cool only 3:Auto
+fan_mode        0, 1              RW        0:Auto, 1:Fan on

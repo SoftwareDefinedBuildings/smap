@@ -147,6 +147,28 @@
                             
         return rv;
       }
+      // create a slider ui for a continuous integer actuator
+      function makeContinuousIntegerActuator(path, meta) {
+        var rv = $("<div>");
+        var input = $("<input class=\"val\" type=\"text\" value=\"" + 
+                              latest(meta['Readings']) + "\"/>");
+        var slider = $("<div class=\"slider\" id=\"" + meta['uuid'] +
+                              "_slider\"></div>");
+                            
+        var range = meta.Actuate.States;
+        $(slider).slider({min: range[0], max: range[1], step: 1,
+                          value: latest(meta['Readings']),
+                          change: function(event, ui) {
+                            $(input).val($(slider).slider("value"));
+                            updateState(path, $(slider).slider("value"));
+                          }});
+        $(input).change(function(event) {
+                            $(slider).slider("value", $(input).val());
+                            });
+        rv.append(input); rv.append(slider);
+                            
+        return rv;
+      }
 
       // create the ui for a timeseries
       function makeTimeseries(path, meta) {
@@ -159,6 +181,8 @@
           return makeDiscreteActuator(path, meta);
         } else if (meta['Actuator']['Model'] == 'continuous') {
           return makeContinuousActuator(path, meta);
+      	} else if (meta['Actuate']['Model'] == 'continuousInteger') {
+        return makeContinuousIntegerActuator(path, meta);
         } else {
           return ;
         }

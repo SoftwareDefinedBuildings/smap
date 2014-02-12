@@ -141,7 +141,7 @@ are possible, this profile does not express any of them.
         return state in self.control_description['Values']
 
     def parse_state(self, state):
-        return state
+        return int(state)
 
     def translate_state(self, state):
         try:
@@ -174,13 +174,34 @@ specified.
         return float(state)
 
 
-# class GuardBandActuator(SmapActuator):
-#     """A GuardBandActuator actually consists of two points -- "high" and
-# "low", which are adjusted in parallel.
-#     """
-#     def __init__(self, **kwargs):
-#         self.control_type = 'guardband'
-#         SmapActuator.__init__(self, **kwargs)
+class ContinuousIntegerActuator(SmapActuator):
+    """A ContinuousIntegerActuator allows a set point to be adjusted within a
+continuous integer interval.  Minimum and maximum values in the range must be
+specified.
+    """
+    ACTUATE_MODEL = 'continuousInteger'
+    def valid_state(self, state):
+        return state >= self.control_description['States'][0] and \
+            state <= self.control_description['States'][1]
+
+    def parse_state(self, state):
+        return int(state)
+
+    def setup(self, opts):
+        self.control_type = 'continuousInteger'
+        self.control_description = {
+            'States' : opts.get('range', [0, 1]),
+            }
+        SmapActuator.setup(self, opts)
+
+
+class GuardBandActuator(SmapActuator):
+    """A GuardBandActuator actually consists of two points -- "high" and
+"low", which are adjusted in parallel.
+    """
+    def __init__(self, **kwargs):
+        self.control_type = 'guardband'
+        SmapActuator.__init__(self, **kwargs)
 
 
 if __name__ == '__main__':

@@ -34,6 +34,8 @@ from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 
 from twisted.internet import threads
+from twisted.python import log
+import logging
 
 class Driver(SmapDriver):
     def setup(self, opts):
@@ -51,6 +53,9 @@ class Driver(SmapDriver):
     def read(self):
         self.add('/sensor0', self.counter)
         self.counter += 1
+        # log.err("Bad error!")
+        log.err("Bad Error!")
+        logging.getLogger().warn("Message!")
 
     def load(self, st, et, cache=None):
         d = threads.deferToThread(self.load_data, st, et)
