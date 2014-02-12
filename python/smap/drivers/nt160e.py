@@ -60,13 +60,16 @@ class NT160e(SmapDriver):
         'hvac_state': ('state','hvacStateS =')
     }
     ACTUATORS = [
-        {'name': 'fan_mode', 'OID': 'OID4.1.3', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
-        {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
-        {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete'},
-        {'name': 'cool_setting', 'OID': 'OID4.1.6', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous'},
-        {'name': 'heat_setting', 'OID': 'OID4.1.5', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous'}
+        {'name': 'fan_mode', 'OID': 'OID4.1.3', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
+        {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
+        {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
+        {'name': 'cool_setting_act', 'OID': 'OID4.1.6', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous', 
+          'range': (40,99), 'convert': lambda x: 10 * int(x)},
+        {'name': 'heat_setting_act', 'OID': 'OID4.1.5', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous', 
+          'range': (40, 99), 'convert': lambda x: 10 * int(x)}
     ]
-       
+    # todo: figure out the correct states
+
     def convertTemperature(self, temp, scale):
         if scale.upper() == 'FAHRENHEIT':
             return (float(temp) - 32) / 1.8
@@ -76,13 +79,13 @@ class NT160e(SmapDriver):
     def scrape(self):
         current_values = {}
         try:
-            request = urllib2.Request(self.baseurl + 'index.shtml')
+            request = urllib2.Request(self.baseurl + '/index.shtml')
             base64string = base64.encodestring('%s:%s' % (self.auth[0], self.auth[1])).replace('\n', '')
             request.add_header("Authorization", "Basic %s" % base64string)
             response = urllib2.urlopen(request)
             page1 = response.read()
 
-            request = urllib2.Request(self.baseurl + 'settings.shtml')
+            request = urllib2.Request(self.baseurl + '/settings.shtml')
             request.add_header("Authorization", "Basic %s" % base64string)
             response = urllib2.urlopen(request)
 
@@ -147,7 +150,8 @@ class NT160e(SmapDriver):
                 logging.error('Error (' + str(sys.exc_info()[0]) + ') : ' + str(e) + ' from ' + fname + ':' + str(sys.exc_info()[2].tb_lineno))
 
     def setup(self, opts):
-        self.baseurl = opts.get('url')
+        self.ip = opts.get('ip')
+        self.baseurl = 'http://' + self.ip
         self.auth = [opts.get('login'),opts.get('password')]
 
         for stream, meta in self.FIELDS.iteritems():
@@ -168,17 +172,18 @@ class NT160e(SmapDriver):
                 })
 
         # Actuators
-        self.auth_url = 'https://' + self.auth[0] + ':' + self.auth[1] + '@' + self.baseurl
-        s = {'url': self.auth_url, 'uname': self.auth[0], 'password': self.auth[1]}
+        self.auth_url = 'http://' + self.auth[0] + ':' + self.auth[1] + '@' + self.ip + '/index.shtml'
+        s = {'auth_url': self.auth_url, 'uname': self.auth[0], 'password': self.auth[1]}
         for a in self.ACTUATORS:
-            s['OID'] = a['OID']
+            s['OID'] = a.get('OID')
+            s['convert'] = a.get('convert')
             if a['actuator_type'] == 'Discrete':
-                klass = DiscreteActuator
+                s['states'] = a.get('states')
+                act = DiscreteActuator(**s)
             elif a['actuator_type'] == 'Continuous':
-                klass = ContinuousActuator
-            print 'adding actuator', klass, s
-            self.add_actuator('/' + a['name'], a['unit'], klass, setup=s, data_type=a['type'], write_limit=5)
-            print 'added'
+                s['range'] = a.get('range')
+                act = ContinuousActuator(**s)
+            self.add_actuator('/' + a['name'], a['unit'], act, data_type=a['type'], write_limit=5)
         
     def start(self):
         self.scraper = util.periodicSequentialCall(self.scrape)
@@ -189,7 +194,7 @@ class NT160e(SmapDriver):
 
 if __name__=='__main__':
     url = "http://admin:admin@192.168.1.82/index.shtml"
-    cmd = "document.getElementsByName('OID4.1.6')[0].value = 820;"
+    cmd = "document.getElementsByName('OID4.1.6')[0].value = 810;"
     browser = webdriver.Firefox()
     browser.get(url)
     browser.execute_script(cmd)
@@ -198,17 +203,20 @@ if __name__=='__main__':
 
 class _NT160eActuator(actuate.SmapActuator):
 
-    def setup(self, opts):
-        print 'NT160eActuator setup'
-        self.url = opts.get('auth_url')
+    def __init__(self, **opts):
+        self.auth_url = opts.get('auth_url')
         self.uname = opts.get('uname')
         self.password = opts.get('password')
+        self.OID = opts.get('OID')
+        self.convert = opts.get('convert')
 
     def get_state(self, request):
         pass
 
     def set_state(self, request, state):
-        cmd = "document.getElementsByName('OID4.1.6')[0].value = 820;"
+        if self.convert:
+          state = self.convert(state)
+        cmd = "document.getElementsByName('%s')[0].value = %s;" % (self.OID, state)
         browser = webdriver.Firefox()
         browser.get(self.auth_url)
         browser.execute_script(cmd)
@@ -216,13 +224,11 @@ class _NT160eActuator(actuate.SmapActuator):
         browser.quit()
 
 class DiscreteActuator(_NT160eActuator, actuate.NStateActuator):
-    def setup(self, opts):
-        print 'DiscreteActuator setup'
-        actuate.NStateActuator.setup(self, opts)
-        _NT160eActuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.NStateActuator.__init__(self, opts['states'])
+        _NT160eActuator.__init__(self, **opts)
 
 class ContinuousActuator(_NT160eActuator, actuate.ContinuousActuator):
-    def setup(self, opts):
-        print 'ContinuousActuator setup'
-        actuate.ContinuousActuator.setup(self, opts)
-        _NT160eActuator.setup(self, opts) 
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        _NT160eActuator.__init__(self, **opts) 

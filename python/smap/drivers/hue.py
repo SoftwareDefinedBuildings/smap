@@ -42,7 +42,7 @@ from twisted.internet import threads
 class HUE(driver.SmapDriver):
 
   api = [ {"api": "on", "access": "rw", "data_type":"long", "unit": "Mode",
-    "act_type": "binary", "range": (0,1)},
+    "act_type": "binary", "states": [0,1]},
     {"api": "bri", "access": "rw", "data_type":"long", "unit": "Brightness",
       "act_type": "continuousInteger", "range": (0,255)},
     {"api": "hue", "access": "rw", "data_type":"long", "unit": "Mode",
@@ -81,9 +81,10 @@ class HUE(driver.SmapDriver):
               option["unit"], data_type=option["data_type"], timezone=self.tz)
 
           setup={'model': option["act_type"], 'ip':self.ip,
-              'range': option["range"], 'user': self.user, 'id': light["id"],
+              'range': option.get("range"), 'user': self.user, 'id': light["id"],
               'api': option["api"]}
           if  option["act_type"] == "binary":
+            setup['states'] = option.get("states")
             act = BinaryActuator(**setup)
           if  option["act_type"] == "continuousInteger":
             act = ContinuousIntegerActuator(**setup)
@@ -135,7 +136,7 @@ class BinaryActuator(Actuator, actuate.BinaryActuator):
 
 class DiscreteActuator(Actuator, actuate.NStateActuator):
     def __init__(self, **opts):
-        actuate.NStateActuator.__init__(self, opts["statues"])
+        actuate.NStateActuator.__init__(self, opts["states"])
         Actuator.__init__(self, **opts)
 
 class ContinuousIntegerActuator(Actuator, actuate.ContinuousIntegerActuator):
