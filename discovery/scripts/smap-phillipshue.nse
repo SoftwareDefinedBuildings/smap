@@ -63,7 +63,7 @@ action = function(host, port)
   output_tab.mac = host.mac_addr
   output_tab.ip = host.ip
   output_tab.Rate = 1
-  output_tab.user = ''
+  output_tab.user = 'smapuser123'
 
   return output_tab
 end
