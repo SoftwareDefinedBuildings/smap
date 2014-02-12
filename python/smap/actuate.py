@@ -77,7 +77,7 @@ class SmapActuator(object):
 
     # override all of these 
     control_type = None
-    control_description = None
+    control_description = {}
 
     def valid_state(self, state):
         raise NotImplementedError()
@@ -187,12 +187,11 @@ specified.
     def parse_state(self, state):
         return int(state)
 
-    def setup(self, opts):
+    def __init__(self, control_range=[0, 1]):
         self.control_type = 'continuousInteger'
         self.control_description = {
-            'States' : opts.get('range', [0, 1]),
+            'States' : control_range,
             }
-        SmapActuator.setup(self, opts)
 
 
 class GuardBandActuator(SmapActuator):

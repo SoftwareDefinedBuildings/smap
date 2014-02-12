@@ -4,7 +4,7 @@
   "namespace" : "edu.berkeley.cs.local",
   "doc" : "A representation of the type of actuation possible",
   "fields" : [
-    {"name" : "Model", "type" : {"type" : "enum", "symbols" : ["binary", "discrete", "continuous"], 
+    {"name" : "Model", "type" : {"type" : "enum", "symbols" : ["binary", "discrete", "continuous", "continuousInteger"], 
                                                  "name" : "ActuatorModels"}},
     {"name" : "MinValue", "type" : ["null", "long", "double"]},
     {"name" : "MaxValue", "type" : ["null", "long", "double"]},

@@ -155,7 +155,7 @@
         var slider = $("<div class=\"slider\" id=\"" + meta['uuid'] +
                               "_slider\"></div>");
                             
-        var range = meta.Actuate.States;
+        var range = meta.Actuator.States;
         $(slider).slider({min: range[0], max: range[1], step: 1,
                           value: latest(meta['Readings']),
                           change: function(event, ui) {
@@ -172,6 +172,7 @@
 
       // create the ui for a timeseries
       function makeTimeseries(path, meta) {
+			    console.log(meta);
         if (meta['Actuator'] === undefined) {
           return latest(meta["Readings"]) + 
                  meta ["Properties"]["UnitofMeasure"];
@@ -181,7 +182,7 @@
           return makeDiscreteActuator(path, meta);
         } else if (meta['Actuator']['Model'] == 'continuous') {
           return makeContinuousActuator(path, meta);
-      	} else if (meta['Actuate']['Model'] == 'continuousInteger') {
+      	} else if (meta['Actuator']['Model'] == 'continuousInteger') {
         return makeContinuousIntegerActuator(path, meta);
         } else {
           return ;
