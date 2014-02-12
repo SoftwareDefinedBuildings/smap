@@ -8,7 +8,7 @@ from twisted.internet import reactor, protocol, defer
 from twisted.internet.utils import getProcessOutputAndValue
 
 from smap.driver import SmapDriver
-import tail
+from smap.iface import tail
 
 # number of seconds to wait between detecting a device and scanning it.
 DETECT_SCAN_WAIT = 1
