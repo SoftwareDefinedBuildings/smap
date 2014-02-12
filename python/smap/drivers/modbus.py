@@ -38,7 +38,7 @@ from twisted.python import log
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 from smap.iface.modbustcp.ModbusTCP import ModbusTCP, ModbusError, FUNC_READ_HOLDING
-import smap.iface.modbus.TCPModbusClient as TCPModbusClient
+
 
 float = struct.Struct(">f")
 int16 = struct.Struct(">h")
