@@ -39,24 +39,6 @@ import time
 
 from twisted.internet import threads
 
-class _CT80Actuator(actuate.ContinuousActuator):
-
-    def setup(self, opts):
-        self.ip = opts.get('ip', None)
-        self.name = opts.get('name', None)
-        self.url = 'http://' + self.ip + '/tstat/' + self.name
-
-    def get_state(self, request):
-        r = requests.get(self.url)
-        rv = json.loads(r.text)
-        return self.parse_state(rv)
- 
-    def set_state(self, request, state):
-        payload = '{"' + self.name + '": ' + str(state) + '}'
-        r = requests.post(self.url, data=payload)
-        time.sleep(2)
-        return state 
-
 class CT80(SmapDriver):
     def setup(self, opts):
         self.tz = opts.get('Timezone', 'America/Los_Angeles')
@@ -78,10 +60,27 @@ class CT80(SmapDriver):
         # points not in the root resource
         self.add_timeseries('/humidity', '%RH', data_type="double")
 
-        #t_heat_opts = opts
-        #t_heat_opts["name"] = "t_heat"
-        #self.add_actuator('/t_heat', 'F', 
-        #    CT80Actuator, setup=t_heat_opts, data_type='double', write_limit=5)
+        self.actuators = [
+            {"name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
+            {"name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+            {"name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+            {"name": "override", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+            {"name": "hold", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+            {"name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+          ]
+        
+        setup = {'ip': self.ip}
+        for a in self.actuators:
+            setup["name"] = a["name"]
+            if a["act_type"] == "discrete":
+                setup["states"] = a["states"]
+                act = DiscreteActuator(**setup)
+            elif a["act_type"] == "continuous":
+                setup["range"] = a["range"]
+                act = ContinuousActuator(**setup)
+            else:
+                print 'invalid actuator type'
+            self.add_actuator("/" + a["name"] + "_act", a["unit"], act, data_type=a["data_type"], write_limit=5)
 
     def start(self):
         # call self.read every self.rate seconds
@@ -98,3 +97,31 @@ class CT80(SmapDriver):
         r = requests.get(url + '/humidity')
         val = json.loads(r.text)
         self.add('/humidity', val['humidity'])
+
+class _CT80Actuator(actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        self.ip = opts.get('ip', None)
+        self.name = opts.get('name', None)
+        self.url = 'http://' + self.ip + '/tstat/' + self.name
+
+    def get_state(self, request):
+        r = requests.get(self.url)
+        rv = json.loads(r.text)
+        return self.parse_state(rv)
+ 
+    def set_state(self, request, state):
+        payload = '{"' + self.name + '": ' + str(state) + '}'
+        r = requests.post(self.url, data=payload)
+        time.sleep(2)
+        return state 
+
+class DiscreteActuator(_CT80Actuator, actuate.NStateActuator):
+    def __init__(self, **opts):
+        actuate.NStateActuator.__init__(self, opts['states'])
+        _CT80Actuator.__init__(self, **opts)
+
+class ContinuousActuator(_CT80Actuator, actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        _CT80Actuator.__init__(self, **opts) 
+

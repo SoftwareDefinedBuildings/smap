@@ -36,6 +36,7 @@ import calendar
 import re
 import urllib2, base64
 import logging,os,sys
+from time import sleep
 
 from twisted.internet import defer
 from twisted.web import client
@@ -60,15 +61,20 @@ class NT160e(SmapDriver):
         'hvac_state': ('state','hvacStateS =')
     }
     ACTUATORS = [
-        {'name': 'fan_mode', 'OID': 'OID4.1.3', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
-        {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
-        {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [0,1,2]},
+        # Fan mode: 1 = Auto, 2 = On, 3 = Schedule
+        {'name': 'fan_mode', 'OID': 'OID4.1.3', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [1,2,3]},
+        # HVAC mode: 1 = Off, 2 = Heat, 3 = Cool, 4 = Auto
+        {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [1,2,3,4]},
+        # Hold:  1 = Off, 2 = Hold
+        {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [1,2]},
+
+        # heat and cool setpoints get set in the widely popular units of deci-degrees F, so we convert
+        # (but they have to be in intervals of 10, because logic)
         {'name': 'cool_setting_act', 'OID': 'OID4.1.6', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous', 
           'range': (40,99), 'convert': lambda x: 10 * int(x)},
         {'name': 'heat_setting_act', 'OID': 'OID4.1.5', 'unit': 'F', 'type': 'double', 'actuator_type': 'Continuous', 
           'range': (40, 99), 'convert': lambda x: 10 * int(x)}
     ]
-    # todo: figure out the correct states
 
     def convertTemperature(self, temp, scale):
         if scale.upper() == 'FAHRENHEIT':
@@ -215,13 +221,11 @@ class _NT160eActuator(actuate.SmapActuator):
 
     def set_state(self, request, state):
         if self.convert:
-          state = self.convert(state)
+            state = self.convert(state)
         cmd = "document.getElementsByName('%s')[0].value = %s;" % (self.OID, state)
         browser = webdriver.Firefox()
         browser.get(self.auth_url)
         browser.execute_script(cmd)
-        browser.execute_script("document.getElementsByName('submit')[0].click();")
-        browser.quit()
 
 class DiscreteActuator(_NT160eActuator, actuate.NStateActuator):
     def __init__(self, **opts):
