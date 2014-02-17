@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -45,7 +45,7 @@ URL = 'http://192.168.1.178/'
 POSTURL = 'http://192.168.1.178/gwr/gop.php'
 headers = {"Content-Type": "text/xml"}
 
-# 0: the command, e.g. GWRLogin, 1: the XML, 
+# 0: the command, e.g. GWRLogin, 1: the XML,
 command = lambda x,y: quote('cmd={0}&data={1}&fmt=xml'.format(x, y)).replace('%26','&').replace('%3D','=').replace('/','%2F')
 
 commands = {
@@ -72,7 +72,7 @@ def get_serverinfo(posturl, token):
     serial_number = parsed.find('gateway').find('serial').text
     return gateway_id, framework_version, serial_number
 
-def accuate(posturl, token,device_id,state):
+def set_state(posturl, token,device_id,state):
     xmldata = commands['DeviceSendCommand'].format(token=token,device_id=device_id,state=state)
     resp = requests.post(posturl, headers=headers, data=command('DeviceSendCommand',xmldata))
     xml = resp.content
@@ -110,9 +110,10 @@ class TCP(driver.SmapDriver):
         self.gateway_id, self.framework_version, self.serial_number = get_serverinfo(self.posturl, self.token)
         devices = get_states(self.posturl, self.token)
         for device in devices:
-            self.add_timeseries('/'+str(device[0])+'/state', 'V', data_type='long', timezone=self.tz)
+            self.add_timeseries('/'+str(device[0])+'/state', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
-            self.add_timeseries('/'+str(device[0])+'/level', 'V', data_type='long', timezone=self.tz)
+            self.add_timeseries('/'+str(device[0])+'/level', 'Brightness', data_type='long', timezone=self.tz)
+            self.add_actuator('/'+str(device[0])+'/act/state', 'On/Off', Actuator, setup={'ip': self.ip, 'device_id': str(device[0])})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
@@ -125,3 +126,19 @@ class TCP(driver.SmapDriver):
             self.add('/'+str(device[0])+'/power',float(device[2]))
             level = int(device[3]) if int(device[1]) else 0
             self.add('/'+str(device[0])+'/level',level)
+
+class Actuator(actuate.BinaryActuator):
+    def setup(self, opts):
+        actuate.BinaryActuator.setup(self, opts)
+        self.ip = opts.get('ip', None)
+        self.posturl = 'http://{0}/gwr/gop.php'.format(self.ip)
+        self.token = get_token(self.posturl)
+        self.device_id = opts.get('device_id')
+
+    def get_state(self, request):
+        states = get_states(self.posturl, self.token)
+        return [int(x[1]) for x in states if x[0] == self.device_id][0]
+
+    def set_state(self, request, state):
+        set_state(self.posturl, self.token, self.device_id, state)
+        return int(state)
