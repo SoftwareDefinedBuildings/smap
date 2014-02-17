@@ -52,6 +52,7 @@ commands = {
     'GWRLogin': '<gip><version>1</version><email>admin</email><password>admin</password></gip>',
     'GatewayGetInfo': '<gip><version>1</version><token>{token}</token><fwnew>1</fwnew></gip>',
     'DeviceSendCommand': '<gip><version>1</version><token>{token}</token><did>{device_id}</did><value>{state}</value></gip>',
+    'DeviceSendCommandLevel': '<gip><version>1</version><token>{token}</token><did>{device_id}</did><value>{state}</value><type>level</type></gip>',
     'Info': '<gwrcmds><gwrcmd><gcmd>SceneGetList</gcmd><gdata><gip><version>1</version><token>{token}</token><fields>activeonly,bigicon,detail,imageurl</fields><islocal>1</islocal></gip></gdata></gwrcmd></gwrcmds>',
     'State': '<gwrcmds><gwrcmd><gcmd>RoomGetCarousel</gcmd><gdata><gip><version>1</version><token>{token}</token><fields>name,image,imageurl,control,power,product,class,realtype,status</fields></gip></gdata></gwrcmd></gwrcmds>'
 }
@@ -74,6 +75,12 @@ def get_serverinfo(posturl, token):
 
 def set_state(posturl, token,device_id,state):
     xmldata = commands['DeviceSendCommand'].format(token=token,device_id=device_id,state=state)
+    resp = requests.post(posturl, headers=headers, data=command('DeviceSendCommand',xmldata))
+    xml = resp.content
+    parsed = etree.fromstring(xml)
+
+def set_level(posturl, token,device_id,state):
+    xmldata = commands['DeviceSendCommandLevel'].format(token=token,device_id=device_id,state=state)
     resp = requests.post(posturl, headers=headers, data=command('DeviceSendCommand',xmldata))
     xml = resp.content
     parsed = etree.fromstring(xml)
@@ -113,7 +120,8 @@ class TCP(driver.SmapDriver):
             self.add_timeseries('/'+str(device[0])+'/state', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/level', 'Brightness', data_type='long', timezone=self.tz)
-            self.add_actuator('/'+str(device[0])+'/act/state', 'On/Off', Actuator, setup={'ip': self.ip, 'device_id': str(device[0])})
+            self.add_actuator('/'+str(device[0])+'/act/state', 'On/Off', OnOffActuator, setup={'ip': self.ip, 'device_id': str(device[0])})
+            self.add_actuator('/'+str(device[0])+'/act/level', 'Brightness', BrightnessActuator, setup={'ip': self.ip, 'device_id': str(device[0]), 'range': (0,100)})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
@@ -127,7 +135,7 @@ class TCP(driver.SmapDriver):
             level = int(device[3]) if int(device[1]) else 0
             self.add('/'+str(device[0])+'/level',level)
 
-class Actuator(actuate.BinaryActuator):
+class OnOffActuator(actuate.BinaryActuator):
     def setup(self, opts):
         actuate.BinaryActuator.setup(self, opts)
         self.ip = opts.get('ip', None)
@@ -142,3 +150,25 @@ class Actuator(actuate.BinaryActuator):
     def set_state(self, request, state):
         set_state(self.posturl, self.token, self.device_id, state)
         return int(state)
+
+class BrightnessActuator(actuate.ContinuousIntegerActuator):
+    def setup(self, opts):
+        actuate.ContinuousIntegerActuator.setup(self, opts)
+        self.ip = opts.get('ip', None)
+        self.posturl = 'http://{0}/gwr/gop.php'.format(self.ip)
+        self.token = get_token(self.posturl)
+        self.device_id = opts.get('device_id')
+
+    def get_state(self, request):
+        states = get_states(self.posturl, self.token)
+        return [int(x[1]) for x in states if x[0] == self.device_id][0]
+
+    def set_state(self, request, state):
+        print request, state
+        if int(state) > 100:
+            state = 100
+        elif int(state) < 0:
+            state = 0
+        set_level(self.posturl, self.token, self.device_id, state)
+        return int(state)
+
