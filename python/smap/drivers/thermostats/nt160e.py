@@ -66,6 +66,7 @@ class NT160e(SmapDriver):
         # HVAC mode: 1 = Off, 2 = Heat, 3 = Cool, 4 = Auto
         {'name': 'hvac_mode', 'OID': 'OID4.1.1' , 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [1,2,3,4]},
         # Hold:  1 = Off, 2 = Hold
+        # note: holdmode does not seem to work through browser automation. mysteriously.
         {'name': 'hold', 'OID': 'holdmode', 'unit': 'mode', 'type': 'long', 'actuator_type': 'Discrete', 'states': [1,2]},
 
         # heat and cool setpoints get set in the widely popular units of deci-degrees F, so we convert
@@ -226,7 +227,10 @@ class _NT160eActuator(actuate.SmapActuator):
         browser = webdriver.Firefox()
         browser.get(self.auth_url)
         browser.execute_script(cmd)
-
+        browser.execute_script("document.getElementsByName('submit')[0].click();")
+        browser.quit()
+        
+            
 class DiscreteActuator(_NT160eActuator, actuate.NStateActuator):
     def __init__(self, **opts):
         actuate.NStateActuator.__init__(self, opts['states'])
