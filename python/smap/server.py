@@ -75,6 +75,8 @@ class InstanceResource(resource.Resource):
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
         except Exception, e:
+            import traceback
+            traceback.print_exc()
             setResponseCode(request, exception, 500)
             request.finish()
 
@@ -93,8 +95,7 @@ class InstanceResource(resource.Resource):
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
         # you can only PUT actuators
-        obj = self.inst.lookup(util.join_path(request.postpath),
-                               pred=IActuator.providedBy)
+        obj = self.inst.lookup(util.join_path(request.postpath))
         d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
         d.addCallback(lambda x: self.send_reply(request, x))
         d.addErrback(lambda x: self.send_error(request, x))
@@ -217,6 +218,50 @@ class ReportingResource(resource.Resource):
             request.write(str(e))
         request.finish()
         return server.NOT_DONE_YET
+
+class JobsResource(resource.Resource):
+    """Resource representing the collection of actuation jobs
+    """
+    def __init__(self, inst):
+        self.inst = inst
+        resource.Resource.__init__(self)
+
+    def render_GET(self, request):
+        request.setHeader('Content-type', 'application/json')
+        return json.dumps(self.inst.jobs.jobs)
+
+    def render_PUT(self, request):
+        request.setHeader('Content-type', 'application/json')
+        content = request.content.read()
+        if content:
+            obj = json.loads(content)
+            uids = self.add_jobs(obj)
+            return json.dumps(uids)
+        else:
+            return None
+
+    def add_jobs(self, jobs):
+        uids = []
+        if isinstance(jobs, dict):
+            jobs = list(jobs)
+        for job in jobs:
+            schema.validate('Job', job)
+            uid = str(uuid.uuid1())
+            job['uuid'] = uid
+            self.inst.jobs.add_job(job)
+            uids.append(uid)
+
+        return uids
+
+    def render_DELETE(self, request):
+        request.setHeader('Content-type', 'application/json')
+        content = request.content.read()
+        if content:
+            del_uuids = json.loads(content)
+            assert isinstance(del_uuids, (list, tuple))
+            self.inst.jobs.jobs = filter(lambda x: x['uuid'] not in del_uuids, self.inst.jobs.jobs)
+            self.inst.jobs.cancel(del_uuids)
+        return json.dumps(self.inst.jobs.jobs)
 
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server

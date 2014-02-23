@@ -42,7 +42,7 @@ from twisted.internet import threads
 class HUE(driver.SmapDriver):
 
   api = [ {"api": "on", "access": "rw", "data_type":"long", "unit": "Mode",
-    "act_type": "binary", "range": (0,1)},
+    "act_type": "binary", "states": [0,1]},
     {"api": "bri", "access": "rw", "data_type":"long", "unit": "Brightness",
       "act_type": "continuousInteger", "range": (0,255)},
     {"api": "hue", "access": "rw", "data_type":"long", "unit": "Mode",
@@ -79,18 +79,20 @@ class HUE(driver.SmapDriver):
         if option["access"] == "rw":
           self.add_timeseries('/'+light['name']+'/state/'+option["api"],
               option["unit"], data_type=option["data_type"], timezone=self.tz)
-          klass = ContinuousIntegerActuator
+
           setup={'model': option["act_type"], 'ip':self.ip,
-              'range': option["range"], 'user': self.user, 'id': light["id"],
+              'range': option.get("range"), 'user': self.user, 'id': light["id"],
               'api': option["api"]}
           if  option["act_type"] == "binary":
-            klass = BinaryActuator
+            setup['states'] = option.get("states")
+            act = BinaryActuator(**setup)
           if  option["act_type"] == "continuousInteger":
-            klass = ContinuousIntegerActuator
+            act = ContinuousIntegerActuator(**setup)
           if  option["act_type"] == "discrete":
-            klass = DiscreteActuator
+            act = DiscreteActuator(**setup)
+
           self.add_actuator('/'+light['name'] + '/state/' + option["api"] + '_act',
-              option["unit"], klass, setup=setup, data_type = option["data_type"],
+              option["unit"], act, data_type = option["data_type"],
               write_limit=1)
         else:
           self.add_timeseries('/'+light['name']+'/state/'+option["api"],
@@ -108,7 +110,7 @@ class HUE(driver.SmapDriver):
 
 class Actuator(actuate.SmapActuator):
 
-  def setup(self, opts):
+  def __init__(self, **opts):
     self.ip = opts['ip']
     self.user = opts['user']
     self.id = opts['id']
@@ -128,16 +130,16 @@ class Actuator(actuate.SmapActuator):
     return state
 
 class BinaryActuator(Actuator, actuate.BinaryActuator):
-    def setup(self, opts):
-        actuate.BinaryActuator.setup(self, opts)
-        Actuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.BinaryActuator.__init__(self)
+        Actuator.__init__(self, **opts)
 
 class DiscreteActuator(Actuator, actuate.NStateActuator):
-    def setup(self, opts):
-        actuate.NStateActuator.setup(self, opts)
-        Actuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.NStateActuator.__init__(self, opts["states"])
+        Actuator.__init__(self, **opts)
 
 class ContinuousIntegerActuator(Actuator, actuate.ContinuousIntegerActuator):
-    def setup(self, opts):
-        actuate.ContinuousIntegerActuator.setup(self, opts)
-        Actuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.ContinuousIntegerActuator.__init__(self, opts["range"])
+        Actuator.__init__(self, **opts)

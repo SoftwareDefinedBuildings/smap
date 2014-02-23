@@ -1,49 +1,52 @@
 #! -*- python -*-
+"""
+Copyright (c) 2014 Regents of the University of California
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions 
+are met:
+
+ - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+ - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+"""
+@author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+"""
 
 import os
 import re
+import operator
 import xml.etree.ElementTree as ET
 
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.utils import getProcessOutputAndValue
 
 from smap.driver import SmapDriver
-import tail
+
+import dhcp
+import util
 
 # number of seconds to wait between detecting a device and scanning it.
 DETECT_SCAN_WAIT = 1
 
-class PushError(Exception):
-    pass
-
-class Device(object):
-    def key(self):
-        return self.ip + '-' + self.mac
-
-    def __init__(self, ip, mac, name, iface):
-        self.ip = ip
-        self.mac = mac
-        self.name = name
-        self.iface = iface
-
-        # the time we last ran discovery
-        self.last_discovery = None
-        self.scan_pending = False
-
-    def __str__(self):
-        return self.ip
-
-class Service(object):
-    """Container for something that can be represented as a smap
-    service on a device"
-    """
-    def __init__(self, dev, script, conf):
-        self.dev = dev
-        self.script = script
-        self.conf = conf
-
-    def __str__(self):
-        return self.script + " @ " + str(self.dev)
 
 class XmlProcessProtocol(protocol.ProcessProtocol):
     def __init__(self, done):
@@ -66,35 +69,18 @@ class DiscoveryDriver(SmapDriver):
     """
     def setup(self, opts):
         # self.lease_file = opts.get("lease_file", "/var/lib/dhcp/dhcpd.leases")
-        self.syslog = opts.get("syslog", "/var/log/syslog")
         self.config_repo = opts.get("config_repo", '/home/stevedh/develop/smap-configs/')
-        self.tailer = tail.FollowTail(self.syslog, seekend=False)
-        self.tailer.lineReceived = self.syslogLineReceived
         self.db = {}
+        self.discovery_sources = [
+            # dhcp.DhcpTailDiscoverySource(self.update_device, opts.get("syslog", "/var/log/syslog")),
+            dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface")),
+            ]
 
     def start(self):
-        self.tailer.start()
+        map(operator.methodcaller("start"), self.discovery_sources)
 
     def stop(self):
-        self.tailer.stop()
-
-    def syslogLineReceived(self, line):
-        if line.find("DHCPOFFER") < 0: return
-        # try to find any DHCPOFFERS made
-        # DHCPOFFER on 10.4.10.113 to 54:26:96:d7:84:6d (Michaels-MBP-3) via eth1
-        m = re.match(".*DHCPOFFER on ((\d{1,3}\.){3}\d{1,3}) to ((\w{2}:){5}\w{2}) \((.*)\) via (.*)\W*$", line)
-        if m:
-            ip, _, mac, __, name, iface = m.groups(0)
-        else:
-            m = re.match(".*DHCPOFFER on ((\d{1,3}\.){3}\d{1,3}) to ((\w{2}:){5}\w{2}) via (.*)$", line)
-            if m:
-                name = None
-                ip, _, mac, __, iface = m.groups(0)
-            else:
-                return
-
-        dev = Device(ip, mac, name, iface)
-        self.update_device(dev)
+        map(operator.methodcaller("stop"), self.discovery_sources)
 
     def update_device(self, dev):
         if dev.key() in self.db:
@@ -105,7 +91,7 @@ class DiscoveryDriver(SmapDriver):
 
         if not dev.last_discovery and not dev.scan_pending:
             dev.scan_pending = True
-            print "Schedulding device scan", dev
+            print "Scheduling device scan", dev
             reactor.callLater(DETECT_SCAN_WAIT, self.scan_device, dev)
 
     def scan_device(self, dev):
@@ -131,7 +117,7 @@ class DiscoveryDriver(SmapDriver):
                 for c in script:
                     conf[c.attrib['key']] = c.text
                 if len(conf):
-                    services.append(Service(dev, script.attrib['id'], conf))
+                    services.append(util.Service(dev, script.attrib['id'], conf))
         print len(services), "sMAP service(s) found:"
         if len(services): print "\t" + (" ".join((s.script for s in services)))
         return services
@@ -169,7 +155,7 @@ git push origin master""" % config_file
             if code != 0:
                 print "error: ", stderr
                 # make sure to kill any callback chains
-                raise PushError(stderr)
+                raise util.PushError(stderr)
         d.addCallback(check_commit)
         return d
 

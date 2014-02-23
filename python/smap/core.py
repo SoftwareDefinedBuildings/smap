@@ -40,12 +40,14 @@ import sys
 import operator
 import time 
 
-import schema
-import util
-import reporting
-import smapconf
-from interface import *
-from checkers import datacheck
+from smap import schema
+from smap import util
+from smap import reporting
+from smap import smapconf
+from smap import actuate
+from smap.interface import *
+from smap.checkers import datacheck
+
 
 class SmapException(Exception):
     """Generic error"""
@@ -86,7 +88,11 @@ class Timeseries(dict):
                  timezone=DEFAULTS['Properties/Timezone'],
                  description=None,
                  buffersz=DEFAULTS['BufferSize'],
-                 milliseconds=False):
+                 milliseconds=False,
+                 impl=None, 
+                 read_limit=0,
+                 write_limit=0,
+                 autoadd=False):
         """
 :param new_uuid: a :py:class:`uuid.UUID`
 :param string unit: the engineering units of this timeseries
@@ -115,6 +121,18 @@ class Timeseries(dict):
         self.dirty = True
         self.milliseconds = milliseconds
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
+
+        self.impl = impl
+        self.autoadd = autoadd
+        if self.impl:
+            self.reader = util.RateLimiter(read_limit, 
+                                      lambda req: util.syncMaybeDeferred(self.impl.get_state, req),
+                                      lambda req: self)
+            self.writer = util.RateLimiter(write_limit, 
+                                      lambda req, state: util.syncMaybeDeferred(self.impl.set_state, req, state))
+        else:
+            self.reader = lambda req: (True, self)
+            self.writer = None
 
     def _check_type(self, value):
         type_ = self.__getitem__('Properties')['ReadingType']
@@ -220,9 +238,65 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         self['Metadata'] = util.dict_merge(self.get('Metadata', {}),
                                            metadata)
 
-    
     def render(self, request):
-        return self
+        if request.method == 'GET':
+            return self.render_read(request)
+        elif request.method == 'PUT':
+            return self.render_write(request)
+
+    def render_write(self, request):
+        """Render a request to change the state"""
+        if 'state' in request.args and len(request.args['state']) > 0:
+            new_state = self.impl.parse_state(request.args['state'][0])
+            if not self.impl.valid_state(new_state):
+                raise SmapException("Invalid state: " + str(new_state), 400)
+
+            allowed, rv = self.writer(request, new_state)
+            if allowed:
+                if not issubclass(rv.__class__, defer.Deferred):
+                    rv = defer.succeed(rv)
+                rv.addCallback(lambda x: self._finish_render(request, x))
+                return rv
+            else:
+                raise SmapException("Cannot actuate now due to rate limit\n", 503)
+
+    def render_read(self, request):
+        """Render the read
+
+        The rate limiter will make sure that we don't overload the
+        device; it will used the Timeseries cached value if we've
+        called it too much.
+        """
+        allowed, rv = self.reader(request)
+        if allowed:
+            if not issubclass(rv.__class__, defer.Deferred):
+                rv = defer.succeed(rv)
+            rv.addCallback(lambda x: self._finish_render(request, x))
+            return rv
+        else:
+            raise SmapException("Cannot actuate now due to rate limit", 503)
+
+    def _finish_render(self, request, state):
+        # finish by adding the current state as the reading
+        if isinstance(state, dict):
+            return state
+        elif hasattr(state, "__iter__"):
+            now, val = state
+        else:
+            now, val = util.now() * 1000, state
+
+        try:
+            val = self.impl.translate_state(state)
+        except:
+            raise SmapException("Error processing write result: " + str(e), 500)
+
+        if self.autoadd:
+            self._add(now, state)
+            return self
+        else:
+            ts = dict(self)
+            ts['Readings'] = [(now, val)]
+            return ts
 
 class Collection(dict):
     """Represent a collection of sMAP resources"""
@@ -387,7 +461,7 @@ sMAP reporting functionality."""
         :py:class:`uuid.UUID` constructor; otherwise it will be treated as a
         pathname.  *pred* is an optional predicate which can be used to test
         the result.
-"""
+        """
         if util.is_string(id):
             path = util.split_path(id)
             if len(path) > 0 and path[-1][0] == "+":
@@ -585,12 +659,11 @@ sMAP reporting functionality."""
         if not self.loading: self.reports.update_subscriptions()
         return collection
 
-    def add_actuator(self, path, unit, actclass, **kwargs):
-        setup = kwargs.pop('setup', None)
-        a = self.add_timeseries(path, unit, klass=actclass, **kwargs)
-        if setup != None:
-            a.setup(setup)
-        return a
+    def add_actuator(self, path, unit, impl, **kwargs):
+        ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
+        ts.FIELDS = ts.FIELDS + ["Actuator"]
+        ts["Actuator"] = impl.get_description()
+        return ts
 
     def set_metadata(self, path, *metadata):
         if len(metadata) > 1:

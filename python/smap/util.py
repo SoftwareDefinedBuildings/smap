@@ -387,3 +387,42 @@ class BufferProtocol(Protocol):
 
     def connectionLost(self, reason):
         self.finished.callback(''.join(self.buffer))
+
+
+class RateLimiter:
+    """Class for rate-limiting function call
+
+    @ratelimit minimum time between method calls.  If None,
+      method_if_allowed will never be called.  If callable, will allow
+      the call if it returns True.
+    @method_if_allowed method to be called if allowed by the rate limit
+    @method_if_disallowed 
+    @return (boolean, result) the boolean indicates if the call was
+      allowed by the rate limit, and the result is the result of calling
+      the appropriate method
+
+    Since this class overwrites __call__, you can get the result of
+    calling the appropriate method just by "calling" this class.it 
+    """
+    def __init__(self, ratelimit, method_if_allowed=None, method_if_disallowed=None):
+        self.ratelimit = ratelimit
+        self.method_if_allowed = method_if_allowed
+        self.method_if_disallowed = method_if_disallowed
+        self.last_value = None
+        self.last_call = 0
+
+    def __call__(self, *args, **kwargs):
+        allowed = False
+        rv = None
+        now = time.time()
+        if (callable(self.ratelimit) and self.ratelimit()) or \
+                (is_integer(self.ratelimit) and \
+                     now - self.last_call > self.ratelimit):
+            allowed = True
+            if self.method_if_allowed:
+                rv = self.method_if_allowed(*args, **kwargs)
+            self.last_call = now
+        elif self.method_if_disallowed:
+            rv = self.method_if_disallowed(*args, **kwargs)
+        return allowed, rv
+

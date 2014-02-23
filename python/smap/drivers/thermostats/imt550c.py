@@ -59,12 +59,12 @@ class IMT550C(driver.SmapDriver):
                             "act_type": "continuous"}, #thermRelativeHumidity
                           {"name": "hvac_state", "unit": "Mode",
                             "data_type": "long",
-                            "OID": "4.1.2", "range": (0,1,2), "access": 4,
+                            "OID": "4.1.2", "range": [0,1,2], "access": 4,
                             "devtosmap":  lambda x: {1:0, 2:0, 3:1, 4:1, 5:1, 6:2, 7:2, 8:0, 9:0}[x],
                             "smaptodev":  lambda x: {x:x}[x],
                             "act_type": "discrete"}, # thermHvacState
                           {"name": "fan_state", "unit": "Mode", "data_type": "long",
-                            "OID": "4.1.4", "range": (0,1), "access": 4,
+                            "OID": "4.1.4", "range": [0,1], "access": 4,
                             "devtosmap":  lambda x: {0:0, 1:0, 2:1}[x],
                             "smaptodev": lambda x: {x:x}[x],
                             "act_type": "discrete"}, # thermFanState
@@ -79,76 +79,71 @@ class IMT550C(driver.SmapDriver):
                             "act_type": "continuous"}, #thermSetbackCool
                           {"name": "hold", "unit": "Mode",
                             "data_type": "long", "OID": "4.1.9",
-                            "range": (0,1), "access": 6,
+                            "range": [0,1], "access": 6,
                             "devtosmap": lambda x: {1:0, 2:1, 3:0}[x],
                             "smaptodev": lambda x: {0:1, 1:2}[x],
                             "act_type": "discrete"}, # hold/override
                           {"name": "override", "unit": "Mode",
                             "data_type": "long", "OID": "4.1.9",
-                            "range": (0,1), "access": 6,
+                            "range": [0,1], "access": 6,
                             "devtosmap": lambda x: {1:0, 3:1, 2:0}[x],
                             "smaptodev": lambda x: {0:1, 1:3}[x],
                             "act_type": "discrete"}, # hold/override                          
                           {"name": "hvac_mode", "unit": "Mode", "data_type": "long",
-                            "OID": "4.1.1", "range": (0,1,2,3),
+                            "OID": "4.1.1", "range": [0,1,2,3],
                             "access": 6,
                             "devtosmap": lambda x: x-1,
                             "smaptodev": lambda x: x+1,
                             "act_type": "discrete"}, # thermHvacMode
                           {"name": "fan_mode", "unit": "Mode", "data_type": "long",
-                            "OID": "4.1.3", "range": (1,2,3), "access": 6,
+                            "OID": "4.1.3", "range": [1,2,3], "access": 6,
                             "devtosmap": lambda x: x, "smaptodev": lambda x: x,
                             "act_type": "discrete"} # thermFanMode
                        ]
         for p in self.points0:
-          self.add_timeseries('/' + p["name"], p["unit"],
-              data_type=p["data_type"], timezone=self.tz)
-          if p['access'] == 6:
-            if p['act_type'] == 'discrete':
-              klass = DiscreteActuator
-              setup={'model': 'discrete', 'ip':self.ip, 'states': p['range'],
-                  'user': self.user, 'password': self.password, 'OID': p['OID'],
-                  'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-              self.add_actuator('/' + p['name'] + '_act', p['unit'], klass,
-                  setup=setup, data_type = p['data_type'], write_limit=5)
-            elif p['act_type'] == 'continuous':
-              klass = ContinuousActuator
-              setup={'model': 'continuous', 'ip':self.ip, 'range': p['range'],
-                  'user': self.user, 'password': self.password, 'OID': p['OID'],
-                  'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-              self.add_actuator('/' + p['name'] + '_act', p['unit'], klass,
-                  setup=setup, data_type = p['data_type'], write_limit=5)
-            elif p['act_type'] == 'continuousInteger':
-              klass = ContinuousIntegerActuator
-              setup={'model': 'continuousInteger', 'ip':self.ip, 'range': p['range'],
-                  'user': self.user, 'password': self.password, 'OID': p['OID'],
-                  'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-              self.add_actuator('/' + p['name'] + '_act', p['unit'], klass,
-                  setup=setup, data_type = p['data_type'], write_limit=5)
-            else:
-              print "sth is wrong here"
+            self.add_timeseries('/' + p["name"], p["unit"],
+                data_type=p["data_type"], timezone=self.tz)
+            if p['access'] == 6:
+                if p['act_type'] == 'discrete':
+                    setup={'model': 'discrete', 'ip':self.ip, 'states': p['range'],
+                        'user': self.user, 'password': self.password, 'OID': p['OID'],
+                        'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
+                    act = DiscreteActuator(**setup)
+                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act, data_type = p['data_type'], write_limit=5)
+                elif p['act_type'] == 'continuous':
+                    setup={'model': 'continuous', 'ip':self.ip, 'range': p['range'],
+                        'user': self.user, 'password': self.password, 'OID': p['OID'],
+                        'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
+                    act = ContinuousActuator(**setup)
+                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act,
+                        data_type = p['data_type'], write_limit=5)
+                elif p['act_type'] == 'continuousInteger':
+                    setup={'model': 'continuousInteger', 'ip':self.ip, 'range': p['range'],
+                        'user': self.user, 'password': self.password, 'OID': p['OID'],
+                        'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
+                    act = ContinuousIntegerActuator(**setup)
+                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act,
+                        data_type = p['data_type'], write_limit=5)
+                else:
+                    print "sth is wrong here"
 
     def start(self):
         # call self.read every self.rate seconds
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
-        url = 'http://' + self.ip + "/get"
         for p in self.points0:
-          r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password),
-              params="OID"+p["OID"])
-          val = r.text.split('=', 1)[-1]
-          if p["data_type"] == "long":
-            self.add("/" + p["name"], p['devtosmap'](long(val)))
-            #data_type = p["data_type"]
-            #data_type_f = getattr(__builtin__, data_type)
-            #val = data_type_f(val)
-          else:
-            self.add("/" + p["name"], p['devtosmap'](float(val)))
+            url = 'http://%s/get?OID%s' % (self.ip, p["OID"])
+            r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password))
+            val = r.text.split('=', 1)[-1]
+            if p["data_type"] == "long":
+                self.add("/" + p["name"], p['devtosmap'](long(val)))
+            else:
+                self.add("/" + p["name"], p['devtosmap'](float(val)))
 
 class ThermoActuator(actuate.SmapActuator):
 
-    def setup(self, opts):
+    def __init__(self, **opts):
         self.ip = opts['ip']
         self.user = opts['user']
         self.password = opts['password']
@@ -169,23 +164,17 @@ class ThermoActuator(actuate.SmapActuator):
             auth=HTTPDigestAuth(self.user, self.password), params=payload)
         return self.devtosmap(state)
 
-class BinaryActuator(ThermoActuator, actuate.BinaryActuator):
-    def setup(self, opts):
-        actuate.BinaryActuator.setup(self, opts)
-        ThermoActuator.setup(self, opts)
-
 class DiscreteActuator(ThermoActuator, actuate.NStateActuator):
-    def setup(self, opts):
-        actuate.NStateActuator.setup(self, opts)
-        ThermoActuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.NStateActuator.__init__(self, opts['states'])
+        ThermoActuator.__init__(self, **opts)
 
 class ContinuousActuator(ThermoActuator, actuate.ContinuousActuator):
-    def setup(self, opts):
-        actuate.ContinuousActuator.setup(self, opts)
-        ThermoActuator.setup(self, opts)
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        ThermoActuator.__init__(self, **opts)
 
 class ContinuousIntegerActuator(ThermoActuator, actuate.ContinuousIntegerActuator):
-    def setup(self, opts):
-        actuate.ContinuousIntegerActuator.setup(self, opts)
-        ThermoActuator.setup(self, opts)
-
+    def __init__(self, **opts):
+        actuate.ContinuousIntegerActuator.__init__(self, opts['range'])
+        ThermoActuator.__init__(self, **opts)
