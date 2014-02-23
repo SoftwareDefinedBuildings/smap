@@ -44,13 +44,20 @@ from twisted.application.service import MultiService
 
 from smap import core, loader, smapconf
 from smap.server import getSite
-from smap.bonjour import broadcast
 from smap.util import buildkv
 
 try:
     from smap.ssl import SslServerContextFactory
 except ImportError:
     pass
+
+try:
+    from smap.bonjour import broadcast
+except ImportError:
+    print >>sys.stderr, "sMAP: pybonjour not available"
+    def broadcast(*args):
+        pass
+
 
 def make_dns_meta(inst):
     root = inst.lookup("/")
