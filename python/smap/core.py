@@ -287,7 +287,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
 
         try:
             val = self.impl.translate_state(state)
-        except:
+        except Exception, e:
             raise SmapException("Error processing write result: " + str(e), 500)
 
         if self.autoadd:
@@ -518,7 +518,6 @@ sMAP reporting functionality."""
                     deferreds.append((k, rendered))
                 else:
                     rv[k] = rendered
-
             # set up a deferred task which will fire when all results are ready
             if len(deferreds) == 0:
                 return rv

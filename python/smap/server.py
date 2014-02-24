@@ -113,9 +113,9 @@ class InstanceResource(resource.Resource):
     def send_error(self, request, err):
         if err:
             setResponseCode(request, err.value, 500)
+            request.write(str(err.value))
         else:
             request.setResponseCode(500)
-        request.write(str(err.value))
         request.finish()
 
 def read_report(self, request, duplicate_error=True):
