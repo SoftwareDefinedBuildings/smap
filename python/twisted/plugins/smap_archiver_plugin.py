@@ -81,7 +81,8 @@ class ArchiverServiceMaker(object):
                                    user=settings.conf['database']['user'],
                                    password=settings.conf['database']['password'],
                                    port=settings.conf['database']['port'],
-                                   cp_min=5, cp_max=30)
+                                   cp_min=5, cp_max=30,
+                                   cp_reconnect=True)
 
         if options['subscribe']:
             subscribe(cp, settings)
