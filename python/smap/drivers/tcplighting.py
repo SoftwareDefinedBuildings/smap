@@ -93,7 +93,7 @@ def get_states(posturl, token):
     device_ids = [x.find('did').text for x in devices]
     states = [x.find('state').text for x in devices]
     power = [x.find('power').text for x in devices]
-    levels = [x.find('level').text for x in devices]
+    levels = map(lambda x: x.text, filter(lambda x: x is not None, [x.find('level') for x in devices]))
     return zip(device_ids, states, power, levels)
 
 def get_deviceinfo(posturl, token):
@@ -120,8 +120,8 @@ class TCP(driver.SmapDriver):
             self.add_timeseries('/'+str(device[0])+'/state', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/level', 'Brightness', data_type='long', timezone=self.tz)
-            self.add_actuator('/'+str(device[0])+'/act/state', 'On/Off', OnOffActuator, setup={'ip': self.ip, 'device_id': str(device[0])})
-            self.add_actuator('/'+str(device[0])+'/act/level', 'Brightness', BrightnessActuator, setup={'ip': self.ip, 'device_id': str(device[0]), 'range': (0,100)})
+            self.add_actuator('/'+str(device[0])+'/state_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device[0])))
+            self.add_actuator('/'+str(device[0])+'/level_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
@@ -135,9 +135,9 @@ class TCP(driver.SmapDriver):
             level = int(device[3]) if int(device[1]) else 0
             self.add('/'+str(device[0])+'/level',level)
 
-class OnOffActuator(actuate.BinaryActuator):
-    def setup(self, opts):
-        actuate.BinaryActuator.setup(self, opts)
+class TCPLActuator(actuate.SmapActuator):
+
+    def __init__(self, **opts):
         self.ip = opts.get('ip', None)
         self.posturl = 'http://{0}/gwr/gop.php'.format(self.ip)
         self.token = get_token(self.posturl)
@@ -146,22 +146,20 @@ class OnOffActuator(actuate.BinaryActuator):
     def get_state(self, request):
         states = get_states(self.posturl, self.token)
         return [int(x[1]) for x in states if x[0] == self.device_id][0]
+
+class OnOffActuator(TCPLActuator, actuate.BinaryActuator):
+    def __init__(self, **opts):
+        actuate.BinaryActuator.__init__(self)
+        TCPLActuator.__init__(self, **opts)
 
     def set_state(self, request, state):
         set_state(self.posturl, self.token, self.device_id, state)
         return int(state)
 
-class BrightnessActuator(actuate.ContinuousIntegerActuator):
-    def setup(self, opts):
-        actuate.ContinuousIntegerActuator.setup(self, opts)
-        self.ip = opts.get('ip', None)
-        self.posturl = 'http://{0}/gwr/gop.php'.format(self.ip)
-        self.token = get_token(self.posturl)
-        self.device_id = opts.get('device_id')
-
-    def get_state(self, request):
-        states = get_states(self.posturl, self.token)
-        return [int(x[1]) for x in states if x[0] == self.device_id][0]
+class BrightnessActuator(TCPLActuator, actuate.ContinuousIntegerActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousIntegerActuator.__init__(self, opts['range'])
+        TCPLActuator.__init__(self, **opts)
 
     def set_state(self, request, state):
         print request, state
