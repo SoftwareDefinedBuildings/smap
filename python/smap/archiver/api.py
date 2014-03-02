@@ -95,7 +95,7 @@ FROM subscription sub WHERE """ + build_authcheck(request))
             d.addErrback(makeErrback(request))
         else:
             when = int(time.time()) * 1000
-            
+
             d = self.db.runQuery("""
 SELECT m.tagval, s.uuid
 FROM subscription sub, stream s, metadata2 m
@@ -298,7 +298,7 @@ class Api(resource.Resource):
             raise
 
     def send_error(self, request, error):
-        print "error", error
+        log.err(error)
         setResponseCode(request, error, 400)
         try:
             request.write(str(error.value))
@@ -379,6 +379,7 @@ class Api(resource.Resource):
                                     path[1::2] + [None]))
                 d.addCallback(lambda r: self.generic_extract_result(request, r))
                 d.addCallback(self.send_reply)
+                d.addErrback(lambda x: self.send_error(request, x))
         elif method == 'tags':
             # retrieve tags
             d = build_tag_query(self.db,
@@ -387,6 +388,8 @@ class Api(resource.Resource):
                                     path[1::2] + [None]))
             d.addCallback(lambda r: self.tag_extract_result(request, r))
             d.addCallback(self.send_reply)
+            d.addErrback(lambda x: self.send_error(request, x))
+
         elif method in ['data', 'next', 'prev']:
             # retrieve data
             d = self.db.runQuery("""SELECT uuid, id FROM stream WHERE
@@ -397,6 +400,7 @@ id IN """ + build_inner_query(request,
             d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)
+            d.addErrback(lambda x: self.send_error(request, x))
         elif method == 'operators':
             self.send_reply((request, stream.installed_ops.keys()))
         else:
