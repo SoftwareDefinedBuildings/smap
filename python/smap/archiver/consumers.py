@@ -41,6 +41,12 @@ class JsonConsumer(object):
     def __init__(self, consumer):
         self.consumer = consumer
     
+    def pauseProducing(self):
+        self.producer.pauseProducing()
+
+    def resumeProducing(self):
+        self.producer.resumeProducing()
+
     def registerProducer(self, producer, streaming):
         assert streaming == True
         self.producer = producer
