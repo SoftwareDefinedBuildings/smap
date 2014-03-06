@@ -1,13 +1,4 @@
-BeautifulSoup==3.2.1
-Twisted==13.2.0
-avro==1.7.6
-cffi==0.8.1
-configobj==5.0.2
-cryptography==0.2.2
-pyOpenSSL==0.14
-pybonjour==1.1.1
-pycparser==2.10
-python-dateutil==2.2
-six==1.5.2
-wsgiref==0.1.2
-zope.interface==4.1.0
+twisted>=12.0
+avro>=1.6.3
+python-dateutil>=2.0
+configobj>=4.7.0
