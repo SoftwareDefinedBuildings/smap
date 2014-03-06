@@ -14,7 +14,7 @@ Before proceeding with installation, make sure you've sourced the virtual enviro
 
 You must install the dependencies listed in `requirements.txt` before installing smap. Do this by issuing the following:
 
-    pip install -r requirements.txt
+    pip install -r osx_requirements.txt
 
 After the dependencies are installed, run the installation:
 
