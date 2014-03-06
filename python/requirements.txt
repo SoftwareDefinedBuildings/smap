@@ -1,5 +1,4 @@
 BeautifulSoup==3.2.1
-Smap==2.0.377461
 Twisted==13.2.0
 avro==1.7.6
 cffi==0.8.1
