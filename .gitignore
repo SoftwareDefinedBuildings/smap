@@ -18,3 +18,4 @@ Thumbs.db
 
 # python virtualenv
 venv
+python/build
