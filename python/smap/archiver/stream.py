@@ -36,7 +36,7 @@ import traceback
 import operator
 
 from zope.interface import implements
-from twisted.internet import interfaces, reactor
+from twisted.internet import interfaces, reactor, defer
 from twisted.python import failure, log
 
 import smap.util as util
@@ -93,7 +93,8 @@ class OperatorApplicator(object):
         self.consumer = consumer
 
         self._paused = self._stop = self._error = False
-        self.chunk_idx = 0
+        self.chunk_idx, self.chunk_loaded_idx = 0, 0
+        self.publish_lock = defer.DeferredLock()
         # print "creating opapp", op, data_spec, group
         consumer.registerProducer(self, True)
 
@@ -103,7 +104,13 @@ class OperatorApplicator(object):
     def resumeProducing(self):
         self._paused = False
         try:
-            return self.load_chunk()
+            # only start a new chunk if we're done loading our
+            # existing chunks and we actually stopped doing anything
+            # -- if we're still loading, load_chunk will be called
+            # normally from the callback
+            if (self.chunk_idx != None and 
+                self.chunk_idx == self.chunk_loaded_idx):
+                return self.load_chunk()
         except Exception, e:
             self.abort(failure.Failure(e))
 
@@ -117,7 +124,6 @@ class OperatorApplicator(object):
         # save the metadata and streamids for loading
         opmeta = data[0][1]
         opmeta = map(lambda x: dict(util.buildkv('', x)), opmeta)
-        print "Start"
         if not len(opmeta):
             self.consumer.write([])
             self.consumer.unregisterProducer()
@@ -150,6 +156,13 @@ class OperatorApplicator(object):
 
     def load_chunk(self):
         """load a chunk of data for the operator"""
+
+        # this could happen if we were paused -- then load_chunk will
+        # still get called by a callback but we'd be already done when
+        # resumeProducing() is called.
+        if self.chunk_idx == None: 
+            return
+
         # decide on a new chunk to load
         start = (self.data_spec['start'] / 1000) + \
             (self.chunk_idx * self.chunk_length)
@@ -158,12 +171,16 @@ class OperatorApplicator(object):
         start *= 1000
         end *= 1000
         last = False
-        log.msg("starting chunk %i %i" % (self.chunk_idx, (end - start)))
+        log.msg("starting chunk %i %i %s %s" % (self.chunk_idx, (end - start),
+                                                time.ctime(start / 1000),
+                                                time.ctime(end / 1000)))
 
         if self.op.block_streaming or end >= self.data_spec['end']:
             end = self.data_spec['end']
             last = True
-        self.chunk_idx += 1
+            self.chunk_idx = None
+        else:
+            self.chunk_idx += 1
 
         self.args = {
             'starttime' : [start],
@@ -176,10 +193,17 @@ class OperatorApplicator(object):
                                      self.streamids)
         if not last:
             d.addCallback(self.start_next)
-        d.addCallback(self.apply_operator, self.chunk_idx == 1, last)
-        d.addErrback(self.abort)
-        self._loading = True
-        return d
+
+        # once we've loaded the data, we need to acquire the
+        # publish lock to actually send it to the consumer.  This
+        # ensures we always write the results out in the correct order
+        # (this depends on the DeferredLock being FIFO)
+        dl = defer.DeferredList([self.publish_lock.acquire(), d])
+        dl.addCallback(lambda result: result[1][1])
+        dl.addCallback(self.apply_operator, self.chunk_idx == 1, last)
+        dl.addCallback(self.publish_data, last)
+        dl.addBoth(lambda result: (self.publish_lock.release(), result)[1])
+        dl.addErrback(self.abort)
 
     def abort(self, error):
         self._stop = True
@@ -205,7 +229,7 @@ class OperatorApplicator(object):
 
     def apply_operator(self, opdata, first, last):
         tic = time.time()
-
+        self.chunk_loaded_idx += 1
         # process
         for d in opdata:
             d[:, 0] *= 1000
@@ -217,12 +241,12 @@ class OperatorApplicator(object):
         log.msg("STATS: Operator processing took %0.6fs" % (time.time() - tic))
         # log.msg("writing " + str(map(len, redata)))
         # construct a return value with metadata and data merged
-        redata = map(self.build_result, zip(redata, self.op.outputs))
-
+        return map(self.build_result, zip(redata, self.op.outputs))
         # print "processing and writing took", time.time() - tic
 
-        if not self._stop:
-            self.consumer.write(redata)
+    def publish_data(self, data, last):
+        if not self._stop: 
+            self.consumer.write(data)
             if last:
                 self.consumer.unregisterProducer()
                 self.consumer.finish()

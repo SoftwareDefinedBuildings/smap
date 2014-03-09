@@ -57,6 +57,7 @@ class JsonConsumer(object):
 
     def write(self, data):
         self.consumer.write(json.dumps(data))
+        self.consumer.write("\n")
 
     def finish(self):
         self.consumer.finish()
