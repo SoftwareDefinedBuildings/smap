@@ -110,6 +110,35 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         k, v = m.groups(0)
         self.parsestate[k].add(v)
 
+    def get_arp(self):
+        local_ip = socket.gethostbyname(socket.getfqdn())
+        ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
+        try:
+            arp_output = subprocess.check_output(['arp-scan', ip_range])
+            for line in arp_output.split('\n'):
+                m = re.match("((\d{1,3}\.){3}\d{1,3})\\t((\w{1,2}:){5}\w{1,2})\\t(.*)", line)
+                if not m:
+                    continue
+                g = m.groups(0)
+                s_ip, s_mac, hname = g[0],g[2],g[4]
+                if s_mac in self.arp_seen or hname == '(Unknown)':
+                    continue
+                else:
+                    self.arp_seen.add(s_mac)
+                print "Detected", s_ip, s_mac, hname, self.iface, "via arpscan"
+                dev = util.Device(s_ip, s_mac, hname, self.iface)
+                self.discovered_callback(dev)
+        except subprocess.CalledProcessError:
+            print 'Probably an invalid ip_range:',ip_range
+            return
+        except OSError:
+            print 'Make sure arp-scan is installed'
+            return
+        except Exception as e:
+            print e
+            return
+
+
     def discover(self):
         if not 'BOOTPREQUEST' in self.parsestate['OP'].pop(): return
         ipstr = self.parsestate['IP'].pop()
