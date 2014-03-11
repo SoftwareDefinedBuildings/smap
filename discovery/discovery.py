@@ -35,6 +35,7 @@ import os
 import re
 import operator
 import xml.etree.ElementTree as ET
+import ConfigParser
 
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.utils import getProcessOutputAndValue
@@ -69,11 +70,11 @@ class DiscoveryDriver(SmapDriver):
     """
     def setup(self, opts):
         # self.lease_file = opts.get("lease_file", "/var/lib/dhcp/dhcpd.leases")
-        self.config_repo = opts.get("config_repo", '/home/stevedh/develop/smap-configs/')
+        self.config_repo = opts.get("config_repo", '.')
         self.db = {}
         self.discovery_sources = [
             # dhcp.DhcpTailDiscoverySource(self.update_device, opts.get("syslog", "/var/log/syslog")),
-            dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface")),
+            dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface"), opts.get("dhcpdump_path")),
             ]
 
     def start(self):
@@ -94,13 +95,16 @@ class DiscoveryDriver(SmapDriver):
             print "Scheduling device scan", dev
             reactor.callLater(DETECT_SCAN_WAIT, self.scan_device, dev)
 
+    def error(self, *args):
+        print 'Error:',args[1].ip, args[1].mac
+
     def scan_device(self, dev):
         # if dev.ip != '10.4.10.100': return
         d = defer.Deferred()
         pp = XmlProcessProtocol(d)
         print "Starting scan of", dev.ip
-        reactor.spawnProcess(pp, 'nmap', ['nmap', "--script=scripts", '-oX', '-', dev.ip])
-        d.addCallback(self.process_scan_results, dev)
+        reactor.spawnProcess(pp, '/usr/local/bin/nmap', ['nmap', "--script=scripts", '-oX', '-', dev.ip])
+        d.addCallbacks(self.process_scan_results, errback=self.error, callbackArgs=(dev,), errbackArgs=(dev,))
         d.addCallback(self.register_services)
 
     def process_scan_results(self, root, dev):
@@ -121,11 +125,13 @@ class DiscoveryDriver(SmapDriver):
         print len(services), "sMAP service(s) found:"
         if len(services): print "\t" + (" ".join((s.script for s in services)))
         return services
-            
+
     def register_services(self, services):
+        print 'register',services
         configs = map(self.update_config, services)
-        for svc, d in zip(services, map(self.push_config, configs)):
-            d.addCallback(self.start_service, svc)
+        map(self.start_service, services)
+        #for svc, d in zip(services, map(self.push_config, configs)):
+        #    d.addCallback(self.start_service, svc)
 
     def update_config(self, service):
         strname = service.script + "-" + service.dev.ip
@@ -159,7 +165,12 @@ git push origin master""" % config_file
         d.addCallback(check_commit)
         return d
 
-    def start_service(self, result, svc):
+    def start_service(self, svc):
+        c = ConfigParser.RawConfigParser()
+        c.read('supervisord.conf')
+        c.add_section('program:svc name')
+        c.set('program:svc name','program','twistd -n smap configfile.ini')
+        c.write(open('supervisord.conf','w'))
         print "starting service", svc
 
 if __name__ == '__main__':
