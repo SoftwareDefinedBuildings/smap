@@ -1,0 +1,8 @@
+Twisted==13.2.0
+zope.interface==4.1.0
+avro==1.7.6
+configobj==5.0.2
+pyOpenSSL==0.14
+pybonjour==1.1.1
+python-dateutil==2.2
+BeautifulSoup==3.2.1
