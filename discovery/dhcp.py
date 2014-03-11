@@ -33,6 +33,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import re
 import collections
+import subprocess
+import socket
 
 from twisted.internet import reactor, protocol, defer
 from twisted.protocols.basic import LineReceiver
@@ -79,14 +81,17 @@ class DhcpTailDiscoverySource(object):
 class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
     delimiter = "\n"
 
-    def __init__(self, discovered_callback, iface):
+    def __init__(self, discovered_callback, iface, dhcpdump_path = '/usr/local/bin/dhcpdump'):
         self.discovered_callback = discovered_callback
         self.parsestate = collections.defaultdict(set)
         self.iface = iface
         self.outReceived = self.dataReceived
+        self.dhcpdump_path = dhcpdump_path
+        self.arp_seen = set()
+        self.get_arp()
 
     def start(self):
-        path = "/usr/sbin/dhcpdump"
+        path = self.dhcpdump_path
         reactor.spawnProcess(self, path, [path, "-i", self.iface])
         # path = "/bin/cat"
         # reactor.spawnProcess(self, path, [path, "dhcp.log"])
@@ -97,10 +102,10 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
 
     def errReceived(self, data):
         print data
-        
+
     def lineReceived(self, line):
         chars = set(line.strip())
-        if len(chars) == 1 and chars.pop() == '-': 
+        if len(chars) == 1 and chars.pop() == '-':
             self.discover()
             self.parsestate = collections.defaultdict(set)
             return
