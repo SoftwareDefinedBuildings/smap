@@ -34,7 +34,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import re
 import collections
 import subprocess
-import socket
+from netifaces import ifaddresses
 
 from twisted.internet import reactor, protocol, defer
 from twisted.protocols.basic import LineReceiver
@@ -116,7 +116,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         self.parsestate[k].add(v)
 
     def get_arp(self):
-        local_ip = socket.gethostbyname(socket.getfqdn())
+        local_ip = ifaddresses(self.iface)[2][0]['addr']
         ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
         try:
             arp_output = subprocess.check_output(['arp-scan', ip_range])
