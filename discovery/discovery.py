@@ -54,7 +54,7 @@ class XmlProcessProtocol(protocol.ProcessProtocol):
         self.done = done
     def outReceived(self, data):
         self.data.append(data)
-    def errorReceived(self, data):
+    def errReceived(self, data):
         print data
     def processEnded(self, reason):
         try:
