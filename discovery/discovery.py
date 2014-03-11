@@ -36,6 +36,7 @@ import re
 import operator
 import xml.etree.ElementTree as ET
 import ConfigParser
+import subprocess
 
 from twisted.internet import reactor, protocol, defer
 from twisted.internet.utils import getProcessOutputAndValue
@@ -72,10 +73,15 @@ class DiscoveryDriver(SmapDriver):
         # self.lease_file = opts.get("lease_file", "/var/lib/dhcp/dhcpd.leases")
         self.config_repo = opts.get("config_repo", '.')
         self.db = {}
+        self._driverport = 1234
         self.discovery_sources = [
             # dhcp.DhcpTailDiscoverySource(self.update_device, opts.get("syslog", "/var/log/syslog")),
             dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface"), opts.get("dhcpdump_path")),
             ]
+    @property
+    def driverport(self):
+        self._driverport += 1
+        return self._driverport
 
     def start(self):
         map(operator.methodcaller("start"), self.discovery_sources)
@@ -127,7 +133,6 @@ class DiscoveryDriver(SmapDriver):
         return services
 
     def register_services(self, services):
-        print 'register',services
         configs = map(self.update_config, services)
         map(self.start_service, services)
         #for svc, d in zip(services, map(self.push_config, configs)):
@@ -165,13 +170,21 @@ git push origin master""" % config_file
         d.addCallback(check_commit)
         return d
 
-    def start_service(self, svc):
+    def start_service(self, service):
+        strname = service.script + "-" + service.dev.ip
         c = ConfigParser.RawConfigParser()
         c.read('supervisord.conf')
-        c.add_section('program:svc name')
-        c.set('program:svc name','program','twistd -n smap configfile.ini')
+        # remove old config section
+        c.remove_section('program:{0}'.format(strname))
+        # add new section
+        c.add_section('program:{0}'.format(strname))
+        # use custom port and custom pidfile
+        c.set('program:{0}'.format(strname),'command','twistd --pidfile={strname}.pid -n smap -p {port} driverconfigs/{strname}.ini'.format(strname=strname, port=self.driverport))
         c.write(open('supervisord.conf','w'))
-        print "starting service", svc
+        print "starting service", service
+        # hot reload of supervisord
+        subprocess.check_call(['supervisorctl','update'])
+
 
 if __name__ == '__main__':
 
