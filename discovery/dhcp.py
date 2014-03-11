@@ -162,7 +162,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         s_ip, s_mac = g[0], g[2]
         if s_ip == '0.0.0.0':
             print "Detected null source address... arp required?", s_mac
-            return
+            self.get_arp()
         else:
             print "Detected", s_ip, s_mac, hname, self.iface, "via snooping"
             dev = util.Device(s_ip, s_mac, hname, self.iface)
