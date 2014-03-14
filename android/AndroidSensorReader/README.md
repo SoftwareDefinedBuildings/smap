@@ -16,13 +16,13 @@ A brief diagram of the information flow shown below:
 
 INSTALLATION INSTRUCTIONS:
  - edit `edu.berkeley.eecs.cfc_tracker.smap.AddDataAdapter` and
-  - change the `SMAP_HOST` variable to the server that you plan to push your data to. e.g. 
-    private static String SMAP_HOST = "http://www.mybmsserver.org/backend/";
-  - change the `SMAP_KEY` variable to the key that you got set up to access sMAP.
-    private static String SMAP_KEY = "YOUR_BMS_KEY_HERE";
+  - change the `SMAP_HOST` variable to the server where you plan to push data. e.g. 
+      private static String SMAP_HOST = "http://www.mybmsserver.org/backend/";
+  - change the `SMAP_KEY` variable to the key to access sMAP.
+      private static String SMAP_KEY = "YOUR_BMS_KEY_HERE";
  - edit `edu.berkeley.eecs.cfc_tracker.smap.MainActivity` and
   - change the `ACCOUNT_TYPE` variable to point to your server, e.g.
-    public static final String ACCOUNT_TYPE = "mybmsserver.org";
+      public static final String ACCOUNT_TYPE = "mybmsserver.org";
 
 That's it! Now deploy your application - it should pop up an activity with
 start, stop and sync buttons. You can use these to manually control the data
