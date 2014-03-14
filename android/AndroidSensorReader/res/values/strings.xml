@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">CFC_Tracker</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="sync">Sync</string>
+    <string name="startedMonitoring">Started monitoring activity</string>
+    <string name="stoppedMonitoring">Stopped monitoring activity</string>
+    <string name="startAtDropoff">edu.berkeley.eecs.cfc_tracker.startMonitoring_dropoff</string>
+    <string name="stopAtDropoff">edu.berkeley.eecs.cfc_tracker.stopMonitoring_dropoff</string>
+    <string name="startAtPickup">edu.berkeley.eecs.cfc_tracker.startMonitoring_pickup</string>
+    <string name="stopAtPickup">edu.berkeley.eecs.cfc_tracker.stopMonitoring_pickup</string>
+    
+    <!-- Added from activity recognition sample -->
+    <string name="app_description">Demonstrates activity recognition</string>
+    <string name="start_button">Start</string>
+    <string name="stop_button">Stop</string>
+    <string name="connected">Connected to Location Services</string>
+    <string name="disconnected">Disconnected from Location Services</string>
+    <string name="connection_failed">Connection to service failed: error code %1$d</string>
+    <string name="log_file_deletion_error">Log file deletion error.</string>
+    <string name="notification_title">You are moving</string>
+    <string name="turn_on_GPS">Click to turn on GPS, or swipe to ignore</string>
+    <string name="activity_updates_requested">Activity updates requested</string>
+    <string name="service_not_connected">Not connected to Location Services</string>
+    <string name="activity_updates_stop">Stopping activity update requests</string>
+    <string name="log_message">Log: timestamp: %1$s type %2$s confidence %3$d</string>
+    <string name="menu_item_clearlog">Clear Log</string>
+    <string name="menu_item_showlog">Show Log</string>
+    <string name="logs_deleted">Log file(s) deleted</string>
+    <string name="start_updates">Start Updates</string>
+    <string name="stop_updates">Stop Updates</string>
+    <string name="play_services_available">Location Services is available</string>
+    <string name="invalid_action">Invalid action received. See error log for details.</string>
+    <string name="invalid_action_detail">Invalid action %1$s received.</string>
+    <string name="unknown">--Unknown--</string>
+    <string name="no_log_data">No log data is available</string>
+    <string name="activity_recognition_error_detail">
+        Activity recognition error, code %1$d message %2$s.
+    </string>
+    <string name="date_format_error">Internal error: date formatting exception.</string>
+    <string name="log_filename">%1$s%2$s%3$d%4$s</string>
+    <string name="no_resolution">Google Play services: unable to resolve connection error.</string>
+    <string name="unknown_activity_request_code">
+        Received an unknown activity request code %1$d in onActivityResult.
+    </string>
+    
+</resources>
