@@ -4,8 +4,9 @@
   "namespace" : "edu.berkeley.cs.local",
   "doc" : "A single job instance",
   "fields" : [
-    {"name" : "Async", "type" : ["null", "boolean"]},
     {"name" : "StartTime", "type" : ["null", "long"]},
+    {"name" : "Name", "type" : ["null", "string"]},
+    {"name" : "After", "type" : ["null", "string"]},
     {"name" : "Actions", "type" : [
         "null", 
         {

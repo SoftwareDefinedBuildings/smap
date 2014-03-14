@@ -45,6 +45,7 @@ from smap import util
 from smap import reporting
 from smap import smapconf
 from smap import actuate
+from smap import jobs
 from smap.interface import *
 from smap.checkers import datacheck
 
@@ -662,6 +663,10 @@ sMAP reporting functionality."""
         ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
         ts.FIELDS = ts.FIELDS + ["Actuator"]
         ts["Actuator"] = impl.get_description()
+        if hasattr(self, 'jobs'):
+            self.jobs.actuators.append(path)
+        else:
+            self.jobs = jobs.SmapJobsManager(path, self)
         return ts
 
     def set_metadata(self, path, *metadata):

@@ -228,7 +228,10 @@ class JobsResource(resource.Resource):
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
-        return json.dumps(self.inst.jobs.jobs)
+        rv = map(lambda j: j.__dict__, self.inst.jobs.jobs)
+        keys = ['name', 'start_time', 'after', 'actions']
+        rv = map(lambda j: {k: j[k] for k in keys}, rv)
+        return json.dumps(rv)
 
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
@@ -294,6 +297,11 @@ def getSite(inst, docroot=None):
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:
         root.putChild('docs', static.File(docroot))
+
+    if hasattr(inst, 'jobs'):
+        contents.append('jobs')
+        contents.sort()
+        root.putChild('jobs', JobsResource(inst))
 
     site = server.Site(root)
     return site
