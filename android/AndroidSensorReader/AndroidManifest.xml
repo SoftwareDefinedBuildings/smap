@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.berkeley.eecs.cfc_tracker"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="8"
+        android:targetSdkVersion="19" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION"/>
+    <!-- COARSE_LOCATION obfuscates the location to a city block, change to FINE_LOCATION for accuracy -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Added to allow us to upload data to the internet -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
+    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS"/>
+    <!-- We need this in order to check for existing accounts before creating a new account. Need to figure out a better way to do this so that people don't get freaked out -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name="edu.berkeley.eecs.cfc_tracker.MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name="edu.berkeley.eecs.cfc_tracker.BootReceiver"
+            android:enabled="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" >
+                </action>
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="edu.berkeley.eecs.cfc_tracker.WakeupReceiver"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="edu.berkeley.eecs.cfc_tracker.startMonitoring_dropoff"></action>
+                <action android:name="edu.berkeley.eecs.cfc_tracker.stopMonitoring_dropoff"></action>
+                <action android:name="edu.berkeley.eecs.cfc_tracker.startMonitoring_pickup"></action>
+                <action android:name="edu.berkeley.eecs.cfc_tracker.stopMonitoring_pickup"></action>
+            </intent-filter>
+        </receiver>
+        
+        <service
+            android:name="edu.berkeley.eecs.cfc_tracker.CommuteTrackerService"
+            android:enabled="true">
+        </service>
+        
+        <service
+            android:name="edu.berkeley.eecs.cfc_tracker.smap.AuthenticatorService">
+        	<intent-filter>
+            	<action android:name="android.accounts.AccountAuthenticator"/>
+        	</intent-filter>
+        	<meta-data
+            	android:name="android.accounts.AccountAuthenticator"
+            	android:resource="@xml/authenticator" />
+    	</service>
+        <service
+		    android:name="edu.berkeley.eecs.cfc_tracker.ActivityRecognitionIntentService"
+		    android:enabled="true" 
+		    android:exported="false">
+		</service>
+		<service
+                android:name="edu.berkeley.eecs.cfc_tracker.smap.SyncService"
+                android:exported="true"
+                android:process=":sync">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter"/>
+            </intent-filter>
+            <meta-data android:name="android.content.SyncAdapter"
+                    android:resource="@xml/syncadapter" />
+        </service>
+    	<provider
+        	android:name="edu.berkeley.eecs.cfc_tracker.smap.StubContentProvider"
+        	android:authorities="edu.berkeley.eecs.cfc_tracker.provider"
+        	android:exported="false"
+        	android:syncable="true"/>
+    </application>
+
+</manifest>

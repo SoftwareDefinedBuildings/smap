@@ -4,7 +4,7 @@ Copyright (c) 2014 Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -16,15 +16,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """Methods for discovering network devices based on dhcp
@@ -33,6 +33,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import re
 import collections
+import subprocess
+from netifaces import ifaddresses
 
 from twisted.internet import reactor, protocol, defer
 from twisted.protocols.basic import LineReceiver
@@ -79,14 +81,17 @@ class DhcpTailDiscoverySource(object):
 class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
     delimiter = "\n"
 
-    def __init__(self, discovered_callback, iface):
+    def __init__(self, discovered_callback, iface, dhcpdump_path = '/usr/local/bin/dhcpdump'):
         self.discovered_callback = discovered_callback
         self.parsestate = collections.defaultdict(set)
         self.iface = iface
         self.outReceived = self.dataReceived
+        self.dhcpdump_path = dhcpdump_path
+        self.arp_seen = set()
+        self.get_arp()
 
     def start(self):
-        path = "/usr/sbin/dhcpdump"
+        path = self.dhcpdump_path
         reactor.spawnProcess(self, path, [path, "-i", self.iface])
         # path = "/bin/cat"
         # reactor.spawnProcess(self, path, [path, "dhcp.log"])
@@ -97,10 +102,10 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
 
     def errReceived(self, data):
         print data
-        
+
     def lineReceived(self, line):
         chars = set(line.strip())
-        if len(chars) == 1 and chars.pop() == '-': 
+        if len(chars) == 1 and chars.pop() == '-':
             self.discover()
             self.parsestate = collections.defaultdict(set)
             return
@@ -109,6 +114,35 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         if not m: return
         k, v = m.groups(0)
         self.parsestate[k].add(v)
+
+    def get_arp(self):
+        local_ip = ifaddresses(self.iface)[2][0]['addr']
+        ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
+        try:
+            arp_output = subprocess.check_output(['arp-scan', ip_range])
+            for line in arp_output.split('\n'):
+                m = re.match("((\d{1,3}\.){3}\d{1,3})\\t((\w{1,2}:){5}\w{1,2})\\t(.*)", line)
+                if not m:
+                    continue
+                g = m.groups(0)
+                s_ip, s_mac, hname = g[0],g[2],g[4]
+                if s_mac in self.arp_seen or hname == '(Unknown)':
+                    continue
+                else:
+                    self.arp_seen.add(s_mac)
+                print "Detected", s_ip, s_mac, hname, self.iface, "via arpscan"
+                dev = util.Device(s_ip, s_mac, hname, self.iface)
+                self.discovered_callback(dev)
+        except subprocess.CalledProcessError:
+            print 'Probably an invalid ip_range:',ip_range
+            return
+        except OSError:
+            print 'Make sure arp-scan is installed'
+            return
+        except Exception as e:
+            print e
+            return
+
 
     def discover(self):
         if not 'BOOTPREQUEST' in self.parsestate['OP'].pop(): return
@@ -128,7 +162,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         s_ip, s_mac = g[0], g[2]
         if s_ip == '0.0.0.0':
             print "Detected null source address... arp required?", s_mac
-            return
+            self.get_arp()
         else:
             print "Detected", s_ip, s_mac, hname, self.iface, "via snooping"
             dev = util.Device(s_ip, s_mac, hname, self.iface)

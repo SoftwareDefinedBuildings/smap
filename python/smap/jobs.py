@@ -40,12 +40,6 @@ class SmapJob:
         self.after = job['After'] if 'After' in job else None
         self.start_time = job['StartTime'] if 'StartTime' in job else None
         self.actions = job['Actions']
-        if 'Async' in job: 
-            str_async = job['Async'].lower()
-            self.async = True if str_async in ['true', 't', '1'] else False
-        else:
-            self.async = True
-        if self.async: self.d_inner = defer.Deferred()
 
 class SmapJobsManager:
     
@@ -82,19 +76,15 @@ class SmapJobsManager:
                 path = action['Path']
                 state = action['State']
                 actuator = self.inst.get_timeseries(path)
-                print 'setting', path, 'to', state
-                if j.async:
-                    j.d_inner.addCallback(lambda: actuator.set_state(None,state))
-                else:
-                    actuator.set_state(None, state)
+                print 'Setting', path, 'to', state
+                actuator.impl.set_state(None, state)
 
         # queue the callback
         j.d_outer.addCallback(act)
-        print 'added callback to', j.d_outer
+        print 'Added callback to', j.d_outer
        
         if not j.after:
             # job_id will let you cancel it
-            # j.job_id = reactor.callLater(wait, act)
             j.job_id = reactor.callLater(wait, j.d_outer.callback, None)
             self._job_ids[job['uuid']] = j.job_id
         
@@ -102,7 +92,7 @@ class SmapJobsManager:
   
     def cancel_job(self, uuids):
         for uuid in uuids:
-            print 'cancelling job', uuid
+            print 'Cancelling job', uuid
             call_id = self._job_ids[uuid]
             call_id.cancel()
 
