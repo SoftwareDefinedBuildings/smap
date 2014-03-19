@@ -80,7 +80,7 @@ class SmapClient:
         else:
             return 0
  
-    def submit_job(self, jobs):
+    def submit_jobs(self, jobs):
         """
         jobs is an array of job objects: 
         job is an object that is formed according to ../schema/job.av
@@ -96,7 +96,18 @@ class SmapClient:
         fp = opener.open(request)
         rv = json.loads(fp.read())
         return rv
-   
+  
+    def cancel_jobs(self, job_ids):
+        url = self.base + '/jobs'
+        payload = json.dumps(job_ids)
+        opener = urllib2.build_opener(urllib2.HTTPHandler)
+        request = urllib2.Request(url, data=payload)
+        request.add_header('Content-Type', 'your/contenttype')
+        request.get_method = lambda: 'DELETE'
+        fp = opener.open(request)
+        rv = json.loads(fp.read())
+        return rv
+
     def tags(self, path):
         """ 
         Get all metadata associated with path, including metadata 
@@ -153,7 +164,7 @@ if __name__=='__main__':
     print 'Setting state succeeds:', c.set_state(path, 0), '\n'
 
     path = '/binary/point0'
-    start_time = time.time() * 1000 + 10 * 1000 # 10s from now
+    start_time = time.time() * 1000 + 20 * 1000 # 20s from now
     jobs = [{
         'StartTime': start_time, 
         'Name': 'Job1',
@@ -164,5 +175,23 @@ if __name__=='__main__':
             {'State': 1, 'Path': path}
         ]   
     }]
-    print 'Submit a job:', c.submit_job(jobs)
+    del_uuids = c.submit_jobs(jobs)
+    print 'Submit a job:', del_uuids, '\n'
 
+    print 'Cancel the job:', c.cancel_jobs(del_uuids), '\n'
+
+    jobs.append({
+        'After': 'Job1',
+        'Name': 'Job2',
+        'Actions': [
+            {'State': 0, 'Path': path},
+            {'State': 1, 'Path': path},
+            {'State': 0, 'Path': path},
+            {'State': 1, 'Path': path}
+        ]
+    })
+    del_uuids = c.submit_jobs(jobs)
+    print 'Submit two jobs:', del_uuids, '\n'
+
+    del_uuids.pop(0)
+    print 'Cancelling the second job cancels the queue:', c.cancel_jobs(del_uuids), '\n'

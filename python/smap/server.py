@@ -261,10 +261,9 @@ class JobsResource(resource.Resource):
         content = request.content.read()
         if content:
             del_uuids = json.loads(content)
-            assert isinstance(del_uuids, (list, tuple))
-            self.inst.jobs.jobs = filter(lambda x: x['uuid'] not in del_uuids, self.inst.jobs.jobs)
-            self.inst.jobs.cancel(del_uuids)
-        return json.dumps(self.inst.jobs.jobs)
+            self.inst.jobs.jobs = filter(lambda j: j.uuid not in del_uuids, self.inst.jobs.jobs)
+            self.inst.jobs.cancel_job(del_uuids)
+        return json.dumps(map(lambda j: j.uuid, self.inst.jobs.jobs))
 
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server

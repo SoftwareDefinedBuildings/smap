@@ -34,15 +34,16 @@ import util
 import time
 
 class SmapJob:
-    
+
     def __init__(self, job):
         self.name = job['Name'] if 'Name' in job else None
         self.after = job['After'] if 'After' in job else None
         self.start_time = job['StartTime'] if 'StartTime' in job else None
         self.actions = job['Actions']
+        self.uuid = None
 
 class SmapJobsManager:
-    
+
     def __init__(self, path, inst):
         self.jobs = []
         self._job_ids = {}
@@ -51,7 +52,6 @@ class SmapJobsManager:
 
     def add_job(self, job):
         j = SmapJob(job)
-        self.jobs.append(j)
         if 'StartTime' in job:
             start = job['StartTime'] / 1000.
             wait = start - util.now()
@@ -66,7 +66,8 @@ class SmapJobsManager:
             else:
                 j.d_outer = previous_job.d_outer
                 j.job_id = previous_job.job_id
-                self._job_ids[job['uuid']] = j.job_id
+                j.uuid = job['uuid']
+                self._job_ids[j.uuid] = j.job_id
         else: # assign it its own deferred
             j.d_outer = defer.Deferred()
 
@@ -82,17 +83,21 @@ class SmapJobsManager:
         # queue the callback
         j.d_outer.addCallback(act)
         print 'Added callback to', j.d_outer
-       
+
         if not j.after:
             # job_id will let you cancel it
             j.job_id = reactor.callLater(wait, j.d_outer.callback, None)
             self._job_ids[job['uuid']] = j.job_id
-        
+        self.jobs.append(j)
+
         return j.d_outer
-  
+
     def cancel_job(self, uuids):
+        uuids = set(uuids)
         for uuid in uuids:
             print 'Cancelling job', uuid
-            call_id = self._job_ids[uuid]
-            call_id.cancel()
-
+            try:
+                call_id = self._job_ids[uuid]
+                call_id.cancel()
+            except Exception:
+                pass
