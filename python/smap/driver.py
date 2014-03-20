@@ -103,11 +103,13 @@ class SmapDriver(object):
     def stop(self):
         pass
 
+    #TODO: change emitter_path to emitter_paths and support strings
     #TODO: sometimes, readings are delivered out of order. Need some sort of sMAPdriver-side buffering
     #      to make sure readings are delivered in order
+    #TODO: add type-checking for publishing to the emitters (must be strings -- jsonify if not)
     #TODO: turn off bosswave debug?
-    #TODO: add timestamp to published emitter message?
-    #      This will require doing bosswave in the Timeseries object...probably not worth it
+    #TODO: add more documentation in code
+    #TODO: add public documentation
     # BossWave methods
     @property
     def _has_bosswave(self):
