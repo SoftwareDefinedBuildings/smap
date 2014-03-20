@@ -178,6 +178,13 @@ class SmapDriver(object):
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
+        if not isinstance(msg, str):
+            print "Make sure msg is of type `string`. Attempting JSON serialization"
+            try:
+                msg = json.dumps(msg)
+            except TypeError as e:
+                print "msg {0} is not JSON serializable. Abandoning publish".format(msg)
+                return
         if self._emitters[emitter_path]:
             self._emitters[emitter_path](msg)
 
@@ -245,6 +252,7 @@ class SmapDriver(object):
         self.statslog.mark()
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
+        self._publish_to_emitters(id, args)
         self.statslog.mark()
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
