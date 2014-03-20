@@ -107,6 +107,7 @@ class SmapDriver(object):
     #TODO: add support for add_acuator
     #TODO: turn off bosswave debug? -- just redirect stderr: 2>/dev/null
     #TODO: add public documentation
+    #TODO: add unittests for bosswave/driver stuff
     # BossWave methods
     @property
     def _has_bosswave(self):
@@ -231,7 +232,7 @@ class SmapDriver(object):
             print "timeseries_path must be a string"
             return
         if not timeseries_path in self._timeseries_emitter_mapping:
-            print "timeseries {0} has no emitters".format(timeseries_path)
+            return
         for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
             msg = {'timeseries': timeseries_path,
                    'timestamp': util.now(),
@@ -278,11 +279,11 @@ class SmapDriver(object):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
     #TODO: if there is an emitter path for a timeseries, get the relevant emitter and publish
     def add(self, id, *args):
-        self._publish_to_emitters(id, args)
+        self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
-        self._publish_to_emitters(id, args)
+        self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
