@@ -108,6 +108,13 @@ class SmapDriver(object):
     # (e.g. the instance has _bosswave_key, _bw, _root,_emitters,_timeseries_emitter_mapping)
 
     # BossWave methods
+    @property
+    def _has_bosswave(self):
+        return hasattr(self, '_bw') and \
+               hasattr(self, '_root') and \
+               hasattr(self, '_emitters') and \
+               hasattr(self, '_timeseries_emitter_mapping')
+
     def init_bosswave(self, key):
         """
         Takes a BossWave [key] as an argument, and initializes a BossWave
@@ -127,7 +134,7 @@ class SmapDriver(object):
         """
         Add a BossWave emitter with the given [path]
         """
-        if not (hasattr(self, '_root') and hasattr(self, '_bw')):
+        if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
         # TODO: add notification for duplicate path -- don't attempt to re-initialize emitter
@@ -143,6 +150,9 @@ class SmapDriver(object):
         Appends [emitter_path] to a list of emitters that [timeseries_path] publishes to
         whenever its add() method is called
         """
+        if not self._has_bosswave:
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
         if not timeseries_path:
             print "timeseries_path required"
             return
@@ -159,10 +169,16 @@ class SmapDriver(object):
         print 'timeseries {0} now publishes to {1}'.format(timeseries_path, emitter_path)
 
     def _publish(self, emitter_path, msg):
+        if not self._has_bosswave:
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
         if self._emitters[emitter_path]:
             self._emitters[emitter_path](msg)
 
     def _publish_to_emitters(self, timeseries_path, *args):
+        if not self._has_bosswave:
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
         if not timeseries_path:
             print "timeseries_path required"
             return
