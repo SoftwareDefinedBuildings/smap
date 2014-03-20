@@ -103,10 +103,11 @@ class SmapDriver(object):
     def stop(self):
         pass
 
-    #TODO: add a @property '_has_bosswave' so that none of these methods can be called
-    # unless bosswave has been initialized
-    # (e.g. the instance has _bosswave_key, _bw, _root,_emitters,_timeseries_emitter_mapping)
-
+    #TODO: sometimes, readings are delivered out of order. Need some sort of sMAPdriver-side buffering
+    #      to make sure readings are delivered in order
+    #TODO: turn off bosswave debug?
+    #TODO: add timestamp to published emitter message?
+    #      This will require doing bosswave in the Timeseries object...probably not worth it
     # BossWave methods
     @property
     def _has_bosswave(self):
