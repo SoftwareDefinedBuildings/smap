@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -66,7 +66,7 @@ class SmapDriver(object):
         if mod_name in sys.modules:
             mod = sys.modules[mod_name]
         else:
-            mod = __import__(mod_name, globals(), locals(), [class_name]) 
+            mod = __import__(mod_name, globals(), locals(), [class_name])
 
         klass = getattr(mod, class_name)
         driver = klass(inst, attach_point, namespace)
@@ -235,7 +235,7 @@ class FetchDriver(SmapDriver):
             mgr.add_password(None, url_p.hostname, url_p.username, url_p.password)
         handler = urllib2.HTTPBasicAuthHandler(mgr)
         opener = urllib2.build_opener(handler)
-        dest = urlparse.urlunparse((url_p.scheme, url_p.hostname, url_p.path, 
+        dest = urlparse.urlunparse((url_p.scheme, url_p.hostname, url_p.path,
                                     url_p.params, url_p.query, url_p.fragment))
         try:
             # try the open but mask errors
@@ -262,7 +262,7 @@ class FetchDriver(SmapDriver):
 class BaseDriver(SmapDriver):
     def setup(self, opts={}):
         self.t = self.add_timeseries('/sensor0', 'mytimeseries', 'SDH')
-        self.set_metadata('/sensor0', { 
+        self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument',
             'Extra/ModbusAddr' : opts.get('ModbusAddr', '')
             })
