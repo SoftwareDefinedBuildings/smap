@@ -30,6 +30,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 from smap.driver import SmapDriver
+from smap import actuate
 from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 
@@ -37,15 +38,19 @@ from twisted.internet import threads
 from twisted.python import log
 import logging
 
+counter = 0
+
 class Driver(SmapDriver):
     def setup(self, opts):
         self.init_bosswave(opts.get('bosswave_key'))
+        #self.add_timeseries('/sensor0', 'V')
+        #self.add_timeseries('/sensor1', 'V')
         self.add_timeseries('/sensor0', 'V', emitter_path='test/gabe')
         self.add_timeseries('/sensor1', 'V', emitter_path=['test/sensor1','test/gabe'])
+        self.add_actuator('/sensor0_act', 'V', ContinuousIntegerActuator(range=(0,100)))
         self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument'
             })
-        self.counter = int(opts.get('StartVal', 0))
         self.rate = float(opts.get('Rate', 1))
 
     def start(self):
@@ -53,19 +58,20 @@ class Driver(SmapDriver):
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
-        self.add('/sensor0', self.counter)
-        self.add('/sensor1', self.counter*2)
-        self.counter += 1
+        global counter
+        self.add('/sensor0', counter)
+        self.add('/sensor1', counter*2)
+        counter += 1
 
-    def load(self, st, et, cache=None):
-        d = threads.deferToThread(self.load_data, st, et)
-        return d
- 
-    def load_data(self, st, et):
-        st_utc = dtutil.dt2ts(st)
-        et_utc = dtutil.dt2ts(et)
-        ts = int(st_utc / 120) * 120 # round down to nearest 2-min increment
-        while ts <= et_utc:
-            self.add('/sensor0', ts, self.counter)
-            self.counter += 1
-            ts += 120 # 2-min increments
+class ContinuousIntegerActuator(actuate.ContinuousIntegerActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousIntegerActuator.__init__(self, opts['range'])
+
+    def get_state(self, request):
+        global counter
+        return counter
+
+    def set_state(self, request, state):
+        global counter
+        counter = int(state)
+        return counter
