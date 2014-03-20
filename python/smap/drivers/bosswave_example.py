@@ -41,6 +41,7 @@ class Driver(SmapDriver):
     def setup(self, opts):
         self.init_bosswave(opts.get('bosswave_key'))
         self.add_timeseries('/sensor0', 'V', emitter_path='test/gabe')
+        self.add_timeseries('/sensor1', 'V', emitter_path=['test/sensor1','test/gabe'])
         self.set_metadata('/sensor0', {
             'Instrument/ModelName' : 'ExampleInstrument'
             })
@@ -53,6 +54,7 @@ class Driver(SmapDriver):
 
     def read(self):
         self.add('/sensor0', self.counter)
+        self.add('/sensor1', self.counter*2)
         self.counter += 1
 
     def load(self, st, et, cache=None):
