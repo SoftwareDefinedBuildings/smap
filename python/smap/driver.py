@@ -103,12 +103,8 @@ class SmapDriver(object):
     def stop(self):
         pass
 
-    #TODO: change emitter_path to emitter_paths and support strings
-    #TODO: sometimes, readings are delivered out of order. Need some sort of sMAPdriver-side buffering
-    #      to make sure readings are delivered in order
-    #TODO: add type-checking for publishing to the emitters (must be strings -- jsonify if not)
-    #TODO: turn off bosswave debug?
-    #TODO: add more documentation in code
+    #TODO: add support for add_acuator
+    #TODO: turn off bosswave debug? -- just redirect stderr: 2>/dev/null
     #TODO: add public documentation
     # BossWave methods
     @property
