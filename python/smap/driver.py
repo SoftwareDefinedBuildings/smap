@@ -160,14 +160,17 @@ class SmapDriver(object):
         if not emitter_path:
             print "emitter_path required"
             return
-        if not (isinstance(timeseries_path, str) or isinstance(emitter_path, str)):
-            print "timeseries_path and emitter_path must be strings"
+        if not isinstance(timeseries_path, str):
+            print "timeseries_path must be a string"
             return
-        self._add_bosswave_emitter(emitter_path)
-        if timeseries_path not in self._timeseries_emitter_mapping:
-            self._timeseries_emitter_mapping[timeseries_path] = []
-        self._timeseries_emitter_mapping[timeseries_path].append(emitter_path)
-        print 'timeseries {0} now publishes to {1}'.format(timeseries_path, emitter_path)
+        if not isinstance(emitter_path, list):
+            emitter_path = [emitter_path]
+        for ep in emitter_path:
+            self._add_bosswave_emitter(ep)
+            if timeseries_path not in self._timeseries_emitter_mapping:
+                self._timeseries_emitter_mapping[timeseries_path] = []
+            self._timeseries_emitter_mapping[timeseries_path].append(ep)
+            print 'timeseries {0} now publishes to {1}'.format(timeseries_path, ep)
 
     def _publish(self, emitter_path, msg):
         if not self._has_bosswave:
@@ -191,7 +194,11 @@ class SmapDriver(object):
         for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
             print "want to publish",timeseries_path,args,emitter_path
             print self._emitters[emitter_path]
-            self._publish(emitter_path,json.dumps(args))
+            msg = {'timeseries': timeseries_path,
+                   'timestamp': util.now(),
+                   'reading': args}
+            msg = json.dumps(msg)
+            self._publish(emitter_path,msg)
 
 
     # ISmapInstance implementation
