@@ -28,6 +28,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+@author Gabe Fierro <gtfierro@eecs.berkeley.edu>
 """
 
 import uuid
@@ -228,8 +229,6 @@ class SmapDriver(object):
         if not timeseries_path in self._timeseries_emitter_mapping:
             print "timeseries {0} has no emitters".format(timeseries_path)
         for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
-            print "want to publish",timeseries_path,args,emitter_path
-            print self._emitters[emitter_path]
             msg = {'timeseries': timeseries_path,
                    'timestamp': util.now(),
                    'reading': args}
