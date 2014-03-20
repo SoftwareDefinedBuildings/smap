@@ -45,7 +45,7 @@ class Driver(SmapDriver):
         self.init_bosswave(opts.get('bosswave_key'))
         #self.add_timeseries('/sensor0', 'V')
         #self.add_timeseries('/sensor1', 'V')
-        self.add_timeseries('/sensor0', 'V', emitter_path='test/gabe')
+        self.add_timeseries('/sensor0', 'V', emitter_path='test/sensor0')
         self.add_timeseries('/sensor1', 'V', emitter_path=['test/sensor1','test/gabe'])
         self.add_actuator('/sensor0_act', 'V', ContinuousIntegerActuator(range=(0,100)))
         self.set_metadata('/sensor0', {
