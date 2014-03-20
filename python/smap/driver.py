@@ -113,6 +113,10 @@ class SmapDriver(object):
     # BossWave methods
     @property
     def _has_bosswave(self):
+        """
+        Returns True if all the required BossWave objects have been set.
+        It's a good idea to call this before any BossWave-related code
+        """
         return hasattr(self, '_bw') and \
                hasattr(self, '_root') and \
                hasattr(self, '_emitters') and \
@@ -122,6 +126,8 @@ class SmapDriver(object):
         """
         Takes a BossWave [key] as an argument, and initializes a BossWave
         instance, setting up the root as self._root
+
+        :param string key: bosswave key for the trust network
         """
         if not key:
             print "Please provide a non-null key"
@@ -136,6 +142,8 @@ class SmapDriver(object):
     def _add_bosswave_emitter(self, path):
         """
         Add a BossWave emitter with the given [path]
+
+        :param string path: relative or absolute bosswave path for an emitter instance
         """
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
@@ -151,7 +159,14 @@ class SmapDriver(object):
     def _add_timeseries_to_emitter(self, timeseries_path, emitter_path):
         """
         Appends [emitter_path] to a list of emitters that [timeseries_path] publishes to
-        whenever its add() method is called
+        whenever its add() method is called. Emitters will be created if they don't already
+        exist. Uses self._timeseries_emitter_mapping to keep track of which emitters
+        a timeseries will publish to when it receives a reading
+
+        :param string timeseries_path: timeseries path for this SmapDriver whose readings will be published
+                                       to the emitter(s) specified by [emitter_path]
+        :param string emitter_path: a single bosswave emitter path
+        :param list emitter_path: a list of bosswave emitter paths
         """
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
@@ -175,6 +190,12 @@ class SmapDriver(object):
             print 'timeseries {0} now publishes to {1}'.format(timeseries_path, ep)
 
     def _publish(self, emitter_path, msg):
+        """
+        Publishes [msg] on [emitter_path]
+
+        :param string emitter_path: a string representing an emitter path known by this driver
+        :param string msg: a string or JSON-serializable object to be published on emitter_path
+        """
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
@@ -185,10 +206,20 @@ class SmapDriver(object):
             except TypeError as e:
                 print "msg {0} is not JSON serializable. Abandoning publish".format(msg)
                 return
+        # TODO: check for nonexistant emitter_path
         if self._emitters[emitter_path]:
             self._emitters[emitter_path](msg)
 
+    # Currently, Boss-Wave reliably delivers all messages, but not necessarily the order.
     def _publish_to_emitters(self, timeseries_path, *args):
+        """
+        Usually called by add() or _add(). Takes the readings in [args] and publishes
+        them on all emitter paths specified by the [timeseries_path] entry in
+        self._timeseries_emitter_mapping
+
+        :param string timeseries_path: timeseries path for this SmapDriver
+        :param tuple args: readings to be published
+        """
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
