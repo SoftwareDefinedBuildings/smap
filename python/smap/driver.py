@@ -36,6 +36,7 @@ import time
 import sys
 import urlparse
 import urllib2
+import json
 from twisted.internet import reactor, threads, defer
 from twisted.python.util import println
 from twisted.python import log
@@ -47,6 +48,8 @@ import util
 import loader
 import server
 from smap.contrib import dtutil
+
+from bosswave import BossWave
 
 class SmapDriver(object):
     # this is actually a shim layer which presents a ISmapInstance to
@@ -100,6 +103,80 @@ class SmapDriver(object):
     def stop(self):
         pass
 
+    #TODO: add a @property '_has_bosswave' so that none of these methods can be called
+    # unless bosswave has been initialized
+    # (e.g. the instance has _bosswave_key, _bw, _root,_emitters,_timeseries_emitter_mapping)
+
+    # BossWave methods
+    def init_bosswave(self, key):
+        """
+        Takes a BossWave [key] as an argument, and initializes a BossWave
+        instance, setting up the root as self._root
+        """
+        if not key:
+            print "Please provide a non-null key"
+        self._bosswave_key = key
+        self._bw = BossWave(key=self._bosswave_key)
+        self._root = self._bw.root()
+        self._bw.init()
+        self._root.init(self)
+        self._emitters = {}
+        self._timeseries_emitter_mapping = {}
+
+    def _add_bosswave_emitter(self, path):
+        """
+        Add a BossWave emitter with the given [path]
+        """
+        if not (hasattr(self, '_root') and hasattr(self, '_bw')):
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
+        # TODO: add notification for duplicate path -- don't attempt to re-initialize emitter
+        d = self._root.add_emitter(path)
+        print "Adding bosswave path", path
+        self._emitters[path] = None
+        def gotemitter(x):
+            self._emitters[path] = x
+        d.addCallback(gotemitter)
+
+    def _add_timeseries_to_emitter(self, timeseries_path, emitter_path):
+        """
+        Appends [emitter_path] to a list of emitters that [timeseries_path] publishes to
+        whenever its add() method is called
+        """
+        if not timeseries_path:
+            print "timeseries_path required"
+            return
+        if not emitter_path:
+            print "emitter_path required"
+            return
+        if not (isinstance(timeseries_path, str) or isinstance(emitter_path, str)):
+            print "timeseries_path and emitter_path must be strings"
+            return
+        self._add_bosswave_emitter(emitter_path)
+        if timeseries_path not in self._timeseries_emitter_mapping:
+            self._timeseries_emitter_mapping[timeseries_path] = []
+        self._timeseries_emitter_mapping[timeseries_path].append(emitter_path)
+        print 'timeseries {0} now publishes to {1}'.format(timeseries_path, emitter_path)
+
+    def _publish(self, emitter_path, msg):
+        if self._emitters[emitter_path]:
+            self._emitters[emitter_path](msg)
+
+    def _publish_to_emitters(self, timeseries_path, *args):
+        if not timeseries_path:
+            print "timeseries_path required"
+            return
+        if not isinstance(timeseries_path, str):
+            print "timeseries_path must be a string"
+            return
+        if not timeseries_path in self._timeseries_emitter_mapping:
+            print "timeseries {0} has no emitters".format(timeseries_path)
+        for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
+            print "want to publish",timeseries_path,args,emitter_path
+            print self._emitters[emitter_path]
+            self._publish(emitter_path,json.dumps(args))
+
+
     # ISmapInstance implementation
 
     # drivers get a pass-through version of the SmapInstance which
@@ -124,6 +201,11 @@ class SmapDriver(object):
         elif len(args) == 2:
             key = args[0]
             args = args[1:]
+        # if we are given a emitter_path argument, create a BossWave emitter
+        # linked to the initialized timeseries with a path of [emitter_path]
+        if 'emitter_path' in kwargs:
+            emitter_path = kwargs.pop('emitter_path')
+            self._add_timeseries_to_emitter(path, emitter_path)
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
     def add_actuator(self, path, unit, klass, **kwargs):
         return self.__inst.add_actuator(self.__join_id(path), unit, klass, **kwargs)
@@ -131,7 +213,9 @@ class SmapDriver(object):
         self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
+    #TODO: if there is an emitter path for a timeseries, get the relevant emitter and publish
     def add(self, id, *args):
+        self._publish_to_emitters(id, args)
         self.statslog.mark()
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
