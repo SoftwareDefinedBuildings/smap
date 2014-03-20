@@ -145,13 +145,15 @@ class SmapDriver(object):
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
-        # TODO: add notification for duplicate path -- don't attempt to re-initialize emitter
-        d = self._root.add_emitter(path)
-        print "Adding bosswave path", path
-        self._emitters[path] = None
-        def gotemitter(x):
-            self._emitters[path] = x
-        d.addCallback(gotemitter)
+        if path in self._emitters:
+            print "Emitter already declared for {0}".format(path)
+        else:
+            d = self._root.add_emitter(path)
+            print "Adding bosswave path", path
+            self._emitters[path] = None
+            def gotemitter(x):
+                self._emitters[path] = x
+            d.addCallback(gotemitter)
 
     def _add_timeseries_to_emitter(self, timeseries_path, emitter_path):
         """
@@ -203,7 +205,9 @@ class SmapDriver(object):
             except TypeError as e:
                 print "msg {0} is not JSON serializable. Abandoning publish".format(msg)
                 return
-        # TODO: check for nonexistant emitter_path
+        if emitter_path not in self._emitters:
+            print "Emitter {0} not found -- have you configured a timeseries to send there yet?".format(emitter_path)
+            return
         if self._emitters[emitter_path]:
             self._emitters[emitter_path](msg)
 
