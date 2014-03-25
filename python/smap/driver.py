@@ -104,8 +104,10 @@ class SmapDriver(object):
     def stop(self):
         pass
 
+    #TODO: pushing to a topic will actuate a device?
+    #TODO: have 1-1 URIs sMAp/BossWave (with the possibility of aggregates).
+    #      explore mandating universal sMAP URI publish topic for each timeseries
     #TODO: add support for add_acuator
-    #TODO: turn off bosswave debug? -- just redirect stderr: 2>/dev/null
     #TODO: add public documentation
     #TODO: add unittests for bosswave/driver stuff
     # BossWave methods
@@ -234,7 +236,7 @@ class SmapDriver(object):
         if not timeseries_path in self._timeseries_emitter_mapping:
             return
         for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
-            msg = {'timeseries': timeseries_path,
+            msg = {'path': timeseries_path,
                    'timestamp': util.now(),
                    'reading': args}
             msg = json.dumps(msg)
@@ -277,13 +279,14 @@ class SmapDriver(object):
         self.__inst.add_collection(self.__join_id(path), *args)
     def set_metadata(self, id, *metadata):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
-    #TODO: if there is an emitter path for a timeseries, get the relevant emitter and publish
     def add(self, id, *args):
-        self._publish_to_emitters(id, *args)
+        if self._has_bosswave:
+            self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
-        self._publish_to_emitters(id, *args)
+        if self._has_bosswave:
+            self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
