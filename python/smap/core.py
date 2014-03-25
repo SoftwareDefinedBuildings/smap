@@ -39,6 +39,7 @@ import exceptions
 import sys
 import operator
 import time 
+import json
 
 from smap import schema
 from smap import util
@@ -49,6 +50,7 @@ from smap import jobs
 from smap.interface import *
 from smap.checkers import datacheck
 
+from bosswave import BossWave
 
 class SmapException(Exception):
     """Generic error"""
@@ -122,6 +124,9 @@ class Timeseries(dict):
         self.dirty = True
         self.milliseconds = milliseconds
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
+
+        # list of BossWave emitters for this timeseries
+        self._emitters = {}
 
         self.impl = impl
         self.autoadd = autoadd
@@ -209,6 +214,8 @@ Can be called with 1, 2, or 3 arguments.  The forms are
             self.inst.reports.publish(getattr(self, 'path'),
                                       {'uuid' : self['uuid'],
                                        'Readings' : [reading]})
+        # publish to BossWave
+        self._publish_to_emitters(reading)
 
     def add(self, *args):
         """A version of :py:meth:`~Timeseries._add` which can be called from any thread.
@@ -217,6 +224,40 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         # this way the real add is always done in the main loop,
         # even if it was called by another threadpool or something.
         reactor.callFromThread(lambda: self._add(*args))
+
+    def _add_emitter_path(self, path):
+        """
+        Appends [path] to a list of emitters that this timeseries publishes
+        to whenever the add() method is called. Emitters will be created if they
+        don't already exist.
+        """
+        if not hasattr(self, 'inst'): return
+        if not self._has_bosswave:
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
+        print path
+        if path in self._emitters:
+            print "Emitter already declared for {0}".format(path)
+            return
+        d = self.inst._root.add_emitter(path)
+        #TODO: check when creating path if we have double slashes // or what the root should be
+        print "Adding bosswave path", path
+        self._emitters[path] = None
+        def gotemitter(x):
+            self._emitters[path] = x
+        d.addCallback(gotemitter)
+
+    def _publish_to_emitters(self, reading):
+        if not self._has_bosswave:
+            print "Please initialize BossWave: self.init_bosswave(key)"
+            return
+        msg = {'path': self.path,
+               'time': reading[0],
+               'reading': reading[1]}
+        msg = json.dumps(msg)
+        for em in self._emitters:
+            if self._emitters[em]:
+                self._emitters[em](msg)
 
     def __setitem__(self, attr, value):
         if attr in self.FIELDS:
@@ -410,6 +451,7 @@ sMAP reporting functionality."""
         self.loading = False
         self.add_collection("/")
         self.root_uuid = root_uuid
+        self._has_bosswave = False # set true by init_bosswave
 
     # keep a list of sensor drivers so we can find them easily
     def add_driver(self, path, driver):
@@ -625,6 +667,9 @@ sMAP reporting functionality."""
         timeseries.inst = self
         setattr(timeseries, 'path', util.join_path(path))
         if not self.loading: self.reports.update_subscriptions()
+        if self._has_bosswave:
+            setattr(timeseries, '_has_bosswave', True)
+            timeseries._add_emitter_path(util.join_path(path))
         return timeseries
 
     def add_collection(self, path, *args): 
@@ -686,6 +731,22 @@ sMAP reporting functionality."""
 
     def unpause_reporting(self):
         return self.reports.unpause()
+
+    def init_bosswave(self, key):
+        """
+        Takes a BossWave [key] as an argument, and initializes a BossWave
+        instance, setting up the root as self._root
+
+        :param string key: bosswave key for the trust network
+        """
+        if not key:
+            print "Please provide a non-null key"
+        self._bosswave_key = key
+        self._bw = BossWave(key=self._bosswave_key)
+        self._root = self._bw.root()
+        self._bw.init()
+        self._root.init(self)
+        self._has_bosswave = True
 
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()

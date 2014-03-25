@@ -131,117 +131,7 @@ class SmapDriver(object):
         """
         if not key:
             print "Please provide a non-null key"
-        self._bosswave_key = key
-        self._bw = BossWave(key=self._bosswave_key)
-        self._root = self._bw.root()
-        self._bw.init()
-        self._root.init(self)
-        self._emitters = {}
-        self._timeseries_emitter_mapping = {}
-
-    def _add_bosswave_emitter(self, path):
-        """
-        Add a BossWave emitter with the given [path]
-
-        :param string path: relative or absolute bosswave path for an emitter instance
-        """
-        if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
-            return
-        if path in self._emitters:
-            print "Emitter already declared for {0}".format(path)
-        else:
-            d = self._root.add_emitter(path)
-            print "Adding bosswave path", path
-            self._emitters[path] = None
-            def gotemitter(x):
-                self._emitters[path] = x
-            d.addCallback(gotemitter)
-
-    def _add_timeseries_to_emitter(self, timeseries_path, emitter_path):
-        """
-        Appends [emitter_path] to a list of emitters that [timeseries_path] publishes to
-        whenever its add() method is called. Emitters will be created if they don't already
-        exist. Uses self._timeseries_emitter_mapping to keep track of which emitters
-        a timeseries will publish to when it receives a reading
-
-        :param string timeseries_path: timeseries path for this SmapDriver whose readings will be published
-                                       to the emitter(s) specified by [emitter_path]
-        :param string emitter_path: a single bosswave emitter path
-        :param list emitter_path: a list of bosswave emitter paths
-        """
-        if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
-            return
-        if not timeseries_path:
-            print "timeseries_path required"
-            return
-        if not emitter_path:
-            print "emitter_path required"
-            return
-        if not isinstance(timeseries_path, str):
-            print "timeseries_path must be a string"
-            return
-        if not isinstance(emitter_path, list):
-            emitter_path = [emitter_path]
-        for ep in emitter_path:
-            self._add_bosswave_emitter(ep)
-            if timeseries_path not in self._timeseries_emitter_mapping:
-                self._timeseries_emitter_mapping[timeseries_path] = []
-            self._timeseries_emitter_mapping[timeseries_path].append(ep)
-            print 'timeseries {0} now publishes to {1}'.format(timeseries_path, ep)
-
-    def _publish(self, emitter_path, msg):
-        """
-        Publishes [msg] on [emitter_path]
-
-        :param string emitter_path: a string representing an emitter path known by this driver
-        :param string msg: a string or JSON-serializable object to be published on emitter_path
-        """
-        if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
-            return
-        if not isinstance(msg, str):
-            print "Make sure msg is of type `string`. Attempting JSON serialization"
-            try:
-                msg = json.dumps(msg)
-            except TypeError as e:
-                print "msg {0} is not JSON serializable. Abandoning publish".format(msg)
-                return
-        if emitter_path not in self._emitters:
-            print "Emitter {0} not found -- have you configured a timeseries to send there yet?".format(emitter_path)
-            return
-        if self._emitters[emitter_path]:
-            self._emitters[emitter_path](msg)
-
-    # Currently, Boss-Wave reliably delivers all messages, but not necessarily the order.
-    def _publish_to_emitters(self, timeseries_path, *args):
-        """
-        Usually called by add() or _add(). Takes the readings in [args] and publishes
-        them on all emitter paths specified by the [timeseries_path] entry in
-        self._timeseries_emitter_mapping
-
-        :param string timeseries_path: timeseries path for this SmapDriver
-        :param tuple args: readings to be published
-        """
-        if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
-            return
-        if not timeseries_path:
-            print "timeseries_path required"
-            return
-        if not isinstance(timeseries_path, str):
-            print "timeseries_path must be a string"
-            return
-        if not timeseries_path in self._timeseries_emitter_mapping:
-            return
-        for emitter_path in self._timeseries_emitter_mapping[timeseries_path]:
-            msg = {'path': timeseries_path,
-                   'timestamp': util.now(),
-                   'reading': args}
-            msg = json.dumps(msg)
-            self._publish(emitter_path,msg)
-
+        self.__inst.init_bosswave(key)
 
     # ISmapInstance implementation
 
@@ -267,11 +157,6 @@ class SmapDriver(object):
         elif len(args) == 2:
             key = args[0]
             args = args[1:]
-        # if we are given a emitter_path argument, create a BossWave emitter
-        # linked to the initialized timeseries with a path of [emitter_path]
-        if 'emitter_path' in kwargs:
-            emitter_path = kwargs.pop('emitter_path')
-            self._add_timeseries_to_emitter(path, emitter_path)
         return self.__inst.add_timeseries(self.__join_id(path), key, *args, **kwargs)
     def add_actuator(self, path, unit, klass, **kwargs):
         return self.__inst.add_actuator(self.__join_id(path), unit, klass, **kwargs)
@@ -280,13 +165,9 @@ class SmapDriver(object):
     def set_metadata(self, id, *metadata):
         return self.__inst.set_metadata(self.__join_id(id), *metadata)
     def add(self, id, *args):
-        if self._has_bosswave:
-            self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst.add(self.__join_id(id), *args)
     def _add(self, id, *args):
-        if self._has_bosswave:
-            self._publish_to_emitters(id, *args)
         self.statslog.mark()
         return self.__inst._add(self.__join_id(id), *args)
     def uuid(self, key):
