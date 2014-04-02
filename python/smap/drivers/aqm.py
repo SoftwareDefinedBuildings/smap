@@ -38,6 +38,8 @@ from BeautifulSoup import BeautifulSoup
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 
+from twisted.python import log
+
 
 class AQMDriver(SmapDriver):
     SENSORS = {
@@ -88,8 +90,10 @@ class AQMDriver(SmapDriver):
             url = 'http://' + self.ip + '/status.xml'
             u = urllib2.urlopen(url)
         except urllib2.URLError:
+            log.err()
             pass
         except urllib2.HTTPError:
+            log.err()
             pass
         else:
             els = BeautifulSoup(u.read())
@@ -100,6 +104,7 @@ class AQMDriver(SmapDriver):
                 d['Humidity'] = float(els.hu0.contents[0])
                 d['Gas Concentration'] = float(els.gpn0.contents[0])
             except ValueError:
+                log.err()
                 pass
             else:
                 return d
