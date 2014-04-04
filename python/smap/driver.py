@@ -106,7 +106,6 @@ class SmapDriver(object):
 
     #TODO: pushing to a topic will actuate a device?
     #TODO: have 1-1 URIs sMAp/BossWave (with the possibility of aggregates).
-    #      explore mandating universal sMAP URI publish topic for each timeseries
     #TODO: add support for add_acuator
     #TODO: add public documentation
     #TODO: add unittests for bosswave/driver stuff
