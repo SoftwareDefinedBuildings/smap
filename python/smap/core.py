@@ -32,6 +32,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
 import uuid
+import re
 from zope.interface import implements
 from twisted.web import resource
 from twisted.internet import reactor, defer
@@ -235,11 +236,11 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if not self._has_bosswave:
             print "Please initialize BossWave: self.init_bosswave(key)"
             return
-        print path
         if path in self._emitters:
             print "Emitter already declared for {0}".format(path)
             return
-        d = self.inst._root.add_emitter(path)
+        path = re.sub('^/','',path)
+        d = self.inst._bwuri.async_emitter(path)
         #TODO: check when creating path if we have double slashes // or what the root should be
         print "Adding bosswave path", path
         self._emitters[path] = None
@@ -732,10 +733,10 @@ sMAP reporting functionality."""
     def unpause_reporting(self):
         return self.reports.unpause()
 
-    def init_bosswave(self, key):
+    def init_bosswave(self, key, rootpath='/smap'):
         """
         Takes a BossWave [key] as an argument, and initializes a BossWave
-        instance, setting up the root as self._root
+        instance, setting up the root as self._bwuri
 
         :param string key: bosswave key for the trust network
         """
@@ -743,9 +744,9 @@ sMAP reporting functionality."""
             print "Please provide a non-null key"
         self._bosswave_key = key
         self._bw = BossWave(key=self._bosswave_key)
-        self._root = self._bw.root()
+        assert rootpath.startswith('/')
+        self._bwuri = self._bw.uri(rootpath)
         self._bw.init()
-        self._root.init(self)
         self._has_bosswave = True
 
 if __name__ == '__main__':
