@@ -18,7 +18,7 @@ class VirtualLightDriver(SmapDriver):
         self.light = VirtualLight(0)
         self.add_timeseries('/state', 'On/Off')
         self.add_actuator('/state_act', 'On/Off', VirtualLightActuator(light=self.light))
-        self.rate = 1
+        self.rate = .1
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)

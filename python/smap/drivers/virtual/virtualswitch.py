@@ -15,7 +15,7 @@ class VirtualSwitchDriver(SmapDriver):
         self.switch = VirtualSwitch(0)
         self.add_timeseries('/state', 'On/Off')
         self.add_actuator('/state_act', 'On/Off', VirtualSwitchActuator(switch=self.switch))
-        self.rate = 1
+        self.rate = .1
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
