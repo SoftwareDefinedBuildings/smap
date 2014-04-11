@@ -265,10 +265,86 @@ class JobsResource(resource.Resource):
             self.inst.jobs.cancel_job(del_uuids)
         return json.dumps(map(lambda j: j.uuid, self.inst.jobs.jobs))
 
+class EventsResource(InstanceResource):
+
+    def __init__(self, inst):
+        self.throttle = 1
+        self.delayed_requests = []
+        looping_call = task.LoopingCall(self.process_delayed_requests)
+        looping_call.start(self.throttle, False)
+        InstanceResource.__init__(self, inst)
+
+    def render_GET(self, request):
+        request.setHeader('Content-type', 'application/json')
+        # assemble the results
+        try:
+            obj = self.inst.lookup(util.join_path(request.postpath))
+        except Exception, e:
+            import traceback
+            traceback.print_exc()
+            setResponseCode(request, exception, 500)
+            request.finish()
+
+        if obj == None:
+            request.setResponseCode(404)
+            return ("No such timeseries or collection: " + 
+                    util.join_path(request.postpath) + '\n')
+        elif "Contents" in obj:
+            # Return collections as the instance would
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
+                                    request, 
+                                    obj)
+            d.addCallback(lambda x: self.send_reply(request, x))
+            d.addErrback(lambda x: self.send_error(request, x))
+            return server.NOT_DONE_YET
+        elif "Readings" in obj:
+            # If obj is a timeseries, wait for the value to change
+            # before responding
+            prev = obj["Readings"][0][1]
+            new_obj = self.get_if_new_reading(request.postpath, prev)
+            if len(new_obj) > 0:
+                d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
+                                        request, 
+                                        new_obj)
+                d.addCallback(lambda x: self.send_reply(request, x))
+                d.addErrback(lambda x: self.send_error(request, x))
+            else:
+                o = {'request': request, 'prev': prev}
+                self.delayed_requests.append(o)
+
+            return server.NOT_DONE_YET
+
+
+    def get_if_new_reading(self, path, prev):
+        obj = self.inst.lookup(util.join_path(path))
+        if obj["Readings"][0][1] != prev:
+            return obj
+        else:
+            return {}
+
+    def process_delayed_requests(self):
+        for e in self.delayed_requests:
+            request = e['request']
+            prev = e['prev']
+            # attempt to get data again
+            obj = self.get_if_new_reading(request.postpath, prev)
+            # write response and remove request from list if data is found
+            if len(obj) > 0:
+                try:
+                    d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                            request,
+                                            obj)
+                    d.addCallback(lambda x: self.send_reply(request, x))
+                    d.addErrback(lambda x: self.send_error(request, x))
+                except:
+                    print 'connection lost before complete.'
+                finally:
+                    self.delayed_requests.remove(e)
+
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
     """
-    def __init__(self, value=None, contents=['data', 'reports']):
+    def __init__(self, value=None, contents=['data', 'events', 'reports']):
         resource.Resource.__init__(self)
         if value:
             self.value = value
@@ -287,12 +363,13 @@ class RootResource(resource.Resource):
 def getSite(inst, docroot=None):
     """Return a service for creating an application
     """
-    contents = ['data', 'reports']
+    contents = ['data', 'events', 'reports']
     if docroot: 
         contents.append('docs')
         contents.sort()
     root = RootResource(contents=contents)
     root.putChild('data', InstanceResource(inst))
+    root.putChild('events', EventsResource(inst))
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:
         root.putChild('docs', static.File(docroot))
