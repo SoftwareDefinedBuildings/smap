@@ -239,7 +239,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if path in self._emitters:
             print "Emitter already declared for {0}".format(path)
             return
-        path = re.sub('^/','',path)
+        path = re.sub('^/','',path) # remove leading slash
         d = self.inst._bwuri.async_emitter(path)
         #TODO: check when creating path if we have double slashes // or what the root should be
         print "Adding bosswave path", path
