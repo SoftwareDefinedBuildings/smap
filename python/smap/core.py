@@ -235,7 +235,6 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         """
         if not hasattr(self, 'inst'): return
         if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
             return
         if path in self._emitters:
             print "Emitter already declared for {0}".format(path)
@@ -251,7 +250,6 @@ Can be called with 1, 2, or 3 arguments.  The forms are
 
     def _publish_to_emitters(self, reading):
         if not self._has_bosswave:
-            print "Please initialize BossWave: self.init_bosswave(key)"
             return
         msg = {'path': self.path,
                'time': reading[0],
