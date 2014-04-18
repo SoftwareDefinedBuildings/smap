@@ -255,6 +255,9 @@ contain a ``uuid`` key to set the root identifier for the source.
 
             # get the driver to add its points
             newdrv.setup(conf[s])
+            if conf[s].has_key('bosswave_key'):
+                newdrv.init_bosswave(conf[s]['bosswave_key'])
+
 
         # Metadata and Description are shared between both Collections
         # and Timeseries
