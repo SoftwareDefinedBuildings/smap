@@ -128,6 +128,7 @@ class Timeseries(dict):
 
         # list of BossWave emitters for this timeseries
         self._emitters = {}
+        self._has_bosswave = False
 
         self.impl = impl
         self.autoadd = autoadd
