@@ -71,6 +71,7 @@ class InstanceResource(resource.Resource):
     isLeaf = True
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         # assemble the results
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
@@ -94,6 +95,7 @@ class InstanceResource(resource.Resource):
 
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         # you can only PUT actuators
         obj = self.inst.lookup(util.join_path(request.postpath))
         d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
@@ -144,6 +146,7 @@ class ReportingInstanceResource(resource.Resource):
         """
         if self.inst:
             request.setHeader('Content-type', 'application/json')
+            request.setHeader('Access-Control-Allow-Origin', '*')
             obj = schema.filter_fields('Reporting', self.inst)
             # print schema.validate('Reporting', obj)
             d = json.AsyncJSON(obj).startProducing(request)
@@ -159,6 +162,7 @@ class ReportingInstanceResource(resource.Resource):
         """
         try:
             request.setHeader('Content-type', 'application/json')
+            request.setHeader('Access-Control-Allow-Origin', '*')
             obj = read_report(self, request, duplicate_error=False)
             if not self.reports.update_report(obj):
                 self.reports.add_report(obj)
@@ -198,6 +202,7 @@ class ReportingResource(resource.Resource):
         """In response to a GET, we return a list of the installed reports
         """
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         obj = {'Contents' : [x['uuid'] for x in self.reports.subscribers]}
         d = json.AsyncJSON(obj).startProducing(request)
         d.addBoth(lambda _: request.finish())
@@ -209,6 +214,7 @@ class ReportingResource(resource.Resource):
         """
         try:
             request.setHeader('Content-type', 'application/json')
+            request.setHeader('Access-Control-Allow-Origin', '*')
             obj = read_report(self, request)
             self.reports.add_report(obj)
             request.setResponseCode(201)
@@ -228,6 +234,7 @@ class JobsResource(resource.Resource):
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         rv = map(lambda j: j.__dict__, self.inst.jobs.jobs)
         keys = ['name', 'start_time', 'after', 'actions']
         rv = map(lambda j: {k: j[k] for k in keys}, rv)
@@ -235,6 +242,7 @@ class JobsResource(resource.Resource):
 
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         content = request.content.read()
         if content:
             obj = json.loads(content)
@@ -258,6 +266,7 @@ class JobsResource(resource.Resource):
 
     def render_DELETE(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         content = request.content.read()
         if content:
             del_uuids = json.loads(content)
@@ -276,6 +285,7 @@ class EventsResource(InstanceResource):
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         # assemble the results
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
@@ -358,6 +368,7 @@ class RootResource(resource.Resource):
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Origin', '*')
         return json.dumps(self.value)
 
 def getSite(inst, docroot=None):
