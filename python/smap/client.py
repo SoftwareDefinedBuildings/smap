@@ -50,8 +50,11 @@ class SmapClient:
         except Exception, e:
           raise SmapException("sMAP source not found.")
 
-    def get_state(self, path):
-        fp = urllib2.urlopen(self.base + "/data" + path)
+    def get_state(self, path, event=False): # event = True means use long polling
+        if event:
+            fp = urllib2.urlopen(self.base + "/events" + path)
+        else:
+            fp = urllib2.urlopen(self.base + "/data" + path)
         res = json.loads(fp.read())
         if 'Readings' not in res:
             raise SmapException("Readings not found. \
@@ -63,7 +66,7 @@ class SmapClient:
                 raise SmapException("The timeseries doesn't have any readings")
         return rv
 
-    def set_state(self, path, state):
+    def set_state(self, path, state, check=True): # check = False means don't check if actuator value has changed
         url = self.base + "/data" + path + "?state=" + str(state)
         opener = urllib2.build_opener(urllib2.HTTPHandler)
         request = urllib2.Request(url, data='')
@@ -75,7 +78,7 @@ class SmapClient:
         res = json.loads(fp.read())
         if 'Actuator' not in res:
             raise SmapException("Path does not locate an actuator.")
-        elif res['Readings'][0][1] != state:
+        elif check and res['Readings'][0][1] != state:
             raise SmapException("Actuaton failed")
         else:
             return 0
