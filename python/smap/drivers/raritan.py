@@ -1,10 +1,8 @@
 import telnetlib
-import readline
 import os
 import sys
 import re
 import cmd
-import string
 from smap import actuate, driver
 from smap.util import periodicSequentialCall
 
@@ -57,8 +55,9 @@ class ConsoleClient(cmd.Cmd):
         return self.run_console_command(command)
 
     def getstate(self, outletnum):
-        command = 'show -d properties=powerState /system1/outlet'+outletnum
-        return self.run_console_command(command)
+        command = 'show -d properties=powerState /system1/outlet'+str(outletnum)
+        out = self.run_console_command(command)
+        return out
 
     def run_console_command(self,line):
         self.console.write(line + '\r\n')
@@ -120,16 +119,17 @@ class Raritan(driver.SmapDriver):
 
     
     def read(self):
-        newstates = self.console.status().split('\r\n\r\n')
+        status = self.console.status()
+        try:
+            tmp = status.index('/system1/outlet*')
+            newstates = status[tmp+len('/system1/outlet*'):].strip().split('\r\n\r\n')
+        except:
+            newstates = status
         for i,newstate in enumerate(newstates):
-            print i
-            if i >= 5: break
+            if i >= 6: break
             source  = re.compile(r'(^[a-z/0-9]+)').findall(newstate)
-            val = re.compile(r'powerState is ([01])').findall(newstate)
-            if source:
-                print source[0]
+            val = re.compile(r'powerState is ([12])').findall(newstate)
             if val:
-                print 'val',i,val[0]
                 self.add('/outlet{0}/state'.format(i+1), int(val[0]))
 
 class RaritanActuator(actuate.SmapActuator):
@@ -138,7 +138,8 @@ class RaritanActuator(actuate.SmapActuator):
         self.outlet = opts.get('outlet')
 
     def get_state(self, request):
-        return self.console.getstate(self.outlet)
+        return 0
+        #return self.console.getstate(self.outlet)
 
     def set_state(self, request, state):
         return self.console.setstate(self.outlet, state)
@@ -146,6 +147,5 @@ class RaritanActuator(actuate.SmapActuator):
 class OnOffActuator(RaritanActuator, actuate.BinaryActuator):
     def __init__(self, **opts):
         actuate.BinaryActuator.__init__(self)
-        print opts
         RaritanActuator.__init__(self, **opts)
 
