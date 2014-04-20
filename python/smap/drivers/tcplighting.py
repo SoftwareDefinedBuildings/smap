@@ -93,7 +93,8 @@ def get_states(posturl, token):
     device_ids = [x.find('did').text for x in devices]
     states = [x.find('state').text for x in devices]
     power = [x.find('power').text for x in devices]
-    levels = map(lambda x: x.text, filter(lambda x: x is not None, [x.find('level') for x in devices]))
+    levels = [x.find('level') if 'level' in x else 100 for x in devices]
+    #levels = map(lambda x: x.text, filter(lambda x: x is not None, [x.find('level') for x in devices]))
     return zip(device_ids, states, power, levels)
 
 def get_deviceinfo(posturl, token):
@@ -116,12 +117,14 @@ class TCP(driver.SmapDriver):
         self.token = get_token(self.posturl)
         self.gateway_id, self.framework_version, self.serial_number = get_serverinfo(self.posturl, self.token)
         devices = get_states(self.posturl, self.token)
+        devices = set([x[0] for x in devices])
         for device in devices:
-            self.add_timeseries('/'+str(device[0])+'/state', 'On/Off', data_type='long', timezone=self.tz)
-            self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
-            self.add_timeseries('/'+str(device[0])+'/level', 'Brightness', data_type='long', timezone=self.tz)
-            self.add_actuator('/'+str(device[0])+'/state_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device[0])))
-            self.add_actuator('/'+str(device[0])+'/level_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
+            print device
+            self.add_timeseries('/'+str(device)+'/state', 'On/Off', data_type='long', timezone=self.tz)
+            self.add_timeseries('/'+str(device)+'/power', 'V', data_type='double', timezone=self.tz)
+            self.add_timeseries('/'+str(device)+'/level', 'Brightness', data_type='long', timezone=self.tz)
+            self.add_actuator('/'+str(device)+'/state_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device)))
+            self.add_actuator('/'+str(device)+'/level_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device), range=(0,100)))
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
