@@ -130,7 +130,9 @@ class SmapDriver(object):
         """
         if not key:
             print "Please provide a non-null key"
+        self.__inst._should_have_bosswave = True
         self.__inst.init_bosswave(key)
+        #reactor.callFromThread(self.__inst.init_bosswave, key)
 
     # ISmapInstance implementation
 

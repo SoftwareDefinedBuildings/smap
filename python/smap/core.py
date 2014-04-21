@@ -35,7 +35,7 @@ import uuid
 import re
 from zope.interface import implements
 from twisted.web import resource
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, task
 import exceptions
 import sys
 import operator
@@ -129,6 +129,7 @@ class Timeseries(dict):
         # list of BossWave emitters for this timeseries
         self._emitters = {}
         self._has_bosswave = False
+        self._should_have_bosswave = False
 
         self.impl = impl
         self.autoadd = autoadd
@@ -217,6 +218,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                       {'uuid' : self['uuid'],
                                        'Readings' : [reading]})
         # publish to BossWave
+        print 'trying to publish'
         self._publish_to_emitters(reading)
 
     def add(self, *args):
@@ -234,7 +236,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         don't already exist.
         """
         if not hasattr(self, 'inst'): return
-        if not self._has_bosswave:
+        if not self._should_have_bosswave and not self._has_bosswave:
             return
         if path in self._emitters:
             print "Emitter already declared for {0}".format(path)
@@ -249,6 +251,10 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         d.addCallback(gotemitter)
 
     def _publish_to_emitters(self, reading):
+        print self._emitters
+        if self._should_have_bosswave and not self._has_bosswave:
+            print 'i should have emitter',self.path
+            self._add_emitter_path(self.path)
         if not self._has_bosswave:
             return
         msg = {'path': self.path,
@@ -452,6 +458,8 @@ sMAP reporting functionality."""
         self.add_collection("/")
         self.root_uuid = root_uuid
         self._has_bosswave = False # set true by init_bosswave
+        self._should_have_bosswave = False
+        self._should_emitters = []
 
     # keep a list of sensor drivers so we can find them easily
     def add_driver(self, path, driver):
@@ -670,6 +678,10 @@ sMAP reporting functionality."""
         if self._has_bosswave:
             setattr(timeseries, '_has_bosswave', True)
             timeseries._add_emitter_path(util.join_path(path))
+        elif self._should_have_bosswave:
+            print 'adding should emitter',util.join_path(path), self._should_have_bosswave
+            setattr(timeseries, '_should_have_bosswave', True)
+            self._should_emitters.append(util.join_path(path))
         return timeseries
 
     def add_collection(self, path, *args): 
@@ -741,12 +753,26 @@ sMAP reporting functionality."""
         """
         if not key:
             print "Please provide a non-null key"
+        print 'called init_bosswave'
         self._bosswave_key = key
         self._bw = BossWave(key=self._bosswave_key)
         assert rootpath.startswith('/')
         self._bwuri = self._bw.uri(rootpath)
+        print rootpath
         self._bw.init()
         self._has_bosswave = True
+        print 'finished initting bosswave'
+        # here, create an emitter to trigger the creation of the BW chain
+        #tmp_emitter = self._bwuri.simple_emitter('<demodemo')
+        ##l = None
+        #def wait_til_ready():
+        #    while True:
+        #        if tmp_emitter.ready():
+        #        time.sleep(.1)
+        #reactor.callInThread(wait_til_ready)
+        #l = task.LoopingCall(wait_til_ready)
+        #l.start(.1)
+
 
 if __name__ == '__main__':
     ROOT_UUID = uuid.uuid1()
