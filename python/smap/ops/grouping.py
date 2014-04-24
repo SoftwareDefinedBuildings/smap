@@ -245,8 +245,6 @@ class GroupByDatetimeField(Operator):
         
         assert len(prev_datetimes) == len(prev)
         output = [null] * len(op.outputs)
-        # output = [null] * len(util.flatten(map(operator.attrgetter("outputs"), ops)))
-        # print output
 
         if len(prev_datetimes) == 0:
             return output, {
@@ -277,7 +275,9 @@ class GroupByDatetimeField(Operator):
             truncate_to = bin_start_idx
 
             # ignore bins which aren't full
-            if bin_end_idx == len(prev_datetimes) and not last:
+            if (bin_end_idx == len(prev_datetimes) and 
+                not last and
+                not (region[1] and dtutil.dt2ts(bin_end) * 1000 <= region[1])):
                 break
 
             # skip empty bins
