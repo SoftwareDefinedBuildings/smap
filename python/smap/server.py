@@ -228,9 +228,15 @@ class JobsResource(resource.Resource):
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
-        rv = map(lambda j: j.__dict__, self.inst.jobs.jobs)
-        keys = ['name', 'start_time', 'after', 'actions']
-        rv = map(lambda j: {k: j[k] for k in keys}, rv)
+        rv = []
+        jobs = map(lambda j: j.__dict__, self.inst.jobs.jobs)
+        for j in jobs:
+            obj = {'name': j['name'],
+                   'start_time': j['start_time'],
+                   'after': j['after'],
+                   'action': j['actions']
+            }
+            rv.append(obj)
         return json.dumps(rv)
 
     def render_PUT(self, request):
