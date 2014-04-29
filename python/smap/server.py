@@ -234,7 +234,7 @@ class JobsResource(resource.Resource):
             obj = {'name': j['name'],
                    'start_time': j['start_time'],
                    'after': j['after'],
-                   'action': j['actions']
+                   'actions': j['actions']
             }
             rv.append(obj)
         return json.dumps(rv)
