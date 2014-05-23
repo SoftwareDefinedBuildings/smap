@@ -154,6 +154,12 @@ class NlOperator(ParallelSimpleOperator):
         ParallelSimpleOperator.__init__(self, inputs) 
 
 class StripMetadata(Operator):
+    """Remove all tags from the output set of streams.
+
+    This applies only to tags starting with "Metadata/"; Properties,
+    Readings, and uuid are unchanged.  This operation also does not
+    mutate the stream ids.
+    """
     name = "strip_metadata"
     operator_name = 'strip_metadata'
     operator_constructors = [()]
@@ -170,6 +176,15 @@ class StripMetadata(Operator):
         return inputs
 
 class SetKeyOperator(Operator):
+    """Sets a key on all output streams
+
+    For instance, adding a:
+
+      set_key("Metadata/Extra/Name", "Foo")
+
+    To the operator pipeline will set the Metadata/Extra/Name tag to
+    "Foo" on all input streams.
+    """
     name = 'set_key'
     operator_name = 'set_key'
     operator_constructors = [(str, str)]

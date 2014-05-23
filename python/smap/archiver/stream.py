@@ -83,7 +83,7 @@ class OperatorApplicator(object):
     """Make a closure that will apply the operator expresion to a
     specific set of streams and metadata."""
     implements(interfaces.IPushProducer)
-    DATA_DAYS = 50
+    DATA_DAYS = 5
 
     def __init__(self, op, data_spec, consumer, group=None):
         self.op = op
@@ -200,7 +200,7 @@ class OperatorApplicator(object):
         # (this depends on the DeferredLock being FIFO)
         dl = defer.DeferredList([self.publish_lock.acquire(), d])
         dl.addCallback(lambda result: result[1][1])
-        dl.addCallback(self.apply_operator, self.chunk_idx == 1, last)
+        dl.addCallback(self.apply_operator, (start, end), self.chunk_idx == 1, last)
         dl.addCallback(self.publish_data, last)
         dl.addBoth(lambda result: (self.publish_lock.release(), result)[1])
         dl.addErrback(self.abort)
@@ -227,15 +227,14 @@ class OperatorApplicator(object):
             self.load_chunk()
         return data
 
-    def apply_operator(self, opdata, first, last):
+    def apply_operator(self, opdata, region, first, last):
         tic = time.time()
         self.chunk_loaded_idx += 1
         # process
         for d in opdata:
             d[:, 0] *= 1000
-        opdata = operators.DataChunk((self.data_spec['start'],
-                                      self.data_spec['end']), 
-                                     first, last, opdata)
+
+        opdata = operators.DataChunk(region, first, last, opdata)
         redata = self.op.process(opdata)
 
         log.msg("STATS: Operator processing took %0.6fs" % (time.time() - tic))
