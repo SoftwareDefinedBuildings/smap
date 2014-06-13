@@ -157,7 +157,7 @@ class GroupByDatetimeField(Operator):
 
     usage:
        window($1, group_operator(), field="day", 
-              width=1, increment=None, skip_missing=True)
+              width=1, increment=None, skip_empty=True)
 
     This operator first bins data in the time dimension using datetime
     objects; for instance, if you say field = "day", the operator will
@@ -174,7 +174,7 @@ class GroupByDatetimeField(Operator):
     the window advances each time; by default, increment=width.  This
     can be used to implement sliding-window filters.
 
-    skip_missing controls whether output values will be produced for
+    skip_empty controls whether output values will be produced for
     bins without and points in them.  If set to true, the operator
     will output a point with the timestamp of the bin start with a
     value of NaN.
