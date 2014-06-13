@@ -521,7 +521,7 @@ class _OrderedOperator(Operator):
                                                  str(sort), 
                                                  str(reverse))
         Operator.__init__(self, inputs)
-        if sort:
+        if sort and sort != 'uuid':
             self.outputs[0][sort] = ','.join(map(operator.itemgetter(0), keys))
 
     def process(self, data):
