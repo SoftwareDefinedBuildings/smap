@@ -8,9 +8,9 @@ Archiver and frontend installation
 Resources
 ~~~~~~~~~
 
-* One installation option is an experimental `vm image
-  <http://jackalope.cs.berkeley.edu/~stevedh/Ubuntu-11.10-smap-444.ova>`_
-  [1.6G].  It has Ubuntu 11.10 installed; the username/password is
+* One installation option is to use the VM packaged with the latest
+  sMAP `release <https://github.com/SoftwareDefinedBuildings/smap/releases>`_
+  It has Ubuntu 12.04 installed; the username/password is
   ``ubuntu/reverse``, and the login for the sMAP admin page is
   ``root/reverse``.
 
