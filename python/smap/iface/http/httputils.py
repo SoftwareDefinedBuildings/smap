@@ -34,9 +34,12 @@ import os
 import urllib2
 import urlparse
 from binascii import hexlify
-from BeautifulSoup import BeautifulSoup as bs
 import hashlib
 import json
+try:
+    from BeautifulSoup import BeautifulSoup as bs
+except ImportError:
+    bs = None
 
 urllib2.install_opener(urllib2.build_opener())
 
@@ -83,7 +86,10 @@ def load_http(url, cache=False, auth=None, data=None, as_fp=False, verbose=False
                 return data
 
 def load_html(url, **kwargs):
-    return bs(load_http(url, **kwargs))
+    if bs:
+        return bs(load_http(url, **kwargs))
+    else:
+        raise NotImplementedError("Install BeautifulSoup to enable load_html")
 
 def get(urls, **kwargs):
     parser = kwargs.pop('parser', json.loads)
