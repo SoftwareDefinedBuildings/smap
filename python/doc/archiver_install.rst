@@ -9,7 +9,7 @@ Resources
 ~~~~~~~~~
 
 * One installation option is to use the VM packaged with the latest
-  sMAP `release <https://github.com/SoftwareDefinedBuildings/smap/releases>`_
+  sMAP `release <https://github.com/SoftwareDefinedBuildings/smap/releases>`_.
   It has Ubuntu 12.04 installed; the username/password is
   ``ubuntu/reverse``, and the login for the sMAP admin page is
   ``root/reverse``.
