@@ -249,7 +249,7 @@ class TestGroupByDatetime(unittest.TestCase):
         op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
                                            field='hour',
                                            width=1,
-                                           skip_missing=False)
+                                           skip_empty=False)
         now *= 1000
         rv = op(operators.DataChunk((now,
                                      now + ((self.hours + 5) * 3600 * 1000)), 
@@ -264,7 +264,7 @@ class TestGroupByDatetime(unittest.TestCase):
         op = grouping.GroupByDatetimeField(self.inputs, arithmetic.first,
                                            field='hour',
                                            width=1,
-                                           skip_missing=False)
+                                           skip_empty=False)
         rv = op(operators.DataChunk((now - (5 * 3600 * 1000),
                                      now + ((self.hours) * 3600 * 1000)), 
                                     True, True, 
