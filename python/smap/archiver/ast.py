@@ -51,7 +51,9 @@ class AstNode(operators.Operator):
         operators.Operator.__init__(self, inputs, self.op.outputs)
 
     def process(self, data):
-        return self.op(util.flatten((c.process(data) for c in self.children)))
+        subdata = util.flatten((c.process(data) for c in self.children))
+        subdata = operators.DataChunk(data.region, data.first, data.last, subdata)
+        return self.op(subdata)
 
     def __str__(self):
         return '%s[%s]' % (str(self.op), ','.join(map(str, self.children)))

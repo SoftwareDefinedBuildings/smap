@@ -337,10 +337,11 @@ class Api(resource.Resource):
             setResponseCode(request, e, 400)
             return str(e)
         else:
-            # and send the reply
-            request.setHeader('Content-type', 'application/json')
 
             if not query.strip().startswith('apply'):
+                # and send the reply
+                request.setHeader('Content-type', 'application/json')
+
                 # apply streams the output out itself
                 d.addCallback(lambda reply: (request, reply))
                 d.addCallback(self.send_reply)
