@@ -348,10 +348,54 @@ class EventsResource(InstanceResource):
                 finally:
                     self.delayed_requests.remove(e)
 
+class StreamResource(InstanceResource):
+    """
+    As long as client maintains a connection with this resource,
+    push all readings to the client
+    """
+
+    def __init__(self, inst):
+        self.listeners = {}
+        self.objs = {}
+        self.subscriptions = defaultdict(set)
+        InstanceResource.__init__(self, inst)
+        self.render_POST = self.render_GET
+
+    def render_GET(self, request):
+        request.setHeader('Content-type', 'application/json')
+        # assemble the results
+        try:
+            obj = self.inst.lookup(util.join_path(request.postpath))
+        except Exception, e:
+            import traceback
+            traceback.print_exc()
+            setResponseCode(request, exception, 500)
+            request.finish()
+
+        if obj == None:
+            request.setResponseCode(404)
+            return ("No such timeseries or collection: " +
+                    util.join_path(request.postpath) + '\n')
+        elif "Contents" in obj:
+            # Return collections as the instance would
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+            d.addCallback(lambda x: self.send_reply(request, x))
+            d.addErrback(lambda x: self.send_error(request, x))
+            return server.NOT_DONE_YET
+        elif "Readings" in obj:
+            self.addClient(request)
+            return server.NOT_DONE_YET
+
+    def addClient(self, request):
+        path = util.join_path(request.postpath)
+        timeseries = self.inst.lookup(path)
+        timeseries.addClient(request)
+        return server.NOT_DONE_YET
+
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
     """
-    def __init__(self, value=None, contents=['data', 'events', 'reports']):
+    def __init__(self, value=None, contents=['data', 'events', 'stream', 'reports']):
         resource.Resource.__init__(self)
         if value:
             self.value = value
@@ -361,7 +405,7 @@ class RootResource(resource.Resource):
     def getChild(self, name, request):
         if name == '':
             return self
-        return resource.Resource.getChild(self, name, request) 
+        return resource.Resource.getChild(self, name, request)
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
@@ -370,13 +414,14 @@ class RootResource(resource.Resource):
 def getSite(inst, docroot=None):
     """Return a service for creating an application
     """
-    contents = ['data', 'events', 'reports']
-    if docroot: 
+    contents = ['data', 'events', 'stream', 'reports']
+    if docroot:
         contents.append('docs')
         contents.sort()
     root = RootResource(contents=contents)
     root.putChild('data', InstanceResource(inst))
     root.putChild('events', EventsResource(inst))
+    root.putChild('stream', StreamResource(inst))
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:
         root.putChild('docs', static.File(docroot))
