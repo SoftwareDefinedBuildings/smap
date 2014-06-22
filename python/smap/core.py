@@ -39,6 +39,7 @@ import exceptions
 import sys
 import operator
 import time 
+import json
 
 from smap import schema
 from smap import util
@@ -123,6 +124,9 @@ class Timeseries(dict):
         self.milliseconds = milliseconds
         self.__setitem__("Readings", util.FixedSizeList(buffersz, init=reading_init))
 
+        # for local republishing
+        self.listeners = set()
+
         self.impl = impl
         self.autoadd = autoadd
         if self.impl:
@@ -144,6 +148,19 @@ class Timeseries(dict):
             return True
         else:
             return False
+
+    def addClient(self, request):
+        # remove client upon disconnect
+        request.notifyFinish().addErrback(lambda x: self.removeClient(request, x))
+        self.listeners.add(request)
+        request.write('')
+
+    def removeClient(self, request, reason):
+        self.listeners.remove(request)
+        if reason:
+            print "Client {0} disconnected because: {1}".format(request, reason)
+        else:
+            print "Client disconnected successfully"
 
     def _add(self, *args):
         """Add a new reading to this timeseries.  This version must
@@ -188,6 +205,14 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if seqno: reading = time, value, seqno
         else: reading = time, value
         self["Readings"].append(reading)
+        # TODO: for streaming
+        # send the data to client
+        print "TS listen", self.listeners
+        for client in self.listeners:
+            print client
+            client.write(json.dumps(reading))
+            client.write('\n\n')
+
         if not hasattr(self, 'inst'): return
 
         # if a timeseries is dirty, we need to republish all of its
