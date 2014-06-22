@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -42,6 +42,7 @@ from twisted.python import log
 from twisted.python.logfile import LogFile
 
 import uuid
+from collections import defaultdict
 
 import sjson as json
 import util
@@ -82,11 +83,11 @@ class InstanceResource(resource.Resource):
 
         if obj == None:
             request.setResponseCode(404)
-            return ("No such timeseries or collection: " + 
+            return ("No such timeseries or collection: " +
                     util.join_path(request.postpath) + '\n')
         else:
-            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                    request, 
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                    request,
                                     obj)
             d.addCallback(lambda x: self.send_reply(request, x))
             d.addErrback(lambda x: self.send_error(request, x))
@@ -155,7 +156,7 @@ class ReportingInstanceResource(resource.Resource):
 
     def render_PUT(self, request):
         """The PUT verb either stores the request under the requested
-        URI, or modifies an existing resource.        
+        URI, or modifies an existing resource.
         """
         try:
             request.setHeader('Content-type', 'application/json')
@@ -168,14 +169,14 @@ class ReportingInstanceResource(resource.Resource):
             request.setHeader('Content-type', 'text/plain')
             request.write(str(e))
         request.finish()
-        return server.NOT_DONE_YET            
+        return server.NOT_DONE_YET
 
     def render_DELETE(self, request):
         """The DELETE verb remove the requested object from the collection"""
         self.reports.del_report(uuid.UUID(request.prepath[-1]))
         request.finish()
         return server.NOT_DONE_YET
-            
+
 
 class ReportingResource(resource.Resource):
     """Resource representing the collection of reports which are installed
@@ -293,12 +294,12 @@ class EventsResource(InstanceResource):
 
         if obj == None:
             request.setResponseCode(404)
-            return ("No such timeseries or collection: " + 
+            return ("No such timeseries or collection: " +
                     util.join_path(request.postpath) + '\n')
         elif "Contents" in obj:
             # Return collections as the instance would
-            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                    request, 
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                    request,
                                     obj)
             d.addCallback(lambda x: self.send_reply(request, x))
             d.addErrback(lambda x: self.send_error(request, x))
@@ -309,8 +310,8 @@ class EventsResource(InstanceResource):
             prev = obj["Readings"][0][1]
             new_obj = self.get_if_new_reading(request.postpath, prev)
             if len(new_obj) > 0:
-                d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                        request, 
+                d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                        request,
                                         new_obj)
                 d.addCallback(lambda x: self.send_reply(request, x))
                 d.addErrback(lambda x: self.send_error(request, x))
@@ -400,7 +401,7 @@ def run(inst, port=None, logdir=None):
     if not os.path.exists(logdir):
         os.makedirs(logdir)
     print "Logging to", logdir
-    print "Starting server on port", port    
+    print "Starting server on port", port
     # Allow 50 1MB files
     observer = log.FileLogObserver(LogFile('sMAP.log', logdir, rotateLength=1000000, maxRotatedFiles=50))
     log.startLogging(observer)
@@ -411,11 +412,11 @@ def run(inst, port=None, logdir=None):
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
-        # create a smap instance.  each instance needs a uuid and it should 
+        # create a smap instance.  each instance needs a uuid and it should
         s = core.SmapInstance('f83c98c0-a8c3-11e0-adf5-0026bb56ec92')
 
         # add collection -- easy
-        # 
+        #
         # arg0 : path to collection
         # arg1 : key to generate uuid with, or Collection instance
         s.add_collection("/steve")
