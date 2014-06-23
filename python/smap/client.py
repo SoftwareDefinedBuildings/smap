@@ -148,6 +148,45 @@ class SmapClient:
                     acc.append(c)
             return acc
 
+from twisted.internet.defer import Deferred
+from twisted.protocols.basic import LineReceiver
+from twisted.internet import reactor
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
+from sys import stdout
+
+class Streamer(LineReceiver):
+    delimiter = '\n\n'
+
+    def __init__(self, callback):
+        self.cb = callback
+
+    def lineReceived(self, line):
+        d = Deferred()
+        d.addCallback(self.cb)
+        d.callback(line)
+
+class StreamingClient(SmapClient):
+
+    def _stream_response(self, response, callback):
+        response.deliverBody(Streamer(callback))
+        return Deferred
+
+    def subscribe(self, path, callback):
+        """
+        This will open a connection to the sMAP source at [path]. Everytime
+        data is published to [path], [callback] will be called. [callback]
+        is a function that takes a single argument, which is the json dump
+        of the reading received
+        """
+        agent = Agent(reactor)
+        url = self.base + '/stream' + path
+        print url
+        headers = Headers()
+        d = agent.request('GET', url, headers, None)
+        d.addCallback(self._stream_response, callback)
+
+
 if __name__=='__main__':
     # Example for use with example driver
     from smap.client import SmapClient
