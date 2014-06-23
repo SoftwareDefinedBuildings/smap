@@ -403,10 +403,16 @@ class StreamResource(InstanceResource):
         else:
             print "Client disconnected successfully"
 
-    def writeClient(self, listeners, reading):
+    def writeClient(self, listeners, path, uuid, reading):
         for client in listeners:
-            client.write(json.dumps(reading))
-            client.write('\n\n')
+            client.setHeader('Content-type', 'application/json')
+            obj = {'path': path,
+                   'uuid': uuid,
+                   'reading': reading}
+            d = json.AsyncJSON(obj).startProducing(client)
+            d.addCallback(lambda x: client.write('\n\n'))
+            #client.write(json.dumps(reading))
+            #client.write('\n\n')
 
 
 class RootResource(resource.Resource):

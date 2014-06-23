@@ -197,7 +197,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         # send the data to client
         # add a callbackg
         if self.streamer:
-            self.streamer.writeClient(self.listeners, reading)
+            self.streamer.writeClient(self.listeners, getattr(self, 'path'), self['uuid'], reading)
 
         if not hasattr(self, 'inst'): return
 
