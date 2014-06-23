@@ -126,6 +126,7 @@ class Timeseries(dict):
 
         # for local republishing
         self.listeners = set()
+        self.streamer = None
 
         self.impl = impl
         self.autoadd = autoadd
@@ -148,19 +149,6 @@ class Timeseries(dict):
             return True
         else:
             return False
-
-    def addClient(self, request):
-        # remove client upon disconnect
-        request.notifyFinish().addErrback(lambda x: self.removeClient(request, x))
-        self.listeners.add(request)
-        request.write('')
-
-    def removeClient(self, request, reason):
-        self.listeners.remove(request)
-        if reason:
-            print "Client {0} disconnected because: {1}".format(request, reason)
-        else:
-            print "Client disconnected successfully"
 
     def _add(self, *args):
         """Add a new reading to this timeseries.  This version must
@@ -207,11 +195,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         self["Readings"].append(reading)
         # TODO: for streaming
         # send the data to client
-        print "TS listen", self.listeners
-        for client in self.listeners:
-            print client
-            client.write(json.dumps(reading))
-            client.write('\n\n')
+        # add a callbackg
+        if self.streamer:
+            self.streamer.writeClient(self.listeners, reading)
 
         if not hasattr(self, 'inst'): return
 

@@ -389,8 +389,25 @@ class StreamResource(InstanceResource):
     def addClient(self, request):
         path = util.join_path(request.postpath)
         timeseries = self.inst.lookup(path)
-        timeseries.addClient(request)
+        if not timeseries.streamer:
+            timeseries.streamer = self
+        request.notifyFinish().addErrback(lambda x: self.removeClient(request, path, x))
+        timeseries.listeners.add(request)
         return server.NOT_DONE_YET
+
+    def removeClient(self, request, path, reason):
+        timeseries = self.inst.lookup(path)
+        timeseries.listeners.remove(request)
+        if reason:
+            print "Client {0} disconnected because: {1}".format(request, reason)
+        else:
+            print "Client disconnected successfully"
+
+    def writeClient(self, listeners, reading):
+        for client in listeners:
+            client.write(json.dumps(reading))
+            client.write('\n\n')
+
 
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
