@@ -193,9 +193,6 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if seqno: reading = time, value, seqno
         else: reading = time, value
         self["Readings"].append(reading)
-        # TODO: for streaming
-        # send the data to client
-        # add a callbackg
         if self.streamer:
             self.streamer.writeClient(self.listeners, getattr(self, 'path'), self['uuid'], reading)
 

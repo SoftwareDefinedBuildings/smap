@@ -167,6 +167,22 @@ class Streamer(LineReceiver):
         d.callback(line)
 
 class StreamingClient(SmapClient):
+    """
+    Example usage:
+
+
+    from client import StreamingClient
+    from twisted.internet import reactor
+
+    c = StreamingClient('http://localhost:8080')
+
+    def write(line):
+        print line
+
+    c.subscribe('/instrument0/sensor0', write)
+
+    reactor.run()
+    """
 
     def _stream_response(self, response, callback):
         response.deliverBody(Streamer(callback))
