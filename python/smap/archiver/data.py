@@ -142,7 +142,7 @@ class SmapData:
         try:
             r = rdb_pool.get()
             for ts in obj.itervalues():
-                data = [(x[0] / divisor, 0, x[1]) 
+                data = [(int(x[0] / divisor), 0, float(x[1])) 
                         for x in ts['Readings'] if x[0] > 0]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
                 while len(data) > 128:
