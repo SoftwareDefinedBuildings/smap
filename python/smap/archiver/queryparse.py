@@ -258,6 +258,7 @@ def p_query(t):
              | SELECT data_clause WHERE statement
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
+             | DELETE tag_list
              | SET set_list WHERE statement
              | APPLY apply_statement
              | HELP
@@ -272,7 +273,7 @@ def p_query(t):
     elif t[1] == 'delete':
         # a new delete inner statement enforces that we only delete
         # things which we have the key for.
-        if t[2] == 'where':
+        if len(t) > 2 and t[2] == 'where':
             # delete the whole stream, gone.  this also deletes the
             # data in the backend readingdb.
             t[0] = ext_deletor, \
@@ -286,14 +287,29 @@ def p_query(t):
                 'auth': qg.build_authcheck(t.parser.request, forceprivate=True) 
                 }
         else:
+            # to make the return value right, we need to tweak the
+            # where clause.  we want to only select streams where
+            # there's actually something to delete, since all of the
+            # streams the where-clause hits will get returned.
+            tag_clause = ast.Statement(ast.Statement.OP_OR,
+                                       *[ast.Statement(ast.Statement.OP_HAS, tag) 
+                                         for tag in t[2]])
+            if len(t) > 3: 
+                where_clause = ast.Statement(ast.Statement.OP_AND, tag_clause, t[4])
+            else:
+                # if there's no where clause, we only look at streams
+                # with the right tag.
+                where_clause = tag_clause
+
             # this alters the tags but doesn't touch the data
             del_tags = ', '.join(map(escape_string, t[2]))
             q = "UPDATE stream SET metadata = metadata - ARRAY[" + del_tags + \
                 "] WHERE id IN " + \
                 "(SELECT s.id FROM stream s, subscription sub " + \
-                "WHERE (" + t[4].render() + ") AND s.subscription_id = sub.id AND " + \
-                qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
-            t[0] = None, q
+                "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
+                qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + \
+                "RETURNING id, uuid"
+            t[0] = ext_deletor, q
 
     elif t[1] == 'set':
         new_tags, regex_tag = build_setstring(t[2], t[4])
@@ -581,7 +597,9 @@ def p_statement(t):
 
 def p_statement_unary(t):
     """statement_unary : HAS LVALUE"""
-    if t[1] == 'has':
+    if t[2] == 'uuid':
+        t[0] = ast.Statement(ast.Statement.OP_UUID)
+    else:
         t[0] = ast.Statement(ast.Statement.OP_HAS, t[2])
 
 def p_statement_binary(t):
