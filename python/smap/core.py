@@ -35,7 +35,6 @@ import uuid
 from zope.interface import implements
 from twisted.web import resource
 from twisted.internet import reactor, defer
-import exceptions
 import sys
 import operator
 import time 
@@ -48,17 +47,8 @@ from smap import actuate
 from smap import jobs
 from smap.interface import *
 from smap.checkers import datacheck
+from util import SmapException, SmapSchemaException
 
-
-class SmapException(Exception):
-    """Generic error"""
-    def __init__(self, message, http_code=None):
-        Exception.__init__(self, message)
-        self.http_code = http_code
-
-class SmapSchemaException(SmapException):
-    """Exception generated if a json object doesn't validate as the
-appropriate kind of schema"""
 
 class Timeseries(dict):
     """Represent a single Timeseries.  A Timeseries is a single stream of

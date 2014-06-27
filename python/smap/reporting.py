@@ -40,7 +40,6 @@ from twisted.python import log
 import logging
 
 import util
-import core
 import disklog
 import sjson as json
 from contrib import client
@@ -200,7 +199,7 @@ class DataBuffer:
             self.clear = True
             return self.data.head()
         else:
-            raise core.SmapException("No Pending Data!")
+            raise util.SmapException("No Pending Data!")
 
 
 class ReportInstance(dict):
