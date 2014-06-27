@@ -37,6 +37,7 @@ import datetime
 import inspect
 import logging
 import collections
+import itertools
 import re
 
 from twisted.internet import defer
@@ -171,6 +172,10 @@ smapql_lex = lex.lex()
 # precedence = ('and')
 names = {}
 
+## Extractors
+##  extractors are chained onto postgres operators and transform the
+##  result for presentation to the client.
+
 def ext_default(x):
     return map(operator.itemgetter(0), x)
 
@@ -186,6 +191,17 @@ def ext_plural(tags, vals):
 
 def ext_recursive(vals):
     return [build_recursive(x[0], suppress=[]) for x in vals]
+
+def ext_set(tag_list, x):
+    """Extractor for the set operation
+
+    Returns time series uuid and modified tags
+    """
+    rv = [{'uuid': v[0]} for v in x]
+    for rv_i, v in itertools.izip(rv, x):
+        rv_i.update(dict(zip(tag_list, v[1:])))
+    return [build_recursive(x, suppress=[]) for x in rv]
+        
 
 TIMEZONE_PATTERNS = [
     "%m/%d/%Y",
@@ -211,6 +227,7 @@ def make_select_rv(t, sel, wherestmt='true'):
 def build_setstring(setvals, wherevals):
     #  set tags 
     regex = None
+    regex_tag = None
     for stmt in wherevals:
         if stmt.op == ast.Statement.OP_REGEX:
             if regex == None:
@@ -229,7 +246,9 @@ def build_setstring(setvals, wherevals):
                                     regex.args[1][1:-1].replace('\\\\', '\\'),
                                     escape_string(v).replace('\\\\', '\\')),
                                    setvals))
-    return new_tags;
+        regex_tag = regex.args[0][1:-1]
+
+    return new_tags, regex_tag
 
 
 # top-level statement dispatching
@@ -277,13 +296,18 @@ def p_query(t):
             t[0] = None, q
 
     elif t[1] == 'set':
-        new_tags = build_setstring(t[2], t[4])
+        new_tags, regex_tag = build_setstring(t[2], t[4])
+        tag_list = [v[0] for v in t[2]]
+        if regex_tag: tag_list.append(regex_tag)
+        print regex_tag
         q = "UPDATE stream SET metadata = metadata || " + new_tags + \
             " WHERE id IN "  + \
             "(SELECT s.id FROM stream s, subscription sub " + \
             "WHERE (" + t[4].render() + ") AND s.subscription_id = sub.id AND " + \
-            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
-        t[0] = None, q
+            qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " + \
+            " RETURNING uuid, " + " , ".join(("metadata -> %s" % 
+                                              escape_string(v) for v in tag_list))
+        t[0] = lambda x: ext_set(tag_list, x), q
 
     elif t[1] == 'apply':
         t[0] = t[2]
