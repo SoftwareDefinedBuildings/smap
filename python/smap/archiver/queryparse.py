@@ -299,7 +299,6 @@ def p_query(t):
         new_tags, regex_tag = build_setstring(t[2], t[4])
         tag_list = [v[0] for v in t[2]]
         if regex_tag: tag_list.append(regex_tag)
-        print regex_tag
         q = "UPDATE stream SET metadata = metadata || " + new_tags + \
             " WHERE id IN "  + \
             "(SELECT s.id FROM stream s, subscription sub " + \
@@ -559,7 +558,7 @@ def p_set_list(t):
     if len(t) == 4:
         t[0] = [(t[1], t[3])]
     else:
-        t[0] = [(t[1], t[3])] + t[5].render()
+        t[0] = [(t[1], t[3])] + t[5]
 
 def p_statement(t):
     """statement : statement_unary
