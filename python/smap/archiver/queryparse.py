@@ -260,6 +260,7 @@ def p_query(t):
              | DELETE WHERE statement
              | DELETE tag_list
              | SET set_list WHERE statement
+             | SET set_list
              | APPLY apply_statement
              | HELP
              | HELP LVALUE
@@ -312,13 +313,20 @@ def p_query(t):
             t[0] = ext_deletor, q
 
     elif t[1] == 'set':
-        new_tags, regex_tag = build_setstring(t[2], t[4])
+        if len(t) > 3:
+            where_clause = t[4]
+        else:
+            # if no where clause, just do something fast that matches
+            # everything
+            where_clause = ast.Statement(ast.Statement.OP_UUID)
+
+        new_tags, regex_tag = build_setstring(t[2], where_clause)
         tag_list = [v[0] for v in t[2]]
         if regex_tag: tag_list.append(regex_tag)
         q = "UPDATE stream SET metadata = metadata || " + new_tags + \
             " WHERE id IN "  + \
             "(SELECT s.id FROM stream s, subscription sub " + \
-            "WHERE (" + t[4].render() + ") AND s.subscription_id = sub.id AND " + \
+            "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
             qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " + \
             " RETURNING uuid, " + " , ".join(("metadata -> %s" % 
                                               escape_string(v) for v in tag_list))
