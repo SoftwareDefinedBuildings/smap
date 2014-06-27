@@ -75,10 +75,10 @@ class Timeseries(dict):
     def __init__(self,
                  new_uuid,
                  unit, 
-                 data_type=DEFAULTS['Properties/ReadingType'],
-                 timezone=DEFAULTS['Properties/Timezone'],
+                 data_type=None,
+                 timezone=None,
                  description=None,
-                 buffersz=DEFAULTS['BufferSize'],
+                 buffersz=None,
                  milliseconds=False,
                  impl=None, 
                  read_limit=0,
@@ -95,6 +95,13 @@ class Timeseries(dict):
  units of Unix milliseconds.  Otherwise, normal unix timestamps are
  assumed
 """
+        if not data_type:
+            data_type = self.DEFAULTS['Properties/ReadingType']
+        if not timezone:
+            timezone = self.DEFAULTS['Properties/Timezone']
+        if not buffersz:
+            buffersz = self.DEFAULTS['BufferSize']
+
         if isinstance(new_uuid, dict):
             if not schema.validate('Timeseries', new_uuid):
                 raise SmapSchemaException("Initializing timeseries failed -- invalid object")
