@@ -376,7 +376,6 @@ def p_query(t):
         
     elif t[1] == 'delete':
         t[0] = make_delete_rv(t)
-        print t[0][1]
     elif t[1] == 'set':
         t[0] = make_set_rv(t)
     elif t[1] == 'apply':
