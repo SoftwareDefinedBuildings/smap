@@ -199,7 +199,7 @@ def ext_set(tag_list, x):
     """
     rv = [{'uuid': v[0]} for v in x]
     for rv_i, v in itertools.izip(rv, x):
-        rv_i.update(dict(zip(tag_list, v[1:])))
+        rv_i.update(v[1])
     return [build_recursive(x, suppress=[]) for x in rv]
         
 
@@ -251,6 +251,109 @@ def build_setstring(setvals, wherevals):
     return new_tags, regex_tag
 
 
+def make_set_rv(t):
+    # build the query for a set expression
+    if len(t) > 3:
+        # if there is a where clause, grab it
+        where_clause = t[4]
+    else:
+        # if no where clause, just do something fast that matches
+        # everything
+        where_clause = ast.Statement(ast.Statement.OP_UUID)
+    noop = "noop" in t.parser.request.args
+
+    # build a list of what tags we're updating, as well as the
+    # name of the regex tag.  We're currently not smart enough to
+    # deal with more than one regex match in a set statement, due
+    # to issues with back references.
+    new_tags, regex_tag = build_setstring(t[2], where_clause)
+    tag_list = [v[0] for v in t[2]]
+    if regex_tag: tag_list.append(regex_tag)
+
+    # if we're in noop mode, we need to tweak the SQL
+    if not noop: 
+        command = "UPDATE stream SET metadata = metadata || "
+        from_stmt = ""
+    else:
+        command = "SELECT uuid, "
+        from_stmt = "FROM stream"
+
+    # build the first part of the query that depends on if this is a noop
+    q = "%(command)s %(hstore_expression)s %(from_stmt)s WHERE ID IN" % {
+        "command": command,
+        "hstore_expression": new_tags,
+        "from_stmt": from_stmt }
+
+    # the where caluse always looks the same
+    q += "(SELECT s.id FROM stream s, subscription sub " + \
+        "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
+        qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " 
+
+    if not noop:
+        # return the list of modifications.  if this was a noop we
+        # get this for free.
+        q += " RETURNING uuid, slice(metadata, ARRAY[" + \
+            ','.join((escape_string(v) for v in tag_list)) + "])"
+    return lambda x: ext_set(tag_list, x), q
+
+def make_delete_rv(t):
+    noop = "noop" in t.parser.request.args
+    extractor = ext_deletor if not noop else ext_default
+
+    # a new delete inner statement enforces that we only delete
+    # things which we have the key for.
+    if len(t) > 2 and t[2] == 'where':
+        # delete the whole stream, gone.  this also deletes the
+        # data in the backend readingdb.
+        if not noop:
+            statement = "DELETE FROM stream"
+            returning = "RETURNING id, uuid"
+        else:
+            statement = "SELECT uuid FROM stream"
+            returning = ""
+        return extractor, \
+            """%(statement)s WHERE id IN (
+                 SELECT s.id FROM stream s, subscription sub 
+                 WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
+                 (%(auth)s)
+               ) %(returning)s
+            """ % { 
+            'restrict': t[3].render(),
+            'auth': qg.build_authcheck(t.parser.request, forceprivate=True),
+            'statement': statement,
+            'returning': returning
+            }
+    else:
+        # to make the return value right, we need to tweak the
+        # where clause.  we want to only select streams where
+        # there's actually something to delete, since all of the
+        # streams the where-clause hits will get returned.
+        tag_clause = ast.Statement(ast.Statement.OP_OR,
+                                   *[ast.Statement(ast.Statement.OP_HAS, tag) 
+                                     for tag in t[2]])
+        if len(t) > 3: 
+            where_clause = ast.Statement(ast.Statement.OP_AND, tag_clause, t[4])
+        else:
+            # if there's no where clause, we only look at streams
+            # with the right tag.
+            where_clause = tag_clause
+        # this alters the tags but doesn't touch the data
+        del_tags = ', '.join(map(escape_string, t[2]))
+        if not noop:
+            statement = "UPDATE stream SET metadata = metadata - ARRAY[" + \
+                del_tags + "]"
+            returning = "RETURNING id, uuid"
+        else:
+            statement = "SELECT uuid FROM stream"
+            returning = ""
+
+        q = statement + " WHERE id IN " + \
+            "(SELECT s.id FROM stream s, subscription sub " + \
+            "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
+            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + returning
+        return extractor, q
+
+
 # top-level statement dispatching
 def p_query(t):
     """query : SELECT selector WHERE statement
@@ -272,66 +375,10 @@ def p_query(t):
             t[0] = make_select_rv(t, t[2])
         
     elif t[1] == 'delete':
-        # a new delete inner statement enforces that we only delete
-        # things which we have the key for.
-        if len(t) > 2 and t[2] == 'where':
-            # delete the whole stream, gone.  this also deletes the
-            # data in the backend readingdb.
-            t[0] = ext_deletor, \
-                """DELETE FROM stream WHERE id IN (
-                     SELECT s.id FROM stream s, subscription sub 
-                     WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
-                     (%(auth)s)
-                   ) RETURNING id, uuid
-                """ % { 
-                'restrict': t[3].render(),
-                'auth': qg.build_authcheck(t.parser.request, forceprivate=True) 
-                }
-        else:
-            # to make the return value right, we need to tweak the
-            # where clause.  we want to only select streams where
-            # there's actually something to delete, since all of the
-            # streams the where-clause hits will get returned.
-            tag_clause = ast.Statement(ast.Statement.OP_OR,
-                                       *[ast.Statement(ast.Statement.OP_HAS, tag) 
-                                         for tag in t[2]])
-            if len(t) > 3: 
-                where_clause = ast.Statement(ast.Statement.OP_AND, tag_clause, t[4])
-            else:
-                # if there's no where clause, we only look at streams
-                # with the right tag.
-                where_clause = tag_clause
-
-            # this alters the tags but doesn't touch the data
-            del_tags = ', '.join(map(escape_string, t[2]))
-            q = "UPDATE stream SET metadata = metadata - ARRAY[" + del_tags + \
-                "] WHERE id IN " + \
-                "(SELECT s.id FROM stream s, subscription sub " + \
-                "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
-                qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + \
-                "RETURNING id, uuid"
-            t[0] = ext_deletor, q
-
+        t[0] = make_delete_rv(t)
+        print t[0][1]
     elif t[1] == 'set':
-        if len(t) > 3:
-            where_clause = t[4]
-        else:
-            # if no where clause, just do something fast that matches
-            # everything
-            where_clause = ast.Statement(ast.Statement.OP_UUID)
-
-        new_tags, regex_tag = build_setstring(t[2], where_clause)
-        tag_list = [v[0] for v in t[2]]
-        if regex_tag: tag_list.append(regex_tag)
-        q = "UPDATE stream SET metadata = metadata || " + new_tags + \
-            " WHERE id IN "  + \
-            "(SELECT s.id FROM stream s, subscription sub " + \
-            "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
-            qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " + \
-            " RETURNING uuid, " + " , ".join(("metadata -> %s" % 
-                                              escape_string(v) for v in tag_list))
-        t[0] = lambda x: ext_set(tag_list, x), q
-
+        t[0] = make_set_rv(t)
     elif t[1] == 'apply':
         t[0] = t[2]
     elif t[1] == 'help':
