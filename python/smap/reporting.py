@@ -44,6 +44,7 @@ import disklog
 import sjson as json
 from contrib import client
 from smap.formatters import get_formatter
+from smap.iface.plotly import PlotlyStream
 
 try:
     from smap.ssl import SslClientContextFactory
@@ -202,7 +203,7 @@ class DataBuffer:
             raise util.SmapException("No Pending Data!")
 
 
-class ReportInstance(dict):
+class HttpReportInstance(dict):
     """Represent the stored state pending for one report destination
     """
     def __init__(self, datadir, *args):
@@ -217,6 +218,13 @@ class ReportInstance(dict):
         self['LastAttempt'] = 0
         self['LastSuccess'] = 0
         self['Busy'] = False
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['http', 'https']:
+                return False
+        return True
 
     def deliverable(self):
         """Check if attempt should be called
@@ -322,6 +330,51 @@ class ReportInstance(dict):
         d.addCallback(self._success)
         d.addErrback(self._failure)
         return d
+# default for backwards compatibility
+ReportInstance = HttpReportInstance
+
+
+class PlotlyReportInstance(dict):
+    def __init__(self, datadir, *args):
+        dict.__init__(self, *args)
+        self['PendingData'] = DataBuffer(datadir)
+        u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
+        uri = "http://" + u.netloc 
+        streamid = u.path.lstrip('/')
+        print "Publishing plot.ly stream to", uri, "streamid:", streamid
+        self['Publisher'] = PlotlyStream(streamid, uri)
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['plotly']:
+                return False
+        return True
+
+    def deliverable(self):
+        return True
+
+    def attempt(self):
+        data = self['PendingData'].read()
+        self['PendingData'].truncate()
+        if data is None: 
+            return
+        elif len(data) != 1:
+            log.msg("Plotly only supports a single stream -- specify a resource")
+            return
+        else:
+            data = data.values()[0]
+            if 'Readings' in data:
+                for ts, val in data['Readings']:
+                    self['Publisher'].add(ts, val)
+            
+
+def get_report_class(deliver_locations):
+    deliverylocs = map(urlparse.urlparse, deliver_locations)
+    report_instance = None
+    for report_class in [HttpReportInstance, PlotlyReportInstance]:
+        if report_class.accepts(deliverylocs):
+            return report_class
 
 
 class Reporting:
@@ -367,7 +420,14 @@ class Reporting:
         dir = os.path.join(self.reportfile + '-reports',
                            str(rpt['uuid']))
         rpt['ReportDeliveryLocation'] = map(str, rpt['ReportDeliveryLocation'])
-        report_instance = ReportInstance(dir, rpt)
+
+        report_class = get_report_class(rpt['ReportDeliveryLocation'])
+        if report_class == None:
+            print "No report deliverer found for " + str(rpt['ReportDeliveryLocation'])
+            return 
+        else:
+            report_instance = report_class(dir, rpt)
+
         log.msg("Creating report -- dest is %s" % str(rpt['ReportDeliveryLocation']))
         self._update_subscriptions(report_instance)
         self.subscribers.append(report_instance)
@@ -399,11 +459,14 @@ class Reporting:
 
     def _update_subscriptions(self, sub):
         result = self.inst.lookup(sub['ReportResource'])
-        if isinstance(result, dict):
-            sub['Topics'] = set(result.iterkeys())
-        elif isinstance(result, dict) and 'uuid' in result:
+        if isinstance(result, dict) and 'uuid' in result:
+            # is a single time series
             sub['Topics'] = set([getattr(result, 'path')])
+        elif isinstance(result, dict):
+            # is a dict of {path: value}
+            sub['Topics'] = set(result.iterkeys())
         else:
+            # is nothing
             sub['Topics'] = set()
 
     def update_subscriptions(self):
