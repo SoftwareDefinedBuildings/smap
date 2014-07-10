@@ -104,7 +104,12 @@ class PlotlyStream(object):
         self._uri = uri
         self._buffer = FixedSizeList(buffersz)
         self._reset_connection_stats(None)
-        self._agent = Agent(reactor) 
+
+    def __getstate__(self):
+        return (self.streamid, self._uri, self._buffer.size)
+
+    def __setstate(self, *state):
+        self.__init__(*state)
 
     def add(self, x, y, extra=None):
         """Publish a particular reading to plot.ly"""
@@ -138,12 +143,13 @@ class PlotlyStream(object):
         finished = Deferred()
         started.addCallback(self._reset_connection_stats)
         self._producer = PlotlyStreamProducer(self._buffer, start_callback=started)
-        d = self._agent.request('POST',
-                                self._uri,
-                                Headers({'User-Agent': ['twplotly'],
-                                         'Content-Type': ['application/json'],
-                                         'plotly-streamtoken': [self.streamid]}),
-                                self._producer)
+        agent = Agent(reactor) 
+        d = agent.request('POST',
+                          self._uri,
+                          Headers({'User-Agent': ['twplotly'],
+                                   'Content-Type': ['application/json'],
+                                   'plotly-streamtoken': [self.streamid]}),
+                          self._producer)
         d.addCallback(self._http_failure)
         d.addErrback(self._tcp_failure)
         return d
