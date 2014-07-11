@@ -4,3 +4,4 @@ python-dateutil>=2.0
 configobj>=4.7.0
 pyOpenSSL>=0.14
 ply
+autobahn>=0.8
