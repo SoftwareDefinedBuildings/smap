@@ -26,7 +26,7 @@ it should be as easy as::
 
  pip install smap
 
-To install from svn, have a look at the dependencies below.
+To install from git, have a look at the dependencies below.
 
 Dependencies
 ~~~~~~~~~~~~
@@ -60,12 +60,12 @@ Install from Source
 ~~~~~~~~~~~~~~~~~~~
 
 Once the dependencies are installed, you can download and install the
-smap source.  Right now we recommend that you use the svn version
+smap source.  Right now we recommend that you use the git version
 following the instructions `here
-<http://code.google.com/p/smap-data/source/checkout>`_::
+<https://github.com/SoftwareDefinedBuildings/smap>`_::
 
- $ svn checkout http://smap-data.googlecode.com/svn/trunk/ smap-data-read-only
- $ cd smap-data-read-only/python
+ $ git clone git@github.com:SoftwareDefinedBuildings/smap.git
+ $ cd smap/python
  $ sudo python setup.py install
 
 sMAP installs a few tools as well as a plugin for ``twistd``, a

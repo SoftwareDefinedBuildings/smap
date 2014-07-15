@@ -65,7 +65,7 @@ class DataResource(resource.Resource):
             public = subid[0][1]
             subid = subid[0][0]
             obj = transfer.read(request)
-            self.republisher.republish(request.prepath[-1], public, obj)
+            self.republisher(request.prepath[-1], public, obj)
             util.push_metadata(obj)
             return subid, obj
         else:
@@ -104,16 +104,27 @@ class DataResource(resource.Resource):
         return server.NOT_DONE_YET
 
 def getSite(db, 
-            resources=['add', 'api', 'republish', 'static'],
-            repub=None):
+            resources=['add', 'api', 'republish', 'wsrepublish', 'static'],
+            http_repub=None, websocket_repub=None):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': resources})
-    if not repub:
-        repub = republisher.ReResource(db)
+    if not http_repub:
+        http_repub = republisher.ReResource(db)
+    if not websocket_repub:
+        websocket_repub = republisher.WebSocketRepublishResource(db)
+
+    def repub_fn(*args):        
+        if 'republish' in resources:
+            http_repub.republish(*args)
+        if 'wsrepublish' in resources:
+            websocket_repub.republish(*args)
+
     if 'republish' in resources:
-        root.putChild('republish', repub)
+        root.putChild('republish', http_repub)
+    if 'wsrepublish' in resources:
+        root.putChild('wsrepublish', websocket_repub)
     if 'add' in resources:
-        root.putChild('add', DataResource(db, repub))
+        root.putChild('add', DataResource(db, repub_fn))
     if 'api' in resources:
         root.putChild('api', api.Api(db))
     if 'static' in resources:

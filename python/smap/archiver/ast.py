@@ -106,8 +106,10 @@ class Statement(object):
             yield self
 
     def render(self):
-        if self.op == Statement.OP_UUID:
+        if self.op == Statement.OP_UUID and len(self.args):
             return 's.uuid %s %s' % (self.args[0][1:-1], self.args[1])
+        elif self.op == Statement.OP_UUID:
+            return 's.uuid IS NOT NULL'
         elif self.op == Statement.OP_HAS:
             return 's.metadata ? %s' % self.args
         elif self.op == Statement.OP_EQUALS:
@@ -120,9 +122,9 @@ class Statement(object):
             q = "(s.metadata -> %s) ~ %s" % self.args
             return  '(s.metadata ? %s) AND (%s)' % (self.args[0], q)
         elif self.op == Statement.OP_AND:
-            return '(%s) AND (%s)' % tuple(map(operator.methodcaller("render"), self.args))
+            return " AND ".join(("(%s)" % a.render() for a in self.args))
         elif self.op == Statement.OP_OR:
-            return '(%s) OR (%s)' % tuple(map(operator.methodcaller("render"), self.args))
+            return " OR ".join(("(%s)" % a.render() for a in self.args))
         elif self.op == Statement.OP_NOT:
             return 'NOT (%s)' % tuple(map(operator.methodcaller("render"), self.args))
 

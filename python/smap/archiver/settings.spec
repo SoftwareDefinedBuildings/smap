@@ -7,7 +7,7 @@ threadpool size = integer(default=30)
   [[__many__]]
   port = integer(default=8079)
   interface = string(default="0.0.0.0")
-  resources = list(default=list('add', 'api', 'republish'))
+  resources = list(default=list('add', 'api', 'republish', 'wsrepublish'))
 
     [[[ssl]]]
       cert = string()

@@ -42,7 +42,7 @@ from twisted.application import internet
 from twisted.internet import reactor
 from twisted.application.service import MultiService
 
-from smap import core, loader, smapconf
+from smap import util, loader, smapconf
 from smap.server import getSite
 from smap.util import buildkv
 
@@ -88,7 +88,7 @@ class SmapServiceMaker(object):
     def makeService(self, options):
         if options['data-dir'] != None:
             if not os.access(options['data-dir'], os.X_OK | os.W_OK):
-                raise core.SmapException("Cannot access " + options['data-dir'])
+                raise util.SmapException("Cannot access " + options['data-dir'])
             smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])

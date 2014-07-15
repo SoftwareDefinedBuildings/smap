@@ -83,7 +83,7 @@ class JsonConsumer(object):
         assert streaming == True
         self.producer = producer
         self.consumer.registerProducer(self, True)
-        self.consumer.setHeader("Content/Type", "application/json")
+        self.consumer.setHeader("Content-Type", "application/json")
 
     def unregisterProducer(self):
         self.consumer.unregisterProducer()

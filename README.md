@@ -20,3 +20,5 @@ After the dependencies are installed, run the installation:
 
     python setup.py install
 
+## Build status 
+[![Build Status](https://travis-ci.org/SoftwareDefinedBuildings/smap.svg?branch=master)](https://travis-ci.org/SoftwareDefinedBuildings/smap)
