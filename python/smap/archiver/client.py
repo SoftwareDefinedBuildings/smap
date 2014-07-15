@@ -103,7 +103,7 @@ def make_qdict(key, private):
         else:
             rv['key'] = [key]
     if private:
-        rv['private'] = ['']
+        rv['private'] = ['1']
     return rv
 
 
