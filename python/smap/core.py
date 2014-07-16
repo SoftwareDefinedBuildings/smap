@@ -79,7 +79,7 @@ class Timeseries(dict):
                  data_type=None,
                  timezone=None,
                  description=None,
-                 timeunit=DEFAULTS['TimeUnit']):
+                 timeunit=None,
                  buffersz=None,
                  impl=None, 
                  read_limit=0,
@@ -100,6 +100,8 @@ class Timeseries(dict):
             timezone = self.DEFAULTS['Properties/Timezone']
         if not buffersz:
             buffersz = self.DEFAULTS['BufferSize']
+        if not timeunit:
+            timeunit= self.DEFAULTS['TimeUnit']
 
         if isinstance(new_uuid, dict):
             if not schema.validate('Timeseries', new_uuid):
