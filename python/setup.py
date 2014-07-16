@@ -28,6 +28,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import os
 from distutils.core import setup, Extension
+import smap
 
 # import this to build the parser table so it will be installed
 # import smap.archiver.queryparse
@@ -63,7 +64,7 @@ bacnet_module = Extension('smap.iface.pybacnet._bacnet',
   include_dirs=inc_dir)
 
 setup(name="Smap",
-      version="2.0.c8506e",
+      version=smap.__version__,
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",

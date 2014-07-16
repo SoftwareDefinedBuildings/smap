@@ -47,7 +47,6 @@ from interface import *
 import core
 import util
 import loader
-import server
 from smap.contrib import dtutil
 
 from bosswave import BossWave

@@ -43,15 +43,14 @@ from twisted.python.logfile import LogFile
 
 import uuid
 
-import sjson as json
-import util
-import core
-import loader
-import schema
-import smapconf
-import actuate
-
-from interface import *
+from smap import sjson as json
+from smap import util
+from smap import core
+from smap import loader
+from smap import schema
+from smap import smapconf
+from smap import actuate
+from smap.interface import *
 
 def setResponseCode(request, exception, default):
     if hasattr(exception, 'http_code') and \
@@ -127,9 +126,9 @@ def read_report(self, request, duplicate_error=True):
     """
     obj = schema.filter_fields('Reporting', json.load(request.content))
     if not schema.validate("Reporting", obj):
-        raise core.SmapSchemaException("Invalid Reporting object (does not validate)", 400)
+        raise util.SmapSchemaException("Invalid Reporting object (does not validate)", 400)
     if duplicate_error and self.reports.get_report(obj['uuid']):
-        raise core.SmapException("Report instance already exists!", 400)
+        raise util.SmapException("Report instance already exists!", 400)
     return obj
 
 class ReportingInstanceResource(resource.Resource):

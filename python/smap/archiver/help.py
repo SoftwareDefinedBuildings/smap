@@ -27,13 +27,19 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-import stream
+import smap, smap.archiver
+from smap.archiver import stream
 
 def help(topic=None):
     if not topic:
-        return """Welcome to the archiver query language.  
+        return ("""Welcome to the archiver query language.
 
-We know about the following operators: """ +\
+sMAP version: %s
+sMAP archiver version: %s
+
+We know about the following operators: """ % (
+                smap.__version__,
+                smap.archiver.__version__))+\
             ', '.join(sorted(stream.installed_ops.keys()))
     
     elif topic in stream.installed_ops:

@@ -29,9 +29,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 @author Tyler Hoyt <thoyt@berkeley.edu>
 """
-from twisted.internet import task, reactor, defer
-import util
 import time
+
+from twisted.internet import task, reactor, defer
+
+from smap import util
 
 class SmapJob:
 
@@ -62,7 +64,7 @@ class SmapJobsManager:
         if j.after:
             previous_job = util.find(lambda x: x.name == j.after, self.jobs)
             if previous_job is None:
-                raise SmapException("No job named %s") % j.after
+                raise util.SmapException("No job named %s") % j.after
             else:
                 j.d_outer = previous_job.d_outer
                 j.job_id = previous_job.job_id

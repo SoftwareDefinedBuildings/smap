@@ -33,8 +33,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import sys
 import time
+import urlparse
+import urllib
 import optparse
 import uuid
+import json
 
 from twisted.internet import reactor, defer, task
 from twisted.python import util
@@ -67,6 +70,9 @@ parser.add_option('-k', '--key', dest='key', default='',
 parser.add_option('-p', '--private', dest='private', default=False,
                   help='display only results associated with the api key',
                   action='store_true')
+parser.add_option('-w', '--websocket', dest='websocket', default=False,
+                  help='subscribe using a websocket rather than the HTTP interface',
+                  action='store_true')
 
 if __name__ == '__main__':
     opts, args = parser.parse_args()
@@ -86,6 +92,38 @@ if __name__ == '__main__':
             except:
                 clauses.append(a)
         return ' or '.join(clauses)
+
+    def websocket_url(opts):
+        netloc = urlparse.urlparse(opts.url).netloc
+        params = urllib.urlencode(client.make_qdict(opts.key, opts.private), 
+                                  doseq=True)
+        return "ws://" + netloc + "/wsrepublish?" + params
+
+    def websocket_loop(opts):
+        # blocking version
+        import websocket
+        url = websocket_url(opts)
+        print "WebSocket URL:", url
+        ws = websocket.create_connection(url)
+        ws.send(restrict if restrict else "has uuid")
+
+        while True:
+            try:
+                result = ws.recv()
+            except KeyboardInterrupt:
+                print_final_stats()
+                break
+
+            try:
+                val = json.loads(result)
+            except ValueError:
+                sys.stderr.write("WARNING: WebSocket: invalid frame received\n")
+                continue
+
+            # SDH : perhaps not the most clear way of doing this..
+            print_data(*zip(*[(v['uuid'], v['Readings']) 
+                              for v in val.itervalues()
+                              if 'uuid' in v and 'Readings' in v]))
 
     def print_data(uuids, data):
         global uniq
@@ -136,11 +174,14 @@ if __name__ == '__main__':
     reactor.addSystemEventTrigger("after", "shutdown", print_final_stats)
 
     restrict = build_restrict(args)
-    rpc = client.RepublishClient(opts.url, print_data, 
-                                 restrict=restrict,
-                                 connect_error=error, 
-                                 key=opts.key.split(','),
-                                 private=opts.private)
-    rpc.connect()
-    reactor.run()
+    if opts.websocket:
+        websocket_loop(opts)
+    else:
+        rpc = client.RepublishClient(opts.url, print_data, 
+                                     restrict=restrict,
+                                     connect_error=error, 
+                                     key=opts.key.split(','),
+                                     private=opts.private)
+        rpc.connect()
+        reactor.run()
 

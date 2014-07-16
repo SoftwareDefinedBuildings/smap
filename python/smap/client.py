@@ -34,7 +34,6 @@ import urllib2
 import time
 
 from smap import util
-from smap.core import SmapException
 import smap.sjson as json
 
 class SmapClient:
@@ -48,7 +47,7 @@ class SmapClient:
             fp = urllib2.urlopen(self.base)
             fp.read()
         except Exception, e:
-          raise SmapException("sMAP source not found.")
+          raise util.SmapException("sMAP source not found.")
 
     def get_state(self, path, event=False): # event = True means use long polling
         if event:
@@ -57,13 +56,13 @@ class SmapClient:
             fp = urllib2.urlopen(self.base + "/data" + path)
         res = json.loads(fp.read())
         if 'Readings' not in res:
-            raise SmapException("Readings not found. \
+            raise util.SmapException("Readings not found. \
               Make sure the path corresponds to a timeseries (not a collection)")
         else:
             try: 
                 rv = res['Readings'][0]
             except IndexError:
-                raise SmapException("The timeseries doesn't have any readings")
+                raise util.SmapException("The timeseries doesn't have any readings")
         return rv
 
     def set_state(self, path, state, check=True): # check = False means don't check if actuator value has changed
@@ -74,7 +73,7 @@ class SmapClient:
         try: 
             fp = opener.open(request)
         except urllib2.HTTPError:
-            raise SmapException("Invalid path.")
+            raise util.SmapException("Invalid path.")
         res = json.loads(fp.read())
         if 'Actuator' not in res:
             raise SmapException("Path does not locate an actuator.")

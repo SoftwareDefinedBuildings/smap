@@ -37,6 +37,7 @@ import operator
 import pprint
 import time
 from StringIO import StringIO
+from warnings import warn
 
 import numpy as np
 import smap.util as util
@@ -62,9 +63,7 @@ except ImportError:
 try:
     from smap.iface.http.httpcurl import get
 except ImportError:
-    print >>sys.stderr, """Warning -- can't find httpcurl
-  --> Falling back on urllib2
-  --> Install pycURL for parallel data downloads"""
+    warn("""can't find httpcurl (falling back on urllib2; install pycURL for parallel data downloads)""")
     from smap.iface.http.httputils import get
 
 def parser(data):
@@ -104,7 +103,7 @@ def make_qdict(key, private):
         else:
             rv['key'] = [key]
     if private:
-        rv['private'] = ['']
+        rv['private'] = ['1']
     return rv
 
 
