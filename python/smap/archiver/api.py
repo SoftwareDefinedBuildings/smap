@@ -54,6 +54,7 @@ import queryparse as qp
 from querygen import build_authcheck
 import settings
 import stream
+from consumers import make_time_formatter
 
 class ApiResource(resource.Resource):
     def __init__(self, db):
@@ -94,7 +95,7 @@ FROM subscription sub WHERE """ + build_authcheck(request))
             d.addErrback(makeErrback(request))
         else:
             when = int(time.time()) * 1000
-            
+
             d = self.db.runQuery("""
 SELECT m.tagval, s.uuid
 FROM subscription sub, stream s, metadata2 m
@@ -187,6 +188,7 @@ ORDER BY s.id ASC"""
     d.addCallback(log_time, time.time())
     return d
 
+
 class Api(resource.Resource):
     """Provide api calls against the databases for data and tag lookups.
     """
@@ -217,20 +219,9 @@ class Api(resource.Resource):
             request.write('\n# '.join((': '.join(x) for x in sorted(stags.iteritems()))))
             request.write('\n')
 
-        if 'timefmt' in request.args:
-            # potentially do timestamp stringification here.
-            # this could be a bit slow for large datasets...
-            if request.args['timefmt'][0] == 'iso8601': 
-                fmt = dtutil.iso8601
-                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
-            elif request.args['timefmt'][0] == 'excel':
-                fmt = fmt = dtutil.excel
-                tz = dtutil.gettz(stags.get('Properties/Timezone', 'Utc'))
-            else:
-                fmt = lambda dt, tz: dtutil.strftime_tz(dt, '%s')
-                tz = dtutil.gettz('Utc')
+            time_formatter = make_time_formatter(request, stags)
             def row_action(row):
-                row[0] = fmt(dtutil.ts2dt(row[0] / 1000), tz)
+                row[0] = time_formatter(row[0])
                 writer.writerow(row)
             map(row_action, stream['Readings'])
         else:
@@ -246,8 +237,7 @@ class Api(resource.Resource):
             tags = None
         self.write_one_stream(request, 
                               result[0], 
-                              tags)
-        
+                              tags)        
         request.finish()
 
     def send_data_reply(self, (request, result)):
@@ -308,6 +298,7 @@ class Api(resource.Resource):
             raise
 
     def send_error(self, request, error):
+        log.err(error)
         setResponseCode(request, error, 400)
         try:
             request.write(str(error.value))
@@ -346,10 +337,11 @@ class Api(resource.Resource):
             setResponseCode(request, e, 400)
             return str(e)
         else:
-            # and send the reply
-            request.setHeader('Content-type', 'application/json')
 
             if not query.strip().startswith('apply'):
+                # and send the reply
+                request.setHeader('Content-type', 'application/json')
+
                 # apply streams the output out itself
                 d.addCallback(lambda reply: (request, reply))
                 d.addCallback(self.send_reply)
@@ -388,6 +380,7 @@ class Api(resource.Resource):
                                     path[1::2] + [None]))
                 d.addCallback(lambda r: self.generic_extract_result(request, r))
                 d.addCallback(self.send_reply)
+                d.addErrback(lambda x: self.send_error(request, x))
         elif method == 'tags':
             # retrieve tags
             d = build_tag_query(self.db,
@@ -396,6 +389,8 @@ class Api(resource.Resource):
                                     path[1::2] + [None]))
             d.addCallback(lambda r: self.tag_extract_result(request, r))
             d.addCallback(self.send_reply)
+            d.addErrback(lambda x: self.send_error(request, x))
+
         elif method in ['data', 'next', 'prev']:
             # retrieve data
             d = self.db.runQuery("""SELECT uuid, id, metadata -> 'Properties/UnitofTime', metadata->'Properties/Timezone' FROM stream WHERE
@@ -407,6 +402,7 @@ id IN """ + build_inner_query(request,
             d.addCallback(lambda r: data_load_result(request, method, r))
             d.addCallback(lambda d: (request, d))
             d.addCallback(self.send_data_reply)
+            d.addErrback(lambda x: self.send_error(request, x))
         elif method == 'operators':
             self.send_reply((request, stream.installed_ops.keys()))
         else:

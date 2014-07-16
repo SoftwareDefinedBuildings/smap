@@ -109,10 +109,10 @@
       function makeDiscreteActuator(path, meta) {
         var select = $("<select>");
         var value = latest(meta['Readings']);
-        for (var i = 0; i < meta['Actuate']['States'].length; i++) {
+        for (var i = 0; i < meta['Actuator']['Values'].length; i++) {
           var checked = value == i ? "selected" : "";
           select.append("<option value=" + i + " " + checked + " >" +
-                        meta['Actuate']['States'][i] +
+                        meta['Actuator']['Values'][i] +
                         "</option>");
         }
         $(select).change(function (event) {
@@ -131,8 +131,32 @@
         var slider = $("<div class=\"slider\" id=\"" + meta['uuid'] +
                               "_slider\"></div>");
                             
-        var range = meta.Actuate.States;
-        $(slider).slider({min: range[0], max: range[1], step: .01,
+        var range = meta.Actuator.Values;
+        $(slider).slider({min: meta.Actuator.MinValue,
+                            max: meta.Actuator.MaxValue,
+                            step: .01,
+                          value: latest(meta['Readings']),
+                          change: function(event, ui) {
+                            $(input).val($(slider).slider("value"));
+                            updateState(path, $(slider).slider("value"));
+                          }});
+        $(input).change(function(event) {
+                            $(slider).slider("value", $(input).val());
+                            });
+        rv.append(input); rv.append(slider);
+                            
+        return rv;
+      }
+      // create a slider ui for a continuous integer actuator
+      function makeContinuousIntegerActuator(path, meta) {
+        var rv = $("<div>");
+        var input = $("<input class=\"val\" type=\"text\" value=\"" + 
+                              latest(meta['Readings']) + "\"/>");
+        var slider = $("<div class=\"slider\" id=\"" + meta['uuid'] +
+                              "_slider\"></div>");
+                            
+        var range = meta.Actuator.States;
+        $(slider).slider({min: range[0], max: range[1], step: 1,
                           value: latest(meta['Readings']),
                           change: function(event, ui) {
                             $(input).val($(slider).slider("value"));
@@ -148,15 +172,18 @@
 
       // create the ui for a timeseries
       function makeTimeseries(path, meta) {
-        if (meta['Actuate'] === undefined) {
+			    console.log(meta);
+        if (meta['Actuator'] === undefined) {
           return latest(meta["Readings"]) + 
                  meta ["Properties"]["UnitofMeasure"];
-        } else if (meta['Actuate']['Model'] == 'binary') {
+        } else if (meta['Actuator']['Model'] == 'binary') {
           return makeBinaryActuator(path, meta);
-        } else if (meta['Actuate']['Model'] == 'discrete') {
+        } else if (meta['Actuator']['Model'] == 'discrete') {
           return makeDiscreteActuator(path, meta);
-        } else if (meta['Actuate']['Model'] == 'continuous') {
+        } else if (meta['Actuator']['Model'] == 'continuous') {
           return makeContinuousActuator(path, meta);
+      	} else if (meta['Actuator']['Model'] == 'continuousInteger') {
+        return makeContinuousIntegerActuator(path, meta);
         } else {
           return ;
         }

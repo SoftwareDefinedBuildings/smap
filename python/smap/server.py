@@ -43,15 +43,14 @@ from twisted.python.logfile import LogFile
 
 import uuid
 
-import sjson as json
-import util
-import core
-import loader
-import schema
-import smapconf
-import actuate
-
-from interface import *
+from smap import sjson as json
+from smap import util
+from smap import core
+from smap import loader
+from smap import schema
+from smap import smapconf
+from smap import actuate
+from smap.interface import *
 
 def setResponseCode(request, exception, default):
     if hasattr(exception, 'http_code') and \
@@ -75,6 +74,8 @@ class InstanceResource(resource.Resource):
         try:
             obj = self.inst.lookup(util.join_path(request.postpath))
         except Exception, e:
+            import traceback
+            traceback.print_exc()
             setResponseCode(request, exception, 500)
             request.finish()
 
@@ -93,8 +94,7 @@ class InstanceResource(resource.Resource):
     def render_PUT(self, request):
         request.setHeader('Content-type', 'application/json')
         # you can only PUT actuators
-        obj = self.inst.lookup(util.join_path(request.postpath),
-                               pred=IActuator.providedBy)
+        obj = self.inst.lookup(util.join_path(request.postpath))
         d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
         d.addCallback(lambda x: self.send_reply(request, x))
         d.addErrback(lambda x: self.send_error(request, x))
@@ -112,9 +112,9 @@ class InstanceResource(resource.Resource):
     def send_error(self, request, err):
         if err:
             setResponseCode(request, err.value, 500)
+            request.write(str(err.value))
         else:
             request.setResponseCode(500)
-        request.write(str(err.value))
         request.finish()
 
 def read_report(self, request, duplicate_error=True):
@@ -124,9 +124,9 @@ def read_report(self, request, duplicate_error=True):
     """
     obj = schema.filter_fields('Reporting', json.load(request.content))
     if not schema.validate("Reporting", obj):
-        raise core.SmapSchemaException("Invalid Reporting object (does not validate)", 400)
+        raise util.SmapSchemaException("Invalid Reporting object (does not validate)", 400)
     if duplicate_error and self.reports.get_report(obj['uuid']):
-        raise core.SmapException("Report instance already exists!", 400)
+        raise util.SmapException("Report instance already exists!", 400)
     return obj
 
 class ReportingInstanceResource(resource.Resource):
@@ -218,6 +218,58 @@ class ReportingResource(resource.Resource):
         request.finish()
         return server.NOT_DONE_YET
 
+class JobsResource(resource.Resource):
+    """Resource representing the collection of actuation jobs
+    """
+    def __init__(self, inst):
+        self.inst = inst
+        resource.Resource.__init__(self)
+
+    def render_GET(self, request):
+        request.setHeader('Content-type', 'application/json')
+        rv = []
+        jobs = map(lambda j: j.__dict__, self.inst.jobs.jobs)
+        for j in jobs:
+            obj = {'name': j['name'],
+                   'start_time': j['start_time'],
+                   'after': j['after'],
+                   'actions': j['actions']
+            }
+            rv.append(obj)
+        return json.dumps(rv)
+
+    def render_PUT(self, request):
+        request.setHeader('Content-type', 'application/json')
+        content = request.content.read()
+        if content:
+            obj = json.loads(content)
+            uids = self.add_jobs(obj)
+            return json.dumps(uids)
+        else:
+            return None
+
+    def add_jobs(self, jobs):
+        uids = []
+        if isinstance(jobs, dict):
+            jobs = list(jobs)
+        for job in jobs:
+            schema.validate('Job', job)
+            uid = str(uuid.uuid1())
+            job['uuid'] = uid
+            self.inst.jobs.add_job(job)
+            uids.append(uid)
+
+        return uids
+
+    def render_DELETE(self, request):
+        request.setHeader('Content-type', 'application/json')
+        content = request.content.read()
+        if content:
+            del_uuids = json.loads(content)
+            self.inst.jobs.jobs = filter(lambda j: j.uuid not in del_uuids, self.inst.jobs.jobs)
+            self.inst.jobs.cancel_job(del_uuids)
+        return json.dumps(map(lambda j: j.uuid, self.inst.jobs.jobs))
+
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
     """
@@ -249,6 +301,11 @@ def getSite(inst, docroot=None):
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:
         root.putChild('docs', static.File(docroot))
+
+    if hasattr(inst, 'jobs'):
+        contents.append('jobs')
+        contents.sort()
+        root.putChild('jobs', JobsResource(inst))
 
     site = server.Site(root)
     return site

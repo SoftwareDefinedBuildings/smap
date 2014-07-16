@@ -37,6 +37,7 @@ import datetime
 import inspect
 import logging
 import collections
+import itertools
 import re
 
 from twisted.internet import defer
@@ -50,7 +51,7 @@ from smap.contrib import dtutil
 from smap.archiver.data import escape_string
 from smap.archiver.querydata import extract_data
 from smap.archiver import querygen as qg
-from smap.archiver import data, stream, help, ast
+from smap.archiver import data, stream, help, ast, consumers
 
 import ply
 import ply.lex as lex
@@ -171,6 +172,10 @@ smapql_lex = lex.lex()
 # precedence = ('and')
 names = {}
 
+## Extractors
+##  extractors are chained onto postgres operators and transform the
+##  result for presentation to the client.
+
 def ext_default(x):
     return map(operator.itemgetter(0), x)
 
@@ -186,6 +191,17 @@ def ext_plural(tags, vals):
 
 def ext_recursive(vals):
     return [build_recursive(x[0], suppress=[]) for x in vals]
+
+def ext_set(tag_list, x):
+    """Extractor for the set operation
+
+    Returns time series uuid and modified tags
+    """
+    rv = [{'uuid': v[0]} for v in x]
+    for rv_i, v in itertools.izip(rv, x):
+        rv_i.update(v[1])
+    return [build_recursive(x, suppress=[]) for x in rv]
+        
 
 TIMEZONE_PATTERNS = [
     "%m/%d/%Y",
@@ -208,6 +224,136 @@ def make_select_rv(t, sel, wherestmt='true'):
                           wherestmt,
                           qg.build_authcheck(t.parser.request)))
 
+def build_setstring(setvals, wherevals):
+    #  set tags 
+    regex = None
+    regex_tag = None
+    for stmt in wherevals:
+        if stmt.op == ast.Statement.OP_REGEX:
+            if regex == None:
+                regex = stmt
+            else:
+                raise qg.QueryException("Too many regexes in set.  Only one supported!")
+
+    if regex == None:
+        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, %s)" % 
+                                   (escape_string(t), escape_string(v)),
+                                   setvals))
+    else:
+        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, regexp_replace(metadata -> %s, '^.*%s.*$', %s))" % 
+                                   (escape_string(t), 
+                                    regex.args[0],
+                                    regex.args[1][1:-1].replace('\\\\', '\\'),
+                                    escape_string(v).replace('\\\\', '\\')),
+                                   setvals))
+        regex_tag = regex.args[0][1:-1]
+
+    return new_tags, regex_tag
+
+
+def make_set_rv(t):
+    # build the query for a set expression
+    if len(t) > 3:
+        # if there is a where clause, grab it
+        where_clause = t[4]
+    else:
+        # if no where clause, just do something fast that matches
+        # everything
+        where_clause = ast.Statement(ast.Statement.OP_UUID)
+    noop = "noop" in t.parser.request.args
+
+    # build a list of what tags we're updating, as well as the
+    # name of the regex tag.  We're currently not smart enough to
+    # deal with more than one regex match in a set statement, due
+    # to issues with back references.
+    new_tags, regex_tag = build_setstring(t[2], where_clause)
+    tag_list = [v[0] for v in t[2]]
+    if regex_tag: tag_list.append(regex_tag)
+
+    # if we're in noop mode, we need to tweak the SQL
+    if not noop: 
+        command = "UPDATE stream SET metadata = metadata || "
+        from_stmt = ""
+    else:
+        command = "SELECT uuid, "
+        from_stmt = "FROM stream"
+
+    # build the first part of the query that depends on if this is a noop
+    q = "%(command)s %(hstore_expression)s %(from_stmt)s WHERE ID IN" % {
+        "command": command,
+        "hstore_expression": new_tags,
+        "from_stmt": from_stmt }
+
+    # the where caluse always looks the same
+    q += "(SELECT s.id FROM stream s, subscription sub " + \
+        "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
+        qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " 
+
+    if not noop:
+        # return the list of modifications.  if this was a noop we
+        # get this for free.
+        q += " RETURNING uuid, slice(metadata, ARRAY[" + \
+            ','.join((escape_string(v) for v in tag_list)) + "])"
+    return lambda x: ext_set(tag_list, x), q
+
+def make_delete_rv(t):
+    noop = "noop" in t.parser.request.args
+    extractor = ext_deletor if not noop else ext_default
+
+    # a new delete inner statement enforces that we only delete
+    # things which we have the key for.
+    if len(t) > 2 and t[2] == 'where':
+        # delete the whole stream, gone.  this also deletes the
+        # data in the backend readingdb.
+        if not noop:
+            statement = "DELETE FROM stream"
+            returning = "RETURNING id, uuid"
+        else:
+            statement = "SELECT uuid FROM stream"
+            returning = ""
+        return extractor, \
+            """%(statement)s WHERE id IN (
+                 SELECT s.id FROM stream s, subscription sub 
+                 WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
+                 (%(auth)s)
+               ) %(returning)s
+            """ % { 
+            'restrict': t[3].render(),
+            'auth': qg.build_authcheck(t.parser.request, forceprivate=True),
+            'statement': statement,
+            'returning': returning
+            }
+    else:
+        # to make the return value right, we need to tweak the
+        # where clause.  we want to only select streams where
+        # there's actually something to delete, since all of the
+        # streams the where-clause hits will get returned.
+        tag_clause = ast.Statement(ast.Statement.OP_OR,
+                                   *[ast.Statement(ast.Statement.OP_HAS, tag) 
+                                     for tag in t[2]])
+        if len(t) > 3: 
+            where_clause = ast.Statement(ast.Statement.OP_AND, tag_clause, t[4])
+        else:
+            # if there's no where clause, we only look at streams
+            # with the right tag.
+            where_clause = tag_clause
+        # this alters the tags but doesn't touch the data
+        del_tags = ', '.join(map(escape_string, t[2]))
+        if not noop:
+            statement = "UPDATE stream SET metadata = metadata - ARRAY[" + \
+                del_tags + "]"
+            returning = "RETURNING id, uuid"
+        else:
+            statement = "SELECT uuid FROM stream"
+            returning = ""
+
+        q = statement + " WHERE id IN " + \
+            "(SELECT s.id FROM stream s, subscription sub " + \
+            "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
+            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + returning
+        return extractor, q
+
+
 # top-level statement dispatching
 def p_query(t):
     """query : SELECT selector WHERE statement
@@ -215,55 +361,23 @@ def p_query(t):
              | SELECT data_clause WHERE statement
              | DELETE tag_list WHERE statement
              | DELETE WHERE statement
+             | DELETE tag_list
              | SET set_list WHERE statement
+             | SET set_list
              | APPLY apply_statement
              | HELP
              | HELP LVALUE
              """
     if t[1] == 'select': 
         if len(t) == 5:
-            t[0] = make_select_rv(t, t[2], t[4])
+            t[0] = make_select_rv(t, t[2], t[4].render())
         elif len(t) == 3:
             t[0] = make_select_rv(t, t[2])
         
     elif t[1] == 'delete':
-        # a new delete inner statement enforces that we only delete
-        # things which we have the key for.
-        if t[2] == 'where':
-            # delete the whole stream, gone.  this also deletes the
-            # data in the backend readingdb.
-            t[0] = ext_deletor, \
-                """DELETE FROM stream WHERE id IN (
-                     SELECT s.id FROM stream s, subscription sub 
-                     WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
-                     (%(auth)s)
-                   ) RETURNING id, uuid
-                """ % { 
-                'restrict': t[3],
-                'auth': qg.build_authcheck(t.parser.request, forceprivate=True) 
-                }
-        else:
-            # this alters the tags but doesn't touch the data
-            del_tags = ', '.join(map(escape_string, t[2]))
-            q = "UPDATE stream SET metadata = metadata - ARRAY[" + del_tags + \
-                "] WHERE id IN " + \
-                "(SELECT s.id FROM stream s, subscription sub " + \
-                "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
-                qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
-            t[0] = None, q
-
+        t[0] = make_delete_rv(t)
     elif t[1] == 'set':
-        #  set tags 
-        new_tags = ' || '.join(map(lambda (t,v): "hstore(%s, %s)" % 
-                                   (escape_string(t), escape_string(v)),
-                               t[2]))
-        q = "UPDATE stream SET metadata = metadata || " + new_tags + \
-            " WHERE id IN "  + \
-            "(SELECT s.id FROM stream s, subscription sub " + \
-            "WHERE (" + t[4] + ") AND s.subscription_id = sub.id AND " + \
-            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")"
-        t[0] = None, q
-
+        t[0] = make_set_rv(t)
     elif t[1] == 'apply':
         t[0] = t[2]
     elif t[1] == 'help':
@@ -290,8 +404,8 @@ def p_apply_statement(t):
     """apply_statement  : formula_pipe TO data_clause WHERE statement
                         | formula_pipe TO data_clause WHERE statement GROUP BY tag_list
     """
-    print "Existing restrictions", t[5]
-    restrict = add_formula_restrictions(t[5], t[1].restrict)
+    print "Existing restrictions", t[5].render()
+    restrict = add_formula_restrictions(t[5].render(), t[1].restrict)
     tag_extractor, tag_query = make_select_rv(t, 
                                               make_tag_select('*'), 
                                               restrict)
@@ -303,7 +417,8 @@ def p_apply_statement(t):
     else: group = None
     print "Extra restrictions", t[1].restrict
     app = stream.OperatorApplicator(t[1].ast, t[3].dparams,
-                                    t.parser.request, group=group)
+                                    consumers.make_outputfilter(t.parser.request), 
+                                    group=group)
     t[0] = ([app.start_processing, tag_extractor, data_extractor], 
             [None, tag_query, data_query])
 
@@ -529,18 +644,20 @@ def p_statement(t):
     if len(t) == 2:
         t[0] = t[1]
     elif t[2] == 'and':
-        t[0] = '(%s) AND (%s)' % (t[1], t[3])
+        t[0] = ast.Statement(ast.Statement.OP_AND, t[1], t[3])
     elif t[2] == 'or':
-        t[0] = '(%s) OR (%s)' % (t[1], t[3])
+        t[0] = ast.Statement(ast.Statement.OP_OR, t[1], t[3])
     elif t[1] == 'not':
-        t[0] = 'NOT (%s)' % t[2]
+        t[0] = ast.Statement(ast.Statement.OP_NOT, t[2])
     else:
         t[0] = t[2]
 
 def p_statement_unary(t):
     """statement_unary : HAS LVALUE"""
-    if t[1] == 'has':
-        t[0] = 's.metadata ? %s' % escape_string(t[2])
+    if t[2] == 'uuid':
+        t[0] = ast.Statement(ast.Statement.OP_UUID)
+    else:
+        t[0] = ast.Statement(ast.Statement.OP_HAS, t[2])
 
 def p_statement_binary(t):
     """statement_binary : LVALUE '=' QSTRING
@@ -548,19 +665,14 @@ def p_statement_binary(t):
                         | LVALUE TILDE QSTRING
     """
     if t[1] == 'uuid':
-        t[0] = 's.uuid %s %s' % (t[2], escape_string(t[3]))
+        t[0] = ast.Statement(ast.Statement.OP_UUID, t[2], t[3])
     else:
-        if t[2] == '=':
-            q = "s.metadata @> hstore(%s, %s)" % (escape_string(t[1]), 
-                                                  escape_string(t[3]))
+        if t[2] == '=': 
+            t[0] = ast.Statement(ast.Statement.OP_EQUALS, t[1], t[3])
         elif t[2] == 'like':
-            q = "(s.metadata -> %s) LIKE %s" % (escape_string(t[1]), 
-                                                escape_string(t[3]))
+            t[0] = ast.Statement(ast.Statement.OP_LIKE, t[1], t[3])
         elif t[2] == '~':
-            q = "(s.metadata -> %s) ~ %s" % (escape_string(t[1]), 
-                                             escape_string(t[3]))
-
-        t[0] = '(s.metadata ? %s) AND (%s)' % (escape_string(t[1]), q)
+            t[0] = ast.Statement(ast.Statement.OP_REGEX, t[1], t[3])
 
 
 formula = collections.namedtuple('formula', 'ast restrict')
@@ -789,7 +901,7 @@ class QueryParser:
             q = [None, q]
             ext = [None, ext]
 
-        if verbose: 
+        if verbose:
             print q[1]
         if not run: return defer.succeed([])
         

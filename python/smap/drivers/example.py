@@ -34,6 +34,8 @@ from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 
 from twisted.internet import threads
+from twisted.python import log
+import logging
 
 class Driver(SmapDriver):
     def setup(self, opts):

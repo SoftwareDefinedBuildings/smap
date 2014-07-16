@@ -137,11 +137,11 @@ def validate(schema, obj):
 
 def filter_fields(schema, obj):
     rv = {}
-    schema = util.find(lambda x: x.get("name", "") == schema, SCHEMA_OBJECTS)
+    schema = util.find(lambda x: x.name == schema, SCHEMA_OBJECTS)
     if not schema: 
         return obj
 
-    for field in [x['name'] for x in schema['fields']]:
+    for field in [x.name for x in schema.fields]:
         if field in obj:
             rv[field] = obj[field]
             

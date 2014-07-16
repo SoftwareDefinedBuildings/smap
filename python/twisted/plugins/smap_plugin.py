@@ -42,13 +42,29 @@ from twisted.application import internet
 from twisted.internet import reactor
 from twisted.application.service import MultiService
 
-from smap import core, loader, smapconf
+from smap import util, loader, smapconf
 from smap.server import getSite
+from smap.util import buildkv
 
 try:
     from smap.ssl import SslServerContextFactory
 except ImportError:
     pass
+
+try:
+    from smap.bonjour import broadcast
+except ImportError:
+    print >>sys.stderr, "sMAP: pybonjour not available"
+    def broadcast(*args):
+        pass
+
+
+def make_dns_meta(inst):
+    root = inst.lookup("/")
+    m = {"uuid": str(inst.root_uuid)}
+    if root and "Metadata" in root:
+        m.update(dict(buildkv("Metadata", root["Metadata"])))
+    return m
 
 class Options(usage.Options):
     optParameters = [["data-dir", "d", None, "directory for data"],
@@ -72,10 +88,11 @@ class SmapServiceMaker(object):
     def makeService(self, options):
         if options['data-dir'] != None:
             if not os.access(options['data-dir'], os.X_OK | os.W_OK):
-                raise core.SmapException("Cannot access " + options['data-dir'])
+                raise util.SmapException("Cannot access " + options['data-dir'])
             smapconf.SERVER['DataDir'] = options['data-dir']
 
         inst = loader.load(options['conf'])
+        smapconf.start_logging()
         # override defaults with command-line args
         smapconf.SERVER.update(dict([(k.lower(), v) for (k, v) in
                                      options.iteritems() if v != None]))
@@ -88,14 +105,19 @@ class SmapServiceMaker(object):
 
         site = getSite(inst, docroot=smapconf.SERVER['docroot'])
         service = MultiService()
-
         # add HTTP and HTTPS servers to the twisted multiservice
+
+        meta = make_dns_meta(inst)
+
         if 'port' in smapconf.SERVER:
             service.addService(internet.TCPServer(int(smapconf.SERVER['port']), site))
+            broadcast(reactor, "_smap._tcp", int(smapconf.SERVER['port']), 'sMAP Server', meta)
         if 'sslport' in smapconf.SERVER:
             service.addService(internet.SSLServer(int(smapconf.SERVER['sslport']), 
                                                   site, 
                                                   SslServerContextFactory(smapconf.SERVER)))
+
         return service
 
 serviceMaker = SmapServiceMaker()
+

@@ -81,20 +81,23 @@ class ArchiverServiceMaker(object):
                                    user=settings.conf['database']['user'],
                                    password=settings.conf['database']['password'],
                                    port=settings.conf['database']['port'],
-                                   cp_min=5, cp_max=30)
+                                   cp_min=5, cp_max=30,
+                                   cp_reconnect=True)
 
         if options['subscribe']:
             subscribe(cp, settings)
 
 
         # create a single republisher to send the data out on
-        repub = republisher.ReResource(cp)
+        http_repub = republisher.ReResource(cp)
+        websocket_repub = republisher.WebSocketRepublishResource(cp)
         service = MultiService()
         for svc in settings.conf['server']:
             scfg = settings.conf['server'][svc]
             site = getSite(cp, 
                            resources=scfg['resources'],
-                           repub=repub)
+                           http_repub=http_repub, 
+                           websocket_repub=websocket_repub)
             if not len(scfg['ssl']) > 1:
                 service.addService(internet.TCPServer(scfg['port'],
                                                       site,

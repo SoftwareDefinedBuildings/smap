@@ -33,6 +33,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import math
 import uuid
+from warnings import warn
 
 from zope.interface import implements
 from twisted.internet.task import cooperate
@@ -42,8 +43,7 @@ try:
     import simplejson as json
 except ImportError:
     if sys.version_info < (2, 7):
-        print """WARNING: using json instead of simplejson: 
-   this will be much slower on python < 2.7"""
+        warn("using json instead of simplejson; (this will be much slower on python < 2.7)")
     import json
 
 class SmapEncoder(json.JSONEncoder):

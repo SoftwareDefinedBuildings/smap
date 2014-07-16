@@ -136,9 +136,17 @@ contain a ``uuid`` key to set the root identifier for the source.
         smapconf.SERVER = util.dict_merge(smapconf.SERVER, 
                                           dict(((k.lower(), v) for (k, v) in 
                                                 conf['server'].iteritems())))
+    if 'logging' in conf:
+        smapconf.LOGGING = util.dict_merge(smapconf.LOGGING, 
+                                           dict(((k.lower(), v) for (k, v) in 
+                                                 conf['logging'].iteritems())))
 
     # we need the root to have a uuid
     inst = core.SmapInstance(conf['/']['uuid'], **instargs)
+    if 'Properties/Timezone' in conf['/']:
+        print "Setting default timezone to", conf['/']['Properties/Timezone']
+        core.Timeseries.DEFAULTS['Properties/Timezone'] = conf['/']['Properties/Timezone']
+
     inst.loading = True
     reports = []
 

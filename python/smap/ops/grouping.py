@@ -157,7 +157,7 @@ class GroupByDatetimeField(Operator):
 
     usage:
        window($1, group_operator(), field="day", 
-              width=1, increment=None, skip_missing=True)
+              width=1, increment=None, skip_empty=True)
 
     This operator first bins data in the time dimension using datetime
     objects; for instance, if you say field = "day", the operator will
@@ -174,7 +174,7 @@ class GroupByDatetimeField(Operator):
     the window advances each time; by default, increment=width.  This
     can be used to implement sliding-window filters.
 
-    skip_missing controls whether output values will be produced for
+    skip_empty controls whether output values will be produced for
     bins without and points in them.  If set to true, the operator
     will output a point with the timestamp of the bin start with a
     value of NaN.
@@ -245,8 +245,6 @@ class GroupByDatetimeField(Operator):
         
         assert len(prev_datetimes) == len(prev)
         output = [null] * len(op.outputs)
-        # output = [null] * len(util.flatten(map(operator.attrgetter("outputs"), ops)))
-        # print output
 
         if len(prev_datetimes) == 0:
             return output, {
@@ -277,7 +275,9 @@ class GroupByDatetimeField(Operator):
             truncate_to = bin_start_idx
 
             # ignore bins which aren't full
-            if bin_end_idx == len(prev_datetimes) and not last:
+            if (bin_end_idx == len(prev_datetimes) and 
+                not last and
+                not (region[1] and dtutil.dt2ts(bin_end) * 1000 <= region[1])):
                 break
 
             # skip empty bins
@@ -512,7 +512,7 @@ class _OrderedOperator(Operator):
     def __init__(self, inputs, sort=None, reverse=False):
         # set default sort differently for the different methods
         if sort:
-            keys = zip(map(operator.itemgetter(sort), inputs), range(0, len(inputs)))
+            keys = zip(map(lambda x: x.get(sort, ''), inputs), range(0, len(inputs)))
             keys.sort(key=lambda x: x[0], reverse=reverse)
             self.order = map(operator.itemgetter(1), keys)
         else:
@@ -521,6 +521,8 @@ class _OrderedOperator(Operator):
                                                  str(sort), 
                                                  str(reverse))
         Operator.__init__(self, inputs)
+        if sort and sort != 'uuid':
+            self.outputs[0][sort] = ','.join(map(operator.itemgetter(0), keys))
 
     def process(self, data):
         if not self.order:
