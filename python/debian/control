@@ -3,19 +3,19 @@ Maintainer: Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 Section: python
 Priority: optional
 Build-Depends: debhelper (>= 8), python-support (>= 0.8.4),
- python-twisted (>= 11), python-zope.interface, python-avro,
+ python-twisted (>= 12), python-zope.interface,
  python-ply, python-numpy, python-scipy, python-beautifulsoup,
- python-psycopg2, python-all-dev
+ python-psycopg2, python-all-dev, python-autobahn, python-pandas, python-six
 Standards-Version: 3.8.4
 XS-Python-Version: current
 
 Package: python-smap
 Architecture: any
 Depends: ${misc:Depends}, ${python:Depends}, 
- python-twisted (>= 11), python-zope.interface, python-avro,
- python-ply, python-dateutil, python-numpy,
- python-scipy, python-simplejson, python-pycurl
-Recommends: readingdb, readingdb-python, python-psycopg2, powerdb2
+ python-twisted (>= 12), python-zope.interface,
+ python-ply, python-dateutil, python-numpy, python-configobj,
+ python-scipy, python-simplejson, python-pycurl, python-avro, python-autobahn,
+ python-pandas, python-six
 XB-Python-Version: ${python:Versions}
 Provides: ${python:Provides}
 Description: sMAP standard library and drivers
