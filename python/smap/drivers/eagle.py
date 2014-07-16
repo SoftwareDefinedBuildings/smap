@@ -42,6 +42,7 @@ class Eagle(SmapDriver):
     def setup(self, opts):
         self.rate = float(opts.get('rate', 5))
         self.url = opts.get('url')
+        self.multiplier = int(opts.get('multiplier', 1))
         xml = self.list_devices()
         root = ET.fromstring(xml)
         self.device = {}
@@ -67,26 +68,35 @@ class Eagle(SmapDriver):
         
         # add demand reading
         ID = root.find('InstantaneousDemand')
-        timestamp = int(ID.find('TimeStamp').text, 16)
-        demand = int(ID.find('Demand').text, 16)
-        dmultiplier = int(ID.find('Multiplier').text, 16)
-        ddivisor = int(ID.find('Divisor').text, 16)
-        fdemand = 1. * demand * dmultiplier / ddivisor
-        self.add('/demand', fdemand)
-        print 'demand:', fdemand, 'kW'
+        try:
+            timestamp = int(ID.find('TimeStamp').text, 16)
+            demand = int(ID.find('Demand').text, 16)
+            dmultiplier = int(ID.find('Multiplier').text, 16)
+            ddivisor = int(ID.find('Divisor').text, 16)
+            fdemand = 1. * demand * dmultiplier / ddivisor
+            fdemand *= self.multiplier
+            self.add('/demand', fdemand)
+            print 'demand:', fdemand, 'kW'
+        except AttributeError:
+            pass
        
         # add summation readings
         CS = root.find('CurrentSummation')
-        delivered = int(CS.find('SummationDelivered').text, 16)
-        received = int(CS.find('SummationReceived').text, 16)
-        smultiplier = int(CS.find('Multiplier').text, 16)
-        sdivisor = int(CS.find('Divisor').text, 16)
-        fdelivered = 1. * delivered * smultiplier / sdivisor
-        freceived = 1. * received * smultiplier / sdivisor
-        self.add('/summation_delivered', fdelivered)
-        self.add('/summation_received', freceived)
-        print 'delivered:', fdelivered, 'kWh'
-        print 'received:', freceived, 'kWh'
+        try:
+            delivered = int(CS.find('SummationDelivered').text, 16)
+            received = int(CS.find('SummationReceived').text, 16)
+            smultiplier = int(CS.find('Multiplier').text, 16)
+            sdivisor = int(CS.find('Divisor').text, 16)
+            fdelivered = 1. * delivered * smultiplier / sdivisor
+            freceived = 1. * received * smultiplier / sdivisor
+            fdelivered *= self.multiplier
+            freceived *= self.multiplier
+            self.add('/summation_delivered', fdelivered)
+            self.add('/summation_received', freceived)
+            print 'delivered:', fdelivered, 'kWh'
+            print 'received:', freceived, 'kWh'
+        except AttributeError:
+            pass
 
     @staticmethod
     def buffer_response(s):
