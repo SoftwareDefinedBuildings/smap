@@ -129,6 +129,10 @@ class Timeseries(dict):
         self._has_bosswave = False
         self._should_have_bosswave = False
 
+        # for local republishing
+        self.listeners = set()
+        self.streamer = None
+
         self.impl = impl
         self.autoadd = autoadd
         if self.impl:
@@ -194,6 +198,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         if seqno: reading = time, value, seqno
         else: reading = time, value
         self["Readings"].append(reading)
+        if self.streamer:
+            self.streamer.writeClient(self.listeners, getattr(self, 'path'), self['uuid'], reading)
+
         if not hasattr(self, 'inst'): return
 
         # if a timeseries is dirty, we need to republish all of its

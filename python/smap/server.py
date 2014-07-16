@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -42,6 +42,7 @@ from twisted.python import log
 from twisted.python.logfile import LogFile
 
 import uuid
+from collections import defaultdict
 
 from smap import sjson as json
 from smap import util
@@ -82,11 +83,11 @@ class InstanceResource(resource.Resource):
 
         if obj == None:
             request.setResponseCode(404)
-            return ("No such timeseries or collection: " + 
+            return ("No such timeseries or collection: " +
                     util.join_path(request.postpath) + '\n')
         else:
-            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                    request, 
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                    request,
                                     obj)
             d.addCallback(lambda x: self.send_reply(request, x))
             d.addErrback(lambda x: self.send_error(request, x))
@@ -157,7 +158,7 @@ class ReportingInstanceResource(resource.Resource):
 
     def render_PUT(self, request):
         """The PUT verb either stores the request under the requested
-        URI, or modifies an existing resource.        
+        URI, or modifies an existing resource.
         """
         try:
             request.setHeader('Content-type', 'application/json')
@@ -171,14 +172,14 @@ class ReportingInstanceResource(resource.Resource):
             request.setHeader('Content-type', 'text/plain')
             request.write(str(e))
         request.finish()
-        return server.NOT_DONE_YET            
+        return server.NOT_DONE_YET
 
     def render_DELETE(self, request):
         """The DELETE verb remove the requested object from the collection"""
         self.reports.del_report(uuid.UUID(request.prepath[-1]))
         request.finish()
         return server.NOT_DONE_YET
-            
+
 
 class ReportingResource(resource.Resource):
     """Resource representing the collection of reports which are installed
@@ -296,12 +297,12 @@ class EventsResource(InstanceResource):
 
         if obj == None:
             request.setResponseCode(404)
-            return ("No such timeseries or collection: " + 
+            return ("No such timeseries or collection: " +
                     util.join_path(request.postpath) + '\n')
         elif "Contents" in obj:
             # Return collections as the instance would
-            d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                    request, 
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                    request,
                                     obj)
             d.addCallback(lambda x: self.send_reply(request, x))
             d.addErrback(lambda x: self.send_error(request, x))
@@ -312,8 +313,8 @@ class EventsResource(InstanceResource):
             prev = obj["Readings"][0][1]
             new_obj = self.get_if_new_reading(request.postpath, prev)
             if len(new_obj) > 0:
-                d = defer.maybeDeferred(core.SmapInstance.render_lookup, 
-                                        request, 
+                d = defer.maybeDeferred(core.SmapInstance.render_lookup,
+                                        request,
                                         new_obj)
                 d.addCallback(lambda x: self.send_reply(request, x))
                 d.addErrback(lambda x: self.send_error(request, x))
@@ -350,10 +351,77 @@ class EventsResource(InstanceResource):
                 finally:
                     self.delayed_requests.remove(e)
 
+class StreamResource(InstanceResource):
+    """
+    As long as client maintains a connection with this resource,
+    push all readings to the client
+    """
+
+    def __init__(self, inst):
+        self.listeners = {}
+        self.objs = {}
+        self.subscriptions = defaultdict(set)
+        InstanceResource.__init__(self, inst)
+        self.render_POST = self.render_GET
+
+    def render_GET(self, request):
+        request.setHeader('Content-type', 'application/json')
+        # assemble the results
+        try:
+            obj = self.inst.lookup(util.join_path(request.postpath))
+        except Exception, e:
+            import traceback
+            traceback.print_exc()
+            setResponseCode(request, exception, 500)
+            request.finish()
+
+        if obj == None:
+            request.setResponseCode(404)
+            return ("No such timeseries or collection: " +
+                    util.join_path(request.postpath) + '\n')
+        elif "Contents" in obj:
+            # Return collections as the instance would
+            d = defer.maybeDeferred(core.SmapInstance.render_lookup, request, obj)
+            d.addCallback(lambda x: self.send_reply(request, x))
+            d.addErrback(lambda x: self.send_error(request, x))
+            return server.NOT_DONE_YET
+        elif "Readings" in obj:
+            self.addClient(request)
+            return server.NOT_DONE_YET
+
+    def addClient(self, request):
+        path = util.join_path(request.postpath)
+        timeseries = self.inst.lookup(path)
+        if not timeseries.streamer:
+            timeseries.streamer = self
+        request.notifyFinish().addErrback(lambda x: self.removeClient(request, path, x))
+        timeseries.listeners.add(request)
+        return server.NOT_DONE_YET
+
+    def removeClient(self, request, path, reason):
+        timeseries = self.inst.lookup(path)
+        timeseries.listeners.remove(request)
+        if reason:
+            print "Client {0} disconnected because: {1}".format(request, reason)
+        else:
+            print "Client disconnected successfully"
+
+    def writeClient(self, listeners, path, uuid, reading):
+        for client in listeners:
+            client.setHeader('Content-type', 'application/json')
+            obj = {'path': path,
+                   'uuid': uuid,
+                   'reading': reading}
+            d = json.AsyncJSON(obj).startProducing(client)
+            d.addCallback(lambda x: client.write('\n\n'))
+            #client.write(json.dumps(reading))
+            #client.write('\n\n')
+
+
 class RootResource(resource.Resource):
     """Resource representing the root of the sMAP server
     """
-    def __init__(self, value=None, contents=['data', 'events', 'reports']):
+    def __init__(self, value=None, contents=['data', 'events', 'stream', 'reports']):
         resource.Resource.__init__(self)
         if value:
             self.value = value
@@ -363,7 +431,7 @@ class RootResource(resource.Resource):
     def getChild(self, name, request):
         if name == '':
             return self
-        return resource.Resource.getChild(self, name, request) 
+        return resource.Resource.getChild(self, name, request)
 
     def render_GET(self, request):
         request.setHeader('Content-type', 'application/json')
@@ -373,13 +441,14 @@ class RootResource(resource.Resource):
 def getSite(inst, docroot=None):
     """Return a service for creating an application
     """
-    contents = ['data', 'events', 'reports']
-    if docroot: 
+    contents = ['data', 'events', 'stream', 'reports']
+    if docroot:
         contents.append('docs')
         contents.sort()
     root = RootResource(contents=contents)
     root.putChild('data', InstanceResource(inst))
     root.putChild('events', EventsResource(inst))
+    root.putChild('stream', StreamResource(inst))
     root.putChild('reports', ReportingResource(inst.reports))
     if docroot:
         root.putChild('docs', static.File(docroot))
@@ -404,7 +473,7 @@ def run(inst, port=None, logdir=None):
     if not os.path.exists(logdir):
         os.makedirs(logdir)
     print "Logging to", logdir
-    print "Starting server on port", port    
+    print "Starting server on port", port
     # Allow 50 1MB files
     observer = log.FileLogObserver(LogFile('sMAP.log', logdir, rotateLength=1000000, maxRotatedFiles=50))
     log.startLogging(observer)
@@ -415,11 +484,11 @@ def run(inst, port=None, logdir=None):
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
-        # create a smap instance.  each instance needs a uuid and it should 
+        # create a smap instance.  each instance needs a uuid and it should
         s = core.SmapInstance('f83c98c0-a8c3-11e0-adf5-0026bb56ec92')
 
         # add collection -- easy
-        # 
+        #
         # arg0 : path to collection
         # arg1 : key to generate uuid with, or Collection instance
         s.add_collection("/steve")
