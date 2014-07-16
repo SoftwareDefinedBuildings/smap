@@ -24,19 +24,21 @@ action = function(host, port)
 
   resp = http.get( host, port, '/' )
 
-  if ( not(resp.body) ) then
+  local body = resp.body
+
+  if ( not(body) ) then
     return
   end
 
   -- check if Phillips
 
-  phillips = string.match(resp.body, 'hue personal wireless lighting')
-  if not phillips then
+  local philips = string.match(body, 'hue personal wireless lighting')
+  if ( (not philips) ) then
     return
   end
 
   -- register nmap user. Press bridge button, but you don't need to
-  local new_user_req = {username = 'nmapscanuser', devicetype = 'nmapscanuser'}
+  local new_user_req = {username = 'smapuser123', devicetype = 'smapuser123'}
   local json_req = json.generate(new_user_req)
   stdnse.print_debug(0, json_req)
   local httpdata = http.post(host.ip, port, '/api', nil, nil, json_req)
@@ -44,15 +46,13 @@ action = function(host, port)
     return
   end
 
-  local hue_config = http.get(host.ip, port, '/api/Nmap/config', nil)
+  local hue_config = http.get(host.ip, port, '/api/smapuser123/config', nil)
   stdnse.print_debug(0, hue_config.body)
   local status, hue = json.parse(hue_config.body)
 
   if not status then
     return
   end
-
-  stdnse.print_debug(0, "Detected Phillips Hue")
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
