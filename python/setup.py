@@ -117,6 +117,7 @@ setup(name="Smap",
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
                'bin/smap-load-csv', 'bin/smap-tool',
-               'bin/smap-reporting', 'bin/smap-monitize'],
+               'bin/smap-reporting', 'bin/smap-monitize',
+               'bin/smap-subscribe'],
       install_requires = [
         'twisted', 'configobj', 'avro', 'python-dateutil', 'lockfile'])
