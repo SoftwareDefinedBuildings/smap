@@ -107,6 +107,7 @@ setup(name="Smap",
                     "conf": ['*.ini'],
                     },
       data_files=[
+        ('/etc/supervisor/conf.d/', ['supervisor/archiver.conf']),
         # ('/etc/monit/conf.d', ['monit/archiver']),
         # ('/etc/smap/', ['conf/archiver.ini']),
         ],
