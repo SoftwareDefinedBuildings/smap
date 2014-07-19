@@ -203,6 +203,56 @@ class DataBuffer:
             raise util.SmapException("No Pending Data!")
 
 
+class MongoReportInstance(dict):
+    """Publish latest data to Mongo store
+    """
+    def __init__(self, datadir, *args):
+        from pymongo import MongoClient
+        dict.__init__(self, *args)
+        u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
+        url, port = u.netloc.split(':')
+        self['MongoClient'] = MongoClient(url, int(port))
+        if 'MongoDatabaseName' not in self:
+            self['MongoDatabaseName'] = 'meteor'
+        self['MongoDatabase'] = getattr(self['MongoClient'], self['MongoDatabaseName'])
+        self['DataDir'] = datadir
+        self['PendingData'] = DataBuffer(datadir)
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['openbas']:
+                return False
+        return True
+
+    def deliverable(self):
+        return True
+
+    def insert_or_update(self, v):
+        db = self['MongoDatabase']
+
+        d = db.devices.find_one({"uuid": v['uuid']})
+        if d is None:
+            db.devices.insert(v)
+        else:
+            db.devices.update({"uuid": v['uuid']}, { '$set': v })
+
+    def attempt(self):
+        data = self['PendingData'].read()
+        for key in data:
+            d = data[key]
+            if 'Readings' in d:
+                try: 
+                    latest = d['Readings'].pop()
+                    v = {'time': latest[0], 'value': latest[1], 'uuid': str(d['uuid']), 'Path': key}
+                    log.msg(v)
+                    self.insert_or_update(v)
+                except Exception, e:
+                    log.msg(e)
+        self['PendingData'].truncate()
+        if len(self['PendingData']) > 0:
+            self.attempt()
+
 class HttpReportInstance(dict):
     """Represent the stored state pending for one report destination
     """
@@ -372,7 +422,7 @@ class PlotlyReportInstance(dict):
 def get_report_class(deliver_locations):
     deliverylocs = map(urlparse.urlparse, deliver_locations)
     report_instance = None
-    for report_class in [HttpReportInstance, PlotlyReportInstance]:
+    for report_class in [HttpReportInstance, PlotlyReportInstance, MongoReportInstance]:
         if report_class.accepts(deliverylocs):
             return report_class
 

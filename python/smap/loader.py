@@ -170,7 +170,7 @@ contain a ``uuid`` key to set the root identifier for the source.
                 'uuid' : inst.uuid(s),
                 'MaxAge' : max_age,
                 }
-            for o in ['MinPeriod', 'MaxPeriod']:
+            for o in ['MinPeriod', 'MaxPeriod', 'MongoDatabaseName']:
                 if o in conf[s]:
                     reportinst[o] = conf[s][o]
             for o in ['ClientCertificateFile', 'ClientPrivateKeyFile', 'CAFile']:
