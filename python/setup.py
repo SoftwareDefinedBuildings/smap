@@ -108,8 +108,8 @@ setup(name="Smap",
                     },
       data_files=[
         ('/etc/supervisor/conf.d/', ['supervisor/archiver.conf']),
+        ('/etc/smap/', ['conf/archiver.ini']),
         # ('/etc/monit/conf.d', ['monit/archiver']),
-        # ('/etc/smap/', ['conf/archiver.ini']),
         ],
       ext_modules=[
         # modbus_module,
