@@ -15,8 +15,8 @@ Depends: ${misc:Depends}, ${python:Depends},
  python-twisted (>= 11), python-zope.interface, python-avro,
  python-ply, python-dateutil, python-numpy,
  python-scipy, python-simplejson, python-pycurl,
- supervisor
-Recommends: readingdb, readingdb-python, python-psycopg2, powerdb2
+ supervisor, python-autobahn, python-psycopg2
+Recommends: readingdb, readingdb-python, powerdb2
 XB-Python-Version: ${python:Versions}
 Provides: ${python:Provides}
 Description: sMAP standard library and drivers
