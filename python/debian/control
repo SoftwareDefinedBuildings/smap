@@ -12,11 +12,10 @@ XS-Python-Version: current
 Package: python-smap
 Architecture: any
 Depends: ${misc:Depends}, ${python:Depends}, 
- python-twisted (>= 11), python-zope.interface, python-avro,
- python-ply, python-dateutil, python-numpy,
- python-scipy, python-simplejson, python-pycurl,
- supervisor, python-autobahn, python-psycopg2
-Recommends: readingdb, readingdb-python, powerdb2
+ python-twisted (>= 12), python-zope.interface,
+ python-ply, python-dateutil, python-numpy, python-configobj,
+ python-scipy, python-simplejson, python-pycurl, python-avro, python-autobahn,
+ python-pandas, python-six, python, supervisor, python-psycopg2
 XB-Python-Version: ${python:Versions}
 Provides: ${python:Provides}
 Description: sMAP standard library and drivers
