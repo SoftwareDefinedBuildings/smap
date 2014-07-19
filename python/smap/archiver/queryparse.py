@@ -177,6 +177,7 @@ names = {}
 ##  result for presentation to the client.
 
 def ext_default(x):
+    print x
     return map(operator.itemgetter(0), x)
 
 def ext_non_null(x):
@@ -184,6 +185,9 @@ def ext_non_null(x):
 
 def ext_deletor(x):
     data.del_streams(map(operator.itemgetter(0), x))
+    return map(operator.itemgetter(1), x)
+
+def ext_tag_deletor(x):
     return map(operator.itemgetter(1), x)
 
 def ext_plural(tags, vals):
@@ -298,7 +302,6 @@ def make_set_rv(t):
 
 def make_delete_rv(t):
     noop = "noop" in t.parser.request.args
-    extractor = ext_deletor if not noop else ext_default
 
     # a new delete inner statement enforces that we only delete
     # things which we have the key for.
@@ -311,7 +314,7 @@ def make_delete_rv(t):
         else:
             statement = "SELECT uuid FROM stream"
             returning = ""
-        return extractor, \
+        return ext_deletor if not noop else ext_default, \
             """%(statement)s WHERE id IN (
                  SELECT s.id FROM stream s, subscription sub 
                  WHERE (%(restrict)s) AND s.subscription_id = sub.id AND 
@@ -344,14 +347,14 @@ def make_delete_rv(t):
                 del_tags + "]"
             returning = "RETURNING id, uuid"
         else:
-            statement = "SELECT uuid FROM stream"
+            statement = "SELECT id, uuid FROM stream"
             returning = ""
 
         q = statement + " WHERE id IN " + \
             "(SELECT s.id FROM stream s, subscription sub " + \
             "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
             qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + returning
-        return extractor, q
+        return ext_tag_deletor, q
 
 
 # top-level statement dispatching

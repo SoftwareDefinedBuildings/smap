@@ -107,6 +107,7 @@ setup(name="Smap",
                     "conf": ['*.ini'],
                     },
       data_files=[
+        ('/etc/supervisor/conf.d/', ['supervisor/archiver.conf']),
         # ('/etc/monit/conf.d', ['monit/archiver']),
         # ('/etc/smap/', ['conf/archiver.ini']),
         ],
@@ -117,6 +118,7 @@ setup(name="Smap",
       scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
                'bin/smap-run-driver', 'bin/smap-load',
                'bin/smap-load-csv', 'bin/smap-tool',
-               'bin/smap-reporting', 'bin/smap-monitize'],
+               'bin/smap-reporting', 'bin/smap-monitize',
+               'bin/smap-subscribe'],
       install_requires = [
         'twisted', 'configobj', 'avro', 'python-dateutil', 'lockfile'])
