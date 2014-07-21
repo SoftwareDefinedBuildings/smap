@@ -556,7 +556,7 @@ sMAP reporting functionality."""
         """
         try:
             return self.get_timeseries(path).add(*args, **kwargs)
-        except exceptions.AttributeError, e:
+        except AttributeError, e:
             raise SmapException("add failed: no such path: %s" % path)
 
     def _add_parents(self, path):
