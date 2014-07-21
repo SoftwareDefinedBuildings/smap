@@ -214,6 +214,8 @@ class MongoReportInstance(dict):
         self['MongoClient'] = MongoClient(url, int(port))
         if 'MongoDatabaseName' not in self:
             self['MongoDatabaseName'] = 'meteor'
+        if 'MongoCollectionName' not in self:
+            self['MongoCollectionName'] = 'points'
         self['MongoDatabase'] = getattr(self['MongoClient'], self['MongoDatabaseName'])
         self['DataDir'] = datadir
         self['PendingData'] = DataBuffer(datadir)
@@ -230,12 +232,13 @@ class MongoReportInstance(dict):
 
     def insert_or_update(self, v):
         db = self['MongoDatabase']
-
-        d = db.devices.find_one({"uuid": v['uuid']})
+        c = getattr(db, self['MongoCollectionName'])
+       
+        d = c.find_one({"uuid": v['uuid']})
         if d is None:
-            db.devices.insert(v)
+            c.insert(v)
         else:
-            db.devices.update({"uuid": v['uuid']}, { '$set': v })
+            c.update({"uuid": v['uuid']}, { '$set': v })
 
     def attempt(self):
         data = self['PendingData'].read()
