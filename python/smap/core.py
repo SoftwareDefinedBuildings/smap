@@ -657,14 +657,15 @@ sMAP reporting functionality."""
         return collection
 
     def add_actuator(self, path, unit, impl, **kwargs):
-        ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
-        ts.FIELDS = ts.FIELDS + ["Actuator"]
-        ts["Actuator"] = impl.get_description()
+        act_ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
+        setattr(act_ts, '__inst', self)
+        act_ts.FIELDS = act_ts.FIELDS + ["Actuator"]
+        act_ts["Actuator"] = impl.get_description()
         if hasattr(self, 'jobs'):
             self.jobs.actuators.append(path)
         else:
             self.jobs = jobs.SmapJobsManager(path, self)
-        return ts
+        return act_ts
 
     def set_metadata(self, path, *metadata):
         if len(metadata) > 1:
