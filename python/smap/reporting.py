@@ -45,6 +45,7 @@ import sjson as json
 from contrib import client
 from smap.formatters import get_formatter
 from smap.iface.plotly import PlotlyStream
+from smap import smapconf
 
 try:
     from smap.ssl import SslClientContextFactory
@@ -247,7 +248,11 @@ class MongoReportInstance(dict):
             if 'Readings' in d:
                 try: 
                     latest = d['Readings'].pop()
-                    v = {'time': latest[0], 'value': latest[1], 'uuid': str(d['uuid']), 'Path': key}
+                    v = {'time': latest[0],
+                         'value': latest[1],
+                         'uuid': str(d['uuid']),
+                         'Path': key,
+                         'ServerPort': smapconf.SERVER['port']}
                     log.msg(v)
                     self.insert_or_update(v)
                 except Exception, e:
