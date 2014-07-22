@@ -1,0 +1,146 @@
+\documentclass[11pt]{article}
+\usepackage{minted}
+\newminted{shell-session}{mathescape, linenos, numbersep=5pt, frame=lines, framesep=2mm}
+\usepackage{fullpage}
+\usepackage{hyperref}
+\setlength\parindent{0pt}
+
+\begin{document}
+
+\title{Installing OpenBAS}
+\author{}
+\date{\today}
+\maketitle
+
+\section{Installation}
+
+If on an Ubuntu or Debian system, the installation is mostly automated. This has been tested on Ubuntu 14.04 Trusty (\url{http://www.ubuntu.com/download/desktop}), but should work on most recent Debian-based
+operating systems.
+
+\bigskip
+
+First, add the Software Defined Buildings repository to your installation by running 
+
+\verb`sudo add-apt-repository ppa:cal-sdb/smap` followed by \verb`sudo apt-get update`:
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo add-apt-repository ppa:cal-sdb/smap
+[sudo] password for oski:
+
+ More info: https://launchpad.net/~cal-sdb/+archive/ubuntu/smap
+Press [ENTER] to continue or ctrl-c to cancel adding it
+
+gpg: keyring `/tmp/tmp3576f95e/secring.gpg' created
+gpg: keyring `/tmp/tmp3576f95e/pubring.gpg' created
+gpg: requesting key 0C1BF6BC from hkp server keyserver.ubuntu.com
+gpg: /tmp/tmp3576f95e/trustdb.gpg: trustdb created
+gpg: key 0C1BF6BC: public key "Launchpad PPA for Software Defined Buildings" imported
+gpg: Total number processed: 1
+gpg:               imported: 1  (RSA: 1)
+OK
+oski@OpenBAS1003:~$ sudo apt-get update
+\end{shell-sessioncode}
+
+For a full installation (sMAP archiver + web interface + database), install the \verb`readingdb` and \verb`powerdb2` packages in addition to \verb`python-smap`. Otherwise, just install \verb`python-smap`. The packages
+included here are part of a backwards-incompatible branch of the sMAP ecosystem designed for Python 2.7.x.
+
+\subsection{sMAP (required)}
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo apt-get install -y python-smap
+\end{shell-sessioncode}
+
+This will install the sMAP library, as well as the repository of drivers. See the ``sMAP configuration'' below for best practices when instantiating drivers.
+
+\bigskip
+
+Installing this package will also install most of the prerequisites needed for the archiver. A supervisord configuration file is included in \verb`/etc/supervisor/conf.d/archiver.conf`, but do not run this until
+the \verb`readingdb` package has been installed. The driver portion of sMAP is fully functional without the archiver.
+
+\bigskip
+
+It is a good idea to read the official sMAP documentation at \url{http://pythonhosted.org/Smap}.
+
+\subsection{ReadingDB (for archiver)}
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo apt-get install -y readingdb
+\end{shell-sessioncode}
+
+ReadingDB is the fast timeseries database used by the sMAP archiver. Upon installation of the \verb`readingdb` package, a ReadingDB instance should be running under supervisor. You can check this by running
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo supervisorctl status
+readingdb                        RUNNING    pid 1539, uptime 0:12:31
+\end{shell-sessioncode}
+
+You can start/stop the database by running \verb`sudo supervisorctl start/stop readingdb`. The configuration for running ReadingDB can be found in \verb`/etc/supervisor/conf.d/readingdb.conf`.
+
+\bigskip
+
+At this point, you can start the sMAP archiver process by running \verb`sudo supervisorctl update` to pull in the archiver configuration and run it alongside the ReadingDB instance. There should not be any problems
+assuming the included, default configurations are used. (If you didn't make any changes to the files, everything should be fine). Check the status of the ReadingDB server and archiver by running:
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo supervisorctl status
+archiver                         RUNNING    pid 5661, uptime 0:00:08
+readingdb                        RUNNING    pid 1539, uptime 0:27:24
+\end{shell-sessioncode}
+
+You should see both processes as \verb`RUNNING`.
+
+\subsection{powerdb2 (for archiver)}
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo apt-get install -y powerdb2
+\end{shell-sessioncode}
+
+This will install the web frontend for the sMAP archiver. It runs under apache2 on port 80, so you should be able to see it running under \url{http://127.0.0.1}.
+
+\bigskip
+
+At some point in the \verb`powerdb2` installation, it will ask you to create an admin account. This is a necessary part of the configuration for the web application. Input the information it asks for -- you will use this information
+to create reporting keys for sMAP later. You can visit the admin interface at \url{http://127.0.0.1/admin}.
+
+\section{sMAP Best Practices}
+
+sMAP configuration files belong in \verb`/etc/smap/`. For example, \verb`/etc/smap/openbas.ini`.
+
+\bigskip
+
+To run the sMAP source, please do so inside a supervisor container to centralize configuration and logging. Supervisor configuration files belong in \verb`/etc/supervisor/conf.d/`. Here is a fairly nominal sample file \verb`/etc/supervisor/conf.d/openbas.conf`:
+
+\begin{shell-sessioncode}
+[program:openbas]
+command = /usr/bin/twistd --pidfile=/var/run/smap/openbas.pid -n smap /etc/smap/openbas.ini
+priority = 2
+autorestart = true
+user = smap
+stdout_logfile = /var/log/openbas.stdout.log
+stdout_logfile_maxbytes = 50MB
+stdout_logfile_backups = 5
+stderr_logfile = /var/log/openbas.stderr.log
+stderr_logfile_maxbytes = 50MB
+stderr_logfile_backups = 5
+\end{shell-sessioncode}
+
+The parts to take note of are:
+
+\begin{itemize}
+	\item The program name at the top \verb`[program:<name>]` should follow the name of the sMAP configuration (\verb`.ini`) file.
+	\item The \verb`--pidfile` argument to Twisted. The directory \verb`/var/run/smap` should be writeable by the \verb`smap` user (as indicated in the conf file above). The pid file should be named according to the name of the ini-file.
+	\item The stdout and stderr files are both named according to the filename of the ini-file as well.
+\end{itemize}
+
+To start this source, run \verb`sudo supervisorctl update`.
+
+\begin{shell-sessioncode}
+oski@OpenBAS1003:~$ sudo supervisorctl update
+openbas: added process group
+oski@OpenBAS1003:~$ sudo supervisorctl status
+archiver                         RUNNING    pid 5661, uptime 0:24:30
+openbas                          RUNNING    pid 5823, uptime 0:00:02
+readingdb                        RUNNING    pid 1539, uptime 0:51:46
+\end{shell-sessioncode}
+
+\end{document}
