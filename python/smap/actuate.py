@@ -84,8 +84,6 @@ class SmapActuator(object):
             return
         getattr(self, '__inst').statslog.mark()
         path = getattr(self, '__fullpath')
-        if not state:
-            state = self.get_state(None)
         return getattr(self, '__inst').add(path, state, *args)
 
     def valid_state(self, state):
