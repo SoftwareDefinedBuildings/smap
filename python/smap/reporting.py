@@ -224,7 +224,7 @@ class MongoReportInstance(dict):
     @staticmethod
     def accepts(dests):
         for d in dests:
-            if not d.scheme in ['openbas']:
+            if not d.scheme in ['mongo']:
                 return False
         return True
 
