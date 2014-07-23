@@ -661,6 +661,7 @@ sMAP reporting functionality."""
         setattr(act_ts, '__inst', self)
         act_ts.FIELDS = act_ts.FIELDS + ["Actuator"]
         act_ts["Actuator"] = impl.get_description()
+        self.add(path+'_ts', impl.get_state(None))
         if hasattr(self, 'jobs'):
             self.jobs.actuators.append(path)
         else:
