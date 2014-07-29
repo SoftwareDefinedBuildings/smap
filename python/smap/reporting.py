@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -51,7 +51,7 @@ try:
     from smap.ssl import SslClientContextFactory
 except ImportError:
     log.err("Failed to import ssl... only HTTP delivery will be available")
-    
+
 
 # this is the largest number of records we will store.
 BUFSIZE_LIMIT = 100000
@@ -185,7 +185,7 @@ class DataBuffer:
         """Truncate a set of readings based on the sequence number
         stored from a previous read"""
         self.data.pop()
-        
+
     def read(self):
         """Read n points (per stream) back as a flat list.  AlsoFi
         return a truncation specification so we can remove this data
@@ -234,7 +234,7 @@ class MongoReportInstance(dict):
     def insert_or_update(self, v):
         db = self['MongoDatabase']
         c = getattr(db, self['MongoCollectionName'])
-       
+
         d = c.find_one({"uuid": v['uuid']})
         if d is None:
             c.insert(v)
@@ -323,7 +323,7 @@ class HttpReportInstance(dict):
             log.msg("Report delivery to %s returned %i" % (
                     self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
                     resp.code))
-            response = self._log_response(resp, 
+            response = self._log_response(resp,
                      self['ReportDeliveryLocation'][self['ReportDeliveryIdx']])
             self['ReportDeliveryIdx'] = ((self['ReportDeliveryIdx'] + 1) %
                                          len(self['ReportDeliveryLocation']))
@@ -359,11 +359,11 @@ class HttpReportInstance(dict):
             return
 
         self['LastAttempt'] = util.now()
-        log.msg("publishing to %s: %i %s" % 
+        log.msg("publishing to %s: %i %s" %
                 (self['ReportDeliveryLocation'][self['ReportDeliveryIdx']],
-                 len(data), 
-                 str([len(x['Readings']) 
-                      for x in data.itervalues() 
+                 len(data),
+                 str([len(x['Readings'])
+                      for x in data.itervalues()
                       if 'Readings' in x])),
                 logLevel=logging.DEBUG)
         # set up an agent to push the data to the consumer
@@ -400,7 +400,7 @@ class PlotlyReportInstance(dict):
         dict.__init__(self, *args)
         self['PendingData'] = DataBuffer(datadir)
         u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
-        uri = "http://" + u.netloc 
+        uri = "http://" + u.netloc
         streamid = u.path.lstrip('/')
         print "Publishing plot.ly stream to", uri, "streamid:", streamid
         self['Publisher'] = PlotlyStream(streamid, uri)
@@ -418,7 +418,7 @@ class PlotlyReportInstance(dict):
     def attempt(self):
         data = self['PendingData'].read()
         self['PendingData'].truncate()
-        if data is None: 
+        if data is None:
             return
         elif len(data) != 1:
             log.msg("Plotly only supports a single stream -- specify a resource")
@@ -428,7 +428,7 @@ class PlotlyReportInstance(dict):
             if 'Readings' in data:
                 for ts, val in data['Readings']:
                     self['Publisher'].add(ts, val)
-            
+
 
 def get_report_class(deliver_locations):
     deliverylocs = map(urlparse.urlparse, deliver_locations)
@@ -450,7 +450,7 @@ class Reporting:
          to deliver all data.
         :param string reportfile: backing store for reporting instances
          and data which hasn't been delivered yet.
-        :param int max_size: the maximum number of points we will buffer for 
+        :param int max_size: the maximum number of points we will buffer for
          any stream.
         """
         self.inst = inst
@@ -471,7 +471,7 @@ class Reporting:
 
         # add a shutdown handler so we save the final reports after exiting
         if reportfile:
-            reactor.addSystemEventTrigger('after', 'shutdown', 
+            reactor.addSystemEventTrigger('after', 'shutdown',
                                           self.save_reports)
 
     def get_report(self, id):
@@ -485,7 +485,7 @@ class Reporting:
         report_class = get_report_class(rpt['ReportDeliveryLocation'])
         if report_class == None:
             print "No report deliverer found for " + str(rpt['ReportDeliveryLocation'])
-            return 
+            return
         else:
             report_instance = report_class(dir, rpt)
 
@@ -565,11 +565,11 @@ class Reporting:
         if len(args) == 1:
             return args[0]
         else:
-            return 
+            return
 
     def _flush(self, force=False):
-        """Send out json-packed report objects to registered listeners. 
-        
+        """Send out json-packed report objects to registered listeners.
+
         :param boolean force: if True, ignore ``MinPeriod``/``MaxPeriod``
          and force the reporting metadata to disk
         :rtype: a :py:class:`twisted.internet.task.DeferredList`
