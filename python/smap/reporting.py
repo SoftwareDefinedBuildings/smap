@@ -246,13 +246,16 @@ class MongoReportInstance(dict):
         for key in data:
             d = data[key]
             if 'Readings' in d:
-                try: 
+                try:
                     latest = d['Readings'].pop()
                     v = {'time': latest[0],
                          'value': latest[1],
                          'uuid': str(d['uuid']),
                          'Path': key,
                          'ServerPort': smapconf.SERVER['port']}
+                    if 'ActuatorUUID' in d.get('Metadata', {}):
+                        actuatoruuid = d['Metadata']['ActuatorUUID']
+                        v['ActuatorUUID'] = actuatoruuid
                     log.msg(v)
                     self.insert_or_update(v)
                 except Exception, e:
