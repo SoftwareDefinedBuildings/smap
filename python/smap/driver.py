@@ -128,7 +128,7 @@ class SmapDriver(object):
         self.add_timeseries(path+'_ts', unit, **kwargs)
         setattr(klass, '__inst', self.__inst)
         setattr(klass, '__fullpath', self.__join_id(path+'_ts'))
-        self.set_metadata(path+'_ts', {'ActuatorPath': self.__join_id(path)})
+        self.set_metadata(path+'_ts', {'ActuatorUUID': str(self.__inst.uuid(self.__join_id(path)))})
         return self.__inst.add_actuator(self.__join_id(path), unit, klass, **kwargs)
     def add_collection(self, path, *args):
         self.__inst.add_collection(self.__join_id(path), *args)

@@ -662,6 +662,7 @@ sMAP reporting functionality."""
         act_ts.FIELDS = act_ts.FIELDS + ["Actuator"]
         act_ts["Actuator"] = impl.get_description()
         self.add(path+'_ts', impl.get_state(None))
+        self.set_metadata(path+'_ts', {"ActuatorModel": act_ts["Actuator"]["Model"]})
         if hasattr(self, 'jobs'):
             self.jobs.actuators.append(path)
         else:
