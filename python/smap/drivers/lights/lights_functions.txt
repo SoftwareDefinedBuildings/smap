@@ -1,0 +1,8 @@
+Minimal common fucntionality:
+
+Name            Values            Access    Description      
+
+on              0, 1              RW        0: off, 1: on
+bri             0, 100            RW        0: dim/off, 100: full brightness
+hue             0, 65535          RW        some scalar corresponds to color. No equation yet
+sat             0, 100            RW        0: no saturation, 100: full saturation
