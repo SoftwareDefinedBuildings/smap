@@ -93,6 +93,7 @@ setup(name="Smap",
         # various extra divers and dependencies -- might want to leave this out on mainline
         "smap.drivers.obvius",
         "smap.drivers.thermostats",
+        "smap.drivers.lights",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
 
