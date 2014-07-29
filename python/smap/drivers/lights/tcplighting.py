@@ -117,11 +117,11 @@ class TCP(driver.SmapDriver):
         self.gateway_id, self.framework_version, self.serial_number = get_serverinfo(self.posturl, self.token)
         devices = get_states(self.posturl, self.token)
         for device in devices:
-            self.add_timeseries('/'+str(device[0])+'/state', 'On/Off', data_type='long', timezone=self.tz)
+            self.add_timeseries('/'+str(device[0])+'/on', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
-            self.add_timeseries('/'+str(device[0])+'/level', 'Brightness', data_type='long', timezone=self.tz)
-            self.add_actuator('/'+str(device[0])+'/state_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device[0])))
-            self.add_actuator('/'+str(device[0])+'/level_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
+            self.add_timeseries('/'+str(device[0])+'/bri', 'Brightness', data_type='long', timezone=self.tz)
+            self.add_actuator('/'+str(device[0])+'/on_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device[0])))
+            self.add_actuator('/'+str(device[0])+'/bri_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
