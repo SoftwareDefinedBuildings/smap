@@ -15,6 +15,8 @@ class VirtualLight(driver.SmapDriver):
         self.add_timeseries('/sat', 'Saturation', data_type='long') 
 
         self.add_actuator('/on_act', 'On/Off', OnOffActuator(light=self))
+        self.add_actuator('/bri_act', 'Brightness', BrightnessActuator(light=self,range=(0,100)))
+        self.add_actuator('/hue_act', 'Hue', HueActuator(light=self,range=(0,65535)))
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
@@ -38,4 +40,31 @@ class OnOffActuator(VirtualLightActuator, actuate.BinaryActuator):
     
     def set_state(self, request, state):
         self.light.state['on'] = int(state)
+        self.add(state)
         return self.light.state.get('on')
+
+class BrightnessActuator(VirtualLightActuator, actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        VirtualLightActuator.__init__(self, **opts)
+
+    def get_state(self, request):
+        return self.light.state.get('bri')
+
+    def set_state(self, request, state):
+        self.light.state['bri'] = int(state)
+        self.add(state)
+        return self.light.state.get('bri')
+
+class HueActuator(VirtualLightActuator, actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        VirtualLightActuator.__init__(self, **opts)
+
+    def get_state(self, request):
+        return self.light.state.get('hue')
+
+    def set_state(self, request, state):
+        self.light.state['hue'] = int(state)
+        self.add(state)
+        return self.light.state.get('hue')
