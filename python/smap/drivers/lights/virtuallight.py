@@ -36,6 +36,7 @@ class OnOffActuator(VirtualLightActuator, actuate.BinaryActuator):
         VirtualLightActuator.__init__(self, **opts)
 
     def get_state(self, request):
+        self.add(self.light.state.get('on'))
         return self.light.state.get('on')
     
     def set_state(self, request, state):
@@ -49,6 +50,7 @@ class BrightnessActuator(VirtualLightActuator, actuate.ContinuousActuator):
         VirtualLightActuator.__init__(self, **opts)
 
     def get_state(self, request):
+        self.add(self.light.state.get('bri'))
         return self.light.state.get('bri')
 
     def set_state(self, request, state):
@@ -62,6 +64,7 @@ class HueActuator(VirtualLightActuator, actuate.ContinuousActuator):
         VirtualLightActuator.__init__(self, **opts)
 
     def get_state(self, request):
+        self.add(self.light.state.get('hue'))
         return self.light.state.get('hue')
 
     def set_state(self, request, state):
