@@ -14,9 +14,9 @@ class VirtualLight(driver.SmapDriver):
         hue = self.add_timeseries('/hue', 'Hue', data_type='long')
         sat = self.add_timeseries('/sat', 'Saturation', data_type='long')
 
-        on.add_actuator('/on_act', 'On/Off', OnOffActuator(light=self))
-        bri.add_actuator('/bri_act', 'Brightness', BrightnessActuator(light=self, range=(0,100)))
-        hue.add_actuator('/hue_act', 'Hue', HueActuator(light=self,range=(0,65535)))
+        on.add_actuator(OnOffActuator(light=self))
+        bri.add_actuator(BrightnessActuator(light=self, range=(0,100)))
+        hue.add_actuator(HueActuator(light=self,range=(0,65535)))
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
