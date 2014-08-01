@@ -265,9 +265,9 @@ class MongoReportInstance(dict):
                          'uuid': str(d['uuid']),
                          'Path': key,
                          'ServerPort': smapconf.SERVER['port']}
-                    if 'ActuatorUUID' in d.get('Metadata', {}):
-                        actuatoruuid = d['Metadata']['ActuatorUUID']
-                        v['ActuatorUUID'] = actuatoruuid
+                    if 'uuid' in d.get('Actuator', {}):
+                        actuatoruuid = d['Actuator']['uuid']
+                        v['ActuatorUUID'] = str(actuatoruuid)
                     log.msg(v)
                     self.insert_or_update(v)
                 except Exception, e:
