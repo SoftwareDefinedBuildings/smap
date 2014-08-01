@@ -51,7 +51,7 @@ SCHEMAS = [
     'InstrumentMetadata', 'LocationMetadata', 'OperatorMetadata',
     
     # timeseries subobjects
-    "Actuator", 
+    "Actuator", "ActuatorReference",
     "Properties", "Metadata", 
     "TimeSeries", "Collection",
     "Reporting",
@@ -125,12 +125,17 @@ def validate(schema, obj):
     elif schema == 'Readings':
         return True
 
+    aid = None
+    if 'Actuator' in obj and 'uuid' in obj['Actuator']:
+        aid = convert_uuids(obj['Actuator'])
+
     s = SCHEMA_NAMES.get_name(schema, None)
     # swap the uuid for the byte-packed encoding we use with avro
     try:
         id = convert_uuids(obj)
         rv = io.validate(s, obj)
         if id: obj['uuid'] = id
+        if aid: obj['Actuator']['uuid'] = aid
         return rv
     except:
         return False

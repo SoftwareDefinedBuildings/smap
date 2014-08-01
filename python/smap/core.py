@@ -215,6 +215,14 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         # even if it was called by another threadpool or something.
         reactor.callFromThread(lambda: self._add(*args))
 
+    def add_actuator(self, actuator_path, unit, actuator_instance, **kwargs):
+        actuator_path = util.join_path(util.split_path(self.path)[:-1] + [actuator_path])
+        act = self.inst.add_actuator(actuator_path, unit, impl=actuator_instance, **kwargs)
+        self.FIELDS += ['Actuator']
+        self['Actuator'] = {'uuid': act["uuid"],
+                            'path': actuator_path}
+        self.actuator = actuator_instance
+
     def __setitem__(self, attr, value):
         if attr in self.FIELDS:
             dict.__setitem__(self, attr, value)
@@ -657,17 +665,14 @@ sMAP reporting functionality."""
         return collection
 
     def add_actuator(self, path, unit, impl, **kwargs):
-        act_ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
-        setattr(act_ts, '__inst', self)
-        act_ts.FIELDS = act_ts.FIELDS + ["Actuator"]
-        act_ts["Actuator"] = impl.get_description()
-        self.add(path+'_ts', impl.get_state(None))
-        self.set_metadata(path+'_ts', {"ActuatorModel": act_ts["Actuator"]["Model"]})
+        ts = self.add_timeseries(path, unit, impl=impl, **kwargs)
+        ts.FIELDS = ts.FIELDS + ["Actuator"]
+        ts["Actuator"] = impl.get_description()
         if hasattr(self, 'jobs'):
             self.jobs.actuators.append(path)
         else:
             self.jobs = jobs.SmapJobsManager(path, self)
-        return act_ts
+        return ts
 
     def set_metadata(self, path, *metadata):
         if len(metadata) > 1:

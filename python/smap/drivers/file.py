@@ -43,7 +43,6 @@ class _Actuator(actuate.SmapActuator):
         try:
             with open(self.file, 'r') as fp:
                 res = self.parse_state(fp.read())
-                self.add(res)
                 return res
         except IOError as e:
             print e
@@ -52,7 +51,6 @@ class _Actuator(actuate.SmapActuator):
     # @authenticated(['__has_ssl__'])
     def set_state(self, request, state):
         with open(self.file, 'w') as fp:
-            self.add(state)
             fp.write(str(state))
         return state
 
