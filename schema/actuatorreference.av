@@ -1,0 +1,10 @@
+{
+  "name" : "ActuatorReference",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "A reference to an Actuator instance on behalf of a read-only timeseries",
+  "fields" : [
+    {"name" : "uuid", "type" : "uuid"},
+    {"name" : "path", "type" : "string"}
+  ]
+}
