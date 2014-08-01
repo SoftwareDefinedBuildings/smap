@@ -208,18 +208,26 @@ class MongoReportInstance(dict):
     """Publish latest data to Mongo store
     """
     def __init__(self, datadir, *args):
-        from pymongo import MongoClient
         dict.__init__(self, *args)
-        u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
-        url, port = u.netloc.split(':')
-        self['MongoClient'] = MongoClient(url, int(port))
+        self.connected = self.connect()
+        self['DataDir'] = datadir
+        self['PendingData'] = DataBuffer(datadir)
+
+    def connect(self):
+        from pymongo import MongoClient
+        from pymongo.errors import ConnectionFailure as MongoConnectionFailure
+        try:
+            u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
+            url, port = u.netloc.split(':')
+            self['MongoClient'] = MongoClient(url, int(port))
+        except MongoConnectionFailure:
+            return False
         if 'MongoDatabaseName' not in self:
             self['MongoDatabaseName'] = 'meteor'
         if 'MongoCollectionName' not in self:
             self['MongoCollectionName'] = 'points'
         self['MongoDatabase'] = getattr(self['MongoClient'], self['MongoDatabaseName'])
-        self['DataDir'] = datadir
-        self['PendingData'] = DataBuffer(datadir)
+        return True
 
     @staticmethod
     def accepts(dests):
@@ -242,6 +250,10 @@ class MongoReportInstance(dict):
             c.update({"uuid": v['uuid']}, { '$set': v })
 
     def attempt(self):
+        if not self.connected:
+            self.connected = self.connect()
+            if not self.connected:
+                return
         data = self['PendingData'].read()
         for key in data:
             d = data[key]
