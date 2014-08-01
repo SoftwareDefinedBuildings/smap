@@ -215,9 +215,10 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         # even if it was called by another threadpool or something.
         reactor.callFromThread(lambda: self._add(*args))
 
-    def add_actuator(self, actuator_path, unit, actuator_instance, **kwargs):
-        actuator_path = util.join_path(util.split_path(self.path)[:-1] + [actuator_path])
-        act = self.inst.add_actuator(actuator_path, unit, impl=actuator_instance, **kwargs)
+    def add_actuator(self, actuator_instance):
+        actuator_path = self.path[:-1]+'_act' if self.path.endswith('/') else self.path+'_act'
+        unit = self.__getitem__('Properties')['UnitofMeasure']
+        act = self.inst.add_actuator(actuator_path, unit, impl=actuator_instance)
         self.FIELDS += ['Actuator']
         self['Actuator'] = {'uuid': act["uuid"],
                             'path': actuator_path}
