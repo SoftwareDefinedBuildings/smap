@@ -79,13 +79,6 @@ class SmapActuator(object):
     control_type = None
     control_description = {}
 
-    def add(self, state, *args):
-        if not (hasattr(self, '__inst') and hasattr(self, '__fullpath')):
-            return
-        getattr(self, '__inst').statslog.mark()
-        path = getattr(self, '__fullpath')
-        return getattr(self, '__inst').add(path, state, *args)
-
     def valid_state(self, state):
         raise NotImplementedError()
 
