@@ -19,7 +19,7 @@ class SmapSchemas:
         'InstrumentMetadata', 'LocationMetadata', 'OperatorMetadata',
         'Job',
         # timeseries subobjects
-        "Actuator", 
+        "Actuator", "ActuatorReference",
         "Properties", "Metadata", 
         "TimeSeries", "Collection",
         "Reporting"]
