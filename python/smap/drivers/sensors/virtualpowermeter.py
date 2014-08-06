@@ -15,8 +15,8 @@ class VirtualPowerMeter(driver.SmapDriver):
 
     def read(self):
         self.t += 1
-        self.powerreading = self.powerreading + 5*math.sin(.001 * self.t)
-        self.add('/demand',self.powerreading)
+        self.powerreading = self.powerreading + .05*math.sin(.001 * self.t)
+        self.add('/demand',float("{0:.2f}".format(self.powerreading)))
 
 
 
