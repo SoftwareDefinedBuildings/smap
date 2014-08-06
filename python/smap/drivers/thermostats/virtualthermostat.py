@@ -32,6 +32,23 @@ class VirtualThermostat(driver.SmapDriver):
         hvac_mode.add_actuator(ModeActuator(tstat=self, path='hvac_mode', states=[0,1,2,3]))
         fan_mode.add_actuator(OnOffActuator(tstat=self, path='fan_mode'))
 
+        metadata_type = [
+                ('/temp','Sensor'),
+                ('/humidity','Sensor'),
+                ('/temp_heat','Reading'),
+                ('/temp_heat_act','SP'),
+                ('/temp_cool','Reading'),
+                ('/temp_cool_act','SP'),
+                ('/hold','Reading'),
+                ('/hold_act','Command'),
+                ('/override','Reading'),
+                ('/override_act','Command'),
+                ('/hvac_mode','Reading'),
+                ('/hvac_mode_act','Command')
+            ]
+        for ts, tstype in metadata_type:
+            self.set_metadata(ts,{'Metadata/Type':tstype})
+
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
 
