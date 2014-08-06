@@ -94,6 +94,7 @@ setup(name="Smap",
         "smap.drivers.obvius",
         "smap.drivers.thermostats",
         "smap.drivers.lights",
+        "smap.drivers.sensors",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
 
