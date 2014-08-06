@@ -17,6 +17,20 @@ class VirtualLight(driver.SmapDriver):
         on.add_actuator(OnOffActuator(light=self))
         bri.add_actuator(BrightnessActuator(light=self, range=(0,100)))
         hue.add_actuator(HueActuator(light=self,range=(0,65535)))
+        sat.add_actuator(SatActuator(light=self,range=(0,100)))
+
+        metadata_type = [
+                ('/on','Reading'),
+                ('/on_act','Command'),
+                ('/bri','Reading'),
+                ('/bri_act','Command'),
+                ('/hue','Reading'),
+                ('/hue_act','Command'),
+                ('/sat','Reading'),
+                ('/sat_act','Command'),
+                ]
+        for ts, tstype in metadata_type:
+            self.set_metadata(ts,{'Metadata/Type':tstype})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
@@ -65,3 +79,15 @@ class HueActuator(VirtualLightActuator, actuate.ContinuousActuator):
     def set_state(self, request, state):
         self.light.state['hue'] = int(state)
         return self.light.state.get('hue')
+
+class SatActuator(VirtualLightActuator, actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        VirtualLightActuator.__init__(self, **opts)
+
+    def get_state(self, request):
+        return self.light.state.get('sat')
+
+    def set_state(self, request, state):
+        self.light.state['sat'] = int(state)
+        return self.light.state.get('sat')
