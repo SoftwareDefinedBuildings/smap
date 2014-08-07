@@ -206,6 +206,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
             self.inst.reports.publish(getattr(self, 'path'),
                                       {'uuid' : self['uuid'],
                                        'Readings' : [reading]})
+        if self.has_key('Actuator') and self['Actuator'].has_key('path'):
+            act = self.inst.lookup(self['Actuator']['path'])
+            act.add(reading[1])
 
     def add(self, *args):
         """A version of :py:meth:`~Timeseries._add` which can be called from any thread.
