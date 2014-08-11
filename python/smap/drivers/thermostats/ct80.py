@@ -45,29 +45,50 @@ class CT80(SmapDriver):
         self.rate = float(opts.get('Rate', 1))
         self.ip = opts.get('ip', None)
          
-        self.points0 = [
+        self.points = [
                          {"name": "temp", "unit": "F", "data_type": "double"},
                          {"name": "tmode", "unit": "Mode", "data_type": "long"},
+                         {"name": "tstate", "unit": "State", "data_type": "long"},
                          {"name": "fmode", "unit": "Mode", "data_type": "long"},
+                         {"name": "fstate", "unit": "State", "data_type": "long"},
                          {"name": "override", "unit": "Mode", "data_type": "long"},
                          {"name": "hold", "unit": "Mode", "data_type": "long"},
                          {"name": "t_heat", "unit": "F", "data_type": "double"},
+                         {"name": "t_cool", "unit": "F", "data_type": "double"},
                          {"name": "program_mode", "unit": "Mode", "data_type": "long"}
                        ]
-        for p in self.points0:
-            self.add_timeseries('/' + p["name"], p["unit"], data_type=p["data_type"], timezone=self.tz)
+
+        self.actuators = [
+            {"name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
+            {"name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
+            {"name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
+            {"name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
+            {"name": "override", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
+            {"name": "hold", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
+            {"name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+          ]
+
+        # dictionary to translate the CT80 API endpoints into those defined by thermostat_functions.txt
+        self.translate = {
+                'temp': 'temp',
+                'tmode': 'hvac_mode',
+                'fmode': 'fan_mode',
+                'fstate': 'fan_state',
+                'override': 'override',
+                'hold': 'hold',
+                't_heat': 'temp_heat',
+                't_cool': 'temp_cool',
+                'tstate': 'hvac_state',
+                'program_mode': 'program_mode'
+                }
+
+        ts = {}
+        for p in self.points:
+            ts[p['name']] = self.add_timeseries('/' + self.translate[p["name"]], p["unit"], data_type=p["data_type"], timezone=self.tz)
 
         # points not in the root resource
         self.add_timeseries('/humidity', '%RH', data_type="double")
 
-        self.actuators = [
-            {"name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
-            {"name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
-            {"name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
-            {"name": "override", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
-            {"name": "hold", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
-            {"name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
-          ]
         
         setup = {'ip': self.ip}
         for a in self.actuators:
@@ -80,7 +101,8 @@ class CT80(SmapDriver):
                 act = ContinuousActuator(**setup)
             else:
                 print 'invalid actuator type'
-            self.add_actuator("/" + a["name"] + "_act", a["unit"], act, data_type=a["data_type"], write_limit=5)
+                continue
+            ts[a['name']].add_actuator(act)
 
     def start(self):
         # call self.read every self.rate seconds
@@ -91,8 +113,8 @@ class CT80(SmapDriver):
         r = requests.get(url)
         vals = json.loads(r.text)
          
-        for p in self.points0:
-            self.add('/' + p["name"], vals[p["name"]])
+        for p in self.points:
+            self.add('/' + self.translate[p["name"]], vals[p["name"]])
 
         r = requests.get(url + '/humidity')
         val = json.loads(r.text)
