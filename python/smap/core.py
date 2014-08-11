@@ -208,7 +208,7 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                        'Readings' : [reading]})
         if self.has_key('Actuator') and self['Actuator'].has_key('path'):
             act = self.inst.lookup(self['Actuator']['path'])
-            act.add(reading[1])
+            act.add(reading[0], reading[1]) # add same time/value
 
     def add(self, *args):
         """A version of :py:meth:`~Timeseries._add` which can be called from any thread.
@@ -221,7 +221,8 @@ Can be called with 1, 2, or 3 arguments.  The forms are
     def add_actuator(self, actuator_instance):
         actuator_path = self.path[:-1]+'_act' if self.path.endswith('/') else self.path+'_act'
         unit = self.__getitem__('Properties')['UnitofMeasure']
-        act = self.inst.add_actuator(actuator_path, unit, impl=actuator_instance)
+        data_type = self.__getitem__('Properties')['ReadingType']
+        act = self.inst.add_actuator(actuator_path, unit, impl=actuator_instance, data_type=data_type)
         self.FIELDS += ['Actuator']
         self['Actuator'] = {'uuid': act["uuid"],
                             'path': actuator_path}
