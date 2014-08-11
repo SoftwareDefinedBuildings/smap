@@ -70,7 +70,7 @@ action = function(host, port)
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
-  output_tab.type = 'smap.drivers.nt160e.NT160e'
+  output_tab.type = 'smap.drivers.thermostats.nt160e.NT160e'
   output_tab.Metadata__Instrument__Manufacturer = 'Prolifix'
   output_tab.Metadata__Instrument__Model = string.format('%s%s', major, minor)
   output_tab.url = string.format('http://%s:%i/', host.ip, port.number)

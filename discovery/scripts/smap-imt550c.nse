@@ -37,7 +37,7 @@ action = function(host, port)
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
-  output_tab.type = 'smap.drivers.imt550c.IMT550C'
+  output_tab.type = 'smap.drivers.thermostats.imt550c.IMT550C'
   output_tab.Metadata__Instrument__Manufacturer = cert.subject.organizationName
   output_tab.mac = host.mac_addr
   output_tab.ip = host.ip
