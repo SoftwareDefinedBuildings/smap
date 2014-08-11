@@ -64,7 +64,7 @@ tokens = (
     'QSTRING','NUMBER', 'LVALUE', 'IN', 'DATA', 'DELETE',
     'SET', 'TILDE', 'BEFORE', 'AFTER', 'NOW', 'LIMIT', 'STREAMLIMIT',
     'APPLY', 'TO', 'AS', 'GROUP', 'BY', 'HELP', 'ALL', 
-    'LTE', 'GTE', 'NE'
+    'LTE', 'GTE', 'NE', 'CONTAINS'
     )
 
 precedence = (
@@ -107,6 +107,7 @@ reserved = {
     'by' : 'BY',
     'help' : 'HELP',
     'all' : 'ALL',
+    'contains': 'CONTAINS',
     }
 literals = '()[]*^.,<>=+-/'
 
@@ -656,11 +657,16 @@ def p_statement(t):
         t[0] = t[2]
 
 def p_statement_unary(t):
-    """statement_unary : HAS LVALUE"""
-    if t[2] == 'uuid':
-        t[0] = ast.Statement(ast.Statement.OP_UUID)
-    else:
-        t[0] = ast.Statement(ast.Statement.OP_HAS, t[2])
+    """statement_unary : HAS LVALUE
+                       | CONTAINS QSTRING
+    """
+    if t[1] == 'has':
+        if t[2] == 'uuid':
+            t[0] = ast.Statement(ast.Statement.OP_UUID)
+        else:
+            t[0] = ast.Statement(ast.Statement.OP_HAS, t[2])
+    elif t[1] == 'contains':
+        t[0] = ast.Statement(ast.Statement.OP_CONTAINS, t[2])
 
 def p_statement_binary(t):
     """statement_binary : LVALUE '=' QSTRING
