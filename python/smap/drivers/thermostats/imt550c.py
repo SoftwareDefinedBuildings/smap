@@ -100,8 +100,9 @@ class IMT550C(driver.SmapDriver):
                             "devtosmap": lambda x: x, "smaptodev": lambda x: x,
                             "act_type": "discrete"} # thermFanMode
                        ]
+        ts = {}
         for p in self.points0:
-            self.add_timeseries('/' + p["name"], p["unit"],
+            ts[p['name']] = self.add_timeseries('/' + p["name"], p["unit"],
                 data_type=p["data_type"], timezone=self.tz)
             if p['access'] == 6:
                 if p['act_type'] == 'discrete':
@@ -109,23 +110,20 @@ class IMT550C(driver.SmapDriver):
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
                     act = DiscreteActuator(**setup)
-                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act, data_type = p['data_type'], write_limit=5)
                 elif p['act_type'] == 'continuous':
                     setup={'model': 'continuous', 'ip':self.ip, 'range': p['range'],
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
                     act = ContinuousActuator(**setup)
-                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act,
-                        data_type = p['data_type'], write_limit=5)
                 elif p['act_type'] == 'continuousInteger':
                     setup={'model': 'continuousInteger', 'ip':self.ip, 'range': p['range'],
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
                     act = ContinuousIntegerActuator(**setup)
-                    self.add_actuator('/' + p['name'] + '_act', p['unit'], act,
-                        data_type = p['data_type'], write_limit=5)
                 else:
                     print "sth is wrong here"
+                    continue
+                ts[p['name']].add_actuator(act)
 
     def start(self):
         # call self.read every self.rate seconds
