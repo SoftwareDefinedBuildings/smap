@@ -39,7 +39,7 @@ action = function(host, port)
 
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
-  output_tab.type = 'smap.drivers.tcplighting.TCP'
+  output_tab.type = 'smap.drivers.lights.tcplighting.TCP'
   output_tab.Metadata__Instrument__Manufacturer = 'GreenWave Reality Pte Ltd'
   output_tab.mac = host.mac_addr
   output_tab.ip = host.ip
