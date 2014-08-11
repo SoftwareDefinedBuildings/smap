@@ -136,8 +136,6 @@ class DiscoveryDriver(SmapDriver):
     def register_services(self, services):
         configs = map(self.update_config, services)
         map(self.start_service, services)
-        #for svc, d in zip(services, map(self.push_config, configs)):
-        #    d.addCallback(self.start_service, svc)
 
     def update_config(self, service):
         strname = service.script + "-" + service.dev.ip
@@ -174,17 +172,18 @@ git push origin master""" % config_file
     def start_service(self, service):
         strname = service.script + "-" + service.dev.ip
         c = ConfigParser.RawConfigParser()
-        c.read('supervisord.conf')
+        #c.read('supervisord.conf')
         # remove old config section
         c.remove_section('program:{0}'.format(strname))
         # add new section
         c.add_section('program:{0}'.format(strname))
         # use custom port and custom pidfile
         c.set('program:{0}'.format(strname),'command','twistd --pidfile={strname}.pid -n smap -p {port} driverconfigs/{strname}.ini'.format(strname=strname, port=self.driverport))
-        c.write(open('supervisord.conf','w'))
+        filename = '/etc/supervisor/conf.d/{0}.conf'.format(strname)
+        c.write(open(filename,'w+'))
         print "starting service", service
         # hot reload of supervisord
-        subprocess.check_call(['sudo','supervisorctl','update'])
+        subprocess.check_call(['sudo','supervisorctl','update','-c','/etc/supervisor/supervisord.conf'])
 
 
 if __name__ == '__main__':
