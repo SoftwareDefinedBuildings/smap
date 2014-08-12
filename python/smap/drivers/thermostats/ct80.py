@@ -108,6 +108,25 @@ class CT80(SmapDriver):
                 continue
             ts[a['name']].add_actuator(act)
 
+        # setup metadata for each timeseries
+        metadata_type = [
+                ('/temp','Sensor'),
+                ('/humidity','Sensor'),
+                ('/temp_heat','Reading'),
+                ('/temp_heat_act','SP'),
+                ('/temp_cool','Reading'),
+                ('/temp_cool_act','SP'),
+                ('/hold','Reading'),
+                ('/hold_act','Command'),
+                ('/override','Reading'),
+                ('/override_act','Command'),
+                ('/hvac_mode','Reading'),
+                ('/hvac_mode_act','Command')
+            ]
+        for ts, tstype in metadata_type:
+            self.set_metadata(ts,{'Metadata/Type':tstype})
+
+
     def start(self):
         # call self.read every self.rate seconds
         periodicSequentialCall(self.read).start(self.rate)
@@ -120,6 +139,8 @@ class CT80(SmapDriver):
         for p in self.points:
             if p['name'] not in vals: # sometimes the ct80 hiccups and doesn't give data
                 return
+            if type(vals[p['name']]) not in [int, float]:
+                return
             self.add('/' + self.translate[p["name"]], vals[p["name"]])
 
         r = requests.get(url + '/humidity')
@@ -130,12 +151,12 @@ class _CT80Actuator(actuate.ContinuousActuator):
     def __init__(self, **opts):
         self.ip = opts.get('ip', None)
         self.name = opts.get('name', None)
-        self.url = 'http://' + self.ip + '/tstat/' + self.name
+        self.url = 'http://' + self.ip + '/tstat'
 
     def get_state(self, request):
         r = requests.get(self.url)
         rv = json.loads(r.text)
-        return self.parse_state(rv)
+        return self.parse_state(rv.get(self.name,-1))
  
     def set_state(self, request, state):
         payload = '{"' + self.name + '": ' + str(state) + '}'
