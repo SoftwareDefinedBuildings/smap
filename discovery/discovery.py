@@ -139,7 +139,7 @@ class DiscoveryDriver(SmapDriver):
 
     def update_config(self, service):
         strname = service.script + "-" + service.dev.ip
-        path = os.path.join(self.config_repo, 'driverconfigs', strname + '.ini')
+        path = os.path.join(self.config_repo, strname + '.ini')
         print "\tupdating config", path
         with open(path, 'w') as fp:
             print >>fp, """
@@ -172,13 +172,22 @@ git push origin master""" % config_file
     def start_service(self, service):
         strname = service.script + "-" + service.dev.ip
         c = ConfigParser.RawConfigParser()
-        #c.read('supervisord.conf')
+        programname = 'program:{0}'.format(strname)
         # remove old config section
-        c.remove_section('program:{0}'.format(strname))
+        c.remove_section(programname)
         # add new section
-        c.add_section('program:{0}'.format(strname))
+        c.add_section(programname)
         # use custom port and custom pidfile
-        c.set('program:{0}'.format(strname),'command','twistd --pidfile={strname}.pid -n smap -p {port} driverconfigs/{strname}.ini'.format(strname=strname, port=self.driverport))
+        c.set(programname,'command','twistd --pidfile=/var/run/smap/{strname}.pid -n smap -p {port} {config_repo}/{strname}.ini'.format(config_repo=self.config_repo, strname=strname, port=self.driverport))
+        c.set(programname,'priority',2)
+        c.set(programname,'autorestart',True)
+        c.set(programname,'user','smap')
+        c.set(programname,'stdout_logfile','/var/log/{0}.stdout.log'.format(strname))
+        c.set(programname,'stdout_logfile_maxbytes','50MB')
+        c.set(programname,'stdout_logfile_backups',5)
+        c.set(programname,'stderr_logfile','/var/log/{0}.stderr.log'.format(strname))
+        c.set(programname,'stderr_logfile_maxbytes','50MB')
+        c.set(programname,'stderr_logfile_backups',5)
         filename = '/etc/supervisor/conf.d/{0}.conf'.format(strname)
         c.write(open(filename,'w+'))
         print "starting service", service
