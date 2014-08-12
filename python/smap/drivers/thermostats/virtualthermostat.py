@@ -25,6 +25,9 @@ class VirtualThermostat(driver.SmapDriver):
         hvac_mode = self.add_timeseries('/hvac_mode', 'Mode', data_type='long') 
         fan_mode = self.add_timeseries('/fan_mode', 'Mode', data_type='long') 
 
+        self.set_metadata('/', {'Metadata/Device': 'Thermostat',
+                                'Metadata/Model': 'Virtual Thermostat'})
+
         temp_heat.add_actuator(SetpointActuator(tstat=self, path='temp_heat', _range=(45, 95)))
         temp_cool.add_actuator(SetpointActuator(tstat=self, path='temp_cool', _range=(45, 95)))
         hold.add_actuator(OnOffActuator(tstat=self, path='hold'))

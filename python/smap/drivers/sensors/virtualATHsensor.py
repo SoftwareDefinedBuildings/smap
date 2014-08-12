@@ -10,6 +10,9 @@ class VirtualATHSensor(driver.SmapDriver):
         self.add_timeseries('/temp','F', data_type='double')
         self.add_timeseries('/humidity','%RH', data_type='double')
 
+        self.set_metadata('/', {'Metadata/Device': 'Air Temperature Sensor',
+                                'Metadata/Model': 'Virtual ATH Sensor'})
+
         self.t = 1
 
     def start(self):

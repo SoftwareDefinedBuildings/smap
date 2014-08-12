@@ -8,6 +8,9 @@ class VirtualPowerMeter(driver.SmapDriver):
         self.rate = float(opts.get('rate','1'))
         self.add_timeseries('/demand','kWh', data_type='double')
 
+        self.set_metadata('/', {'Metadata/Device': 'Power Meter',
+                                'Metadata/Model': 'Virtual Power Meter'})
+
         self.t = 1
 
     def start(self):
