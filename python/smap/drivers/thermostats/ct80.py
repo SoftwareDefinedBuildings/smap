@@ -114,6 +114,8 @@ class CT80(SmapDriver):
         vals = json.loads(r.text)
          
         for p in self.points:
+            if p['name'] not in vals: # sometimes the ct80 hiccups and doesn't give data
+                return
             self.add('/' + self.translate[p["name"]], vals[p["name"]])
 
         r = requests.get(url + '/humidity')
