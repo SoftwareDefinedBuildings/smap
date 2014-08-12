@@ -5,8 +5,8 @@ case "$1" in
     configure)
         adduser --system --no-create-home smap 2>/dev/null
 
-        mkdir /var/run/smap
-        chown -R smap /var/run/smap
+        mkdir -p /var/run/smap
+        chown smap /var/run/smap
         supervisorctl reread
         ;;
 esac
