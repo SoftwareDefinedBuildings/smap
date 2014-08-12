@@ -8,6 +8,9 @@ class VirtualLightSensor(driver.SmapDriver):
         self.rate = float(opts.get('rate','1'))
         self.add_timeseries('/illumination','Lx', data_type='double')
 
+        self.set_metadata('/', {'Metadata/Device': 'Illumination Sensor',
+                                'Metadata/Model': 'Virtual Light Sensor'})
+
         self.t = 1
 
     def start(self):

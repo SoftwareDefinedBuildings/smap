@@ -14,6 +14,9 @@ class VirtualLight(driver.SmapDriver):
         hue = self.add_timeseries('/hue', 'Hue', data_type='long')
         sat = self.add_timeseries('/sat', 'Saturation', data_type='long')
 
+        self.set_metadata('/', {'Metadata/Device': 'Lighting Controller',
+                                'Metadata/Model': 'Virtual Light'})
+
         on.add_actuator(OnOffActuator(light=self))
         bri.add_actuator(BrightnessActuator(light=self, range=(0,100)))
         hue.add_actuator(HueActuator(light=self,range=(0,65535)))

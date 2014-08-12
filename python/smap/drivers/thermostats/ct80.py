@@ -44,6 +44,9 @@ class CT80(SmapDriver):
         self.tz = opts.get('Timezone', 'America/Los_Angeles')
         self.rate = float(opts.get('Rate', 1))
         self.ip = opts.get('ip', None)
+
+        self.set_metadata('/', {'Metadata/Device': 'Thermostat'
+                                'Metadata/Model': 'CT80 RTA'})
          
         self.points = [
                          {"name": "temp", "unit": "F", "data_type": "double"},
