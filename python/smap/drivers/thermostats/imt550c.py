@@ -125,6 +125,28 @@ class IMT550C(driver.SmapDriver):
                     continue
                 ts[p['name']].add_actuator(act)
 
+        # setup metadata for each timeseries
+        metadata_type = [
+                ('/temp','Sensor'),
+                ('/humidity','Sensor'),
+                ('/temp_heat','Reading'),
+                ('/temp_heat_act','SP'),
+                ('/temp_cool','Reading'),
+                ('/temp_cool_act','SP'),
+                ('/hold','Reading'),
+                ('/hold_act','Command'),
+                ('/override','Reading'),
+                ('/override_act','Command'),
+                ('/hvac_mode','Reading'),
+                ('/hvac_mode_act','Command')
+            ]
+        for ts, tstype in metadata_type:
+            self.set_metadata(ts,{'Metadata/Type':tstype})
+
+        self.set_metadata('/', {'Metadata/Device': 'Thermostat',
+                                'Metadata/Model': 'IMT550C',
+                                'Metadata/Driver': __name__})
+
     def start(self):
         # call self.read every self.rate seconds
         periodicSequentialCall(self.read).start(self.rate)
