@@ -45,7 +45,7 @@ class CT80(SmapDriver):
         self.rate = float(opts.get('Rate', 1))
         self.ip = opts.get('ip', None)
 
-        self.set_metadata('/', {'Metadata/Device': 'Thermostat'
+        self.set_metadata('/', {'Metadata/Device': 'Thermostat',
                                 'Metadata/Model': 'CT80 RTA',
                                 'Metadata/Driver': __name__})
          
