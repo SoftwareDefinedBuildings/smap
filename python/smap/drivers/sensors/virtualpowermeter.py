@@ -9,7 +9,8 @@ class VirtualPowerMeter(driver.SmapDriver):
         self.add_timeseries('/demand','kWh', data_type='double')
 
         self.set_metadata('/', {'Metadata/Device': 'Power Meter',
-                                'Metadata/Model': 'Virtual Power Meter'})
+                                'Metadata/Model': 'Virtual Power Meter',
+                                'Metadata/Driver': __name__})
 
         self.t = 1
 

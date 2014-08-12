@@ -9,7 +9,8 @@ class VirtualLightSensor(driver.SmapDriver):
         self.add_timeseries('/illumination','Lx', data_type='double')
 
         self.set_metadata('/', {'Metadata/Device': 'Illumination Sensor',
-                                'Metadata/Model': 'Virtual Light Sensor'})
+                                'Metadata/Model': 'Virtual Light Sensor',
+                                'Metadata/Driver': __name__})
 
         self.t = 1
 
