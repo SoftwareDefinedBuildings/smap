@@ -199,6 +199,11 @@ Can be called with 1, 2, or 3 arguments.  The forms are
                                           self.inst.get_collection(path_seg))
             rpt = dict(self)
             rpt['Readings'] = [reading]
+            # here, if we have a 'configured' key inside the top-level Metadata,
+            # we add it to the report, but just once
+            toplevel = self.inst.get_collection('/')
+            if 'configured' in toplevel.get('Metadata', {}):
+                rpt['configured'] = toplevel['Metadata']['configured']
             self.inst.reports.publish(getattr(self, 'path'), rpt)
             self.dirty = False
         else:

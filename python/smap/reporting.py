@@ -268,6 +268,10 @@ class MongoReportInstance(dict):
                     if 'uuid' in d.get('Actuator', {}):
                         actuatoruuid = d['Actuator']['uuid']
                         v['ActuatorUUID'] = str(actuatoruuid)
+                    # here, if we get the configured key, we send it out.
+                    # typically, this will happen just once. See core.add
+                    if 'configured' in d:
+                        v['configured'] = bool(d['configured'])
                     log.msg(v)
                     self.insert_or_update(v)
                 except Exception, e:
