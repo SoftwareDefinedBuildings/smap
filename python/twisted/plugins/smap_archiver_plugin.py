@@ -115,11 +115,11 @@ class ArchiverServiceMaker(object):
 # However, since this plugin gets installed for all smap installs,
 # just fail silently rather than print out a bunch of warnings.
 try:
-    from smap.archiver import settings, republisher
-    from smap.subscriber import subscribe
-    from smap.ssl import SslServerContextFactory
-    from smap.archiver.server import getSite
-except ImportError:
-    pass
+	from smap.archiver import settings, republisher
+	from smap.subscriber import subscribe
+	from smap.ssl import SslServerContextFactory
+	from smap.archiver.server import getSite
+except:
+	print "Not enabling to archiver - missing dependencies"
 else:
-    serviceMaker = ArchiverServiceMaker()
+	serviceMaker = ArchiverServiceMaker()

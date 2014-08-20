@@ -35,10 +35,69 @@ import sys
 import json
 import urllib2
 import uuid
-
+import time
+import random
+try:
+    import psycopg2
+except:
+    pass
 from optparse import OptionParser
 from smap.contrib import dtutil
+import random
+import string
 
+
+def delete_user(self, userid, user="archiver", passwd="password", name="name", host="127.0.0.1"):
+    con = psycopg2.connect("port=5432 host={} dbname={} user={} password={}".format(host, name, user, passwd))
+    cur = con.cursor()
+    cur.execute("DELETE FROM stream WHERE subscription_id = (SELECT id FROM subscription WHERE owner_id={} LIMIT 1)".format(userid))
+    cur.execute("DELETE FROM subscription WHERE owner_id = {}".format(userid))
+    cur.execute("DELETE FROM auth_user WHERE id = {}".format(userid))
+    con.commit()
+    cur.close()
+    con.close()
+        
+def make_subscription(self, resource="/+", desc="", subkey=None, user="archiver", passwd="password", name="name", host="127.0.0.1"):
+    """
+    This is basically just so that we can bypass the foreign key constraint on the subscription
+    """
+    #It's over 9000, so we are unlikely to collide :p
+    uid=9001
+    if subkey is None:
+        subkey = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercasecase + string.digits) for x in range(36))
+        
+    find_qry = """SELECT id FROM auth_user WHERE id={}""".format(uid)
+    con = psycopg2.connect("port=5432 host={} dbname={} user={} password={}".format(host, name, user, passwd))
+    cur = con.cursor()
+    userexists = False
+    authexists = False
+    try:
+        cur.execute(find_qry)
+        authexists = True
+        r = cur.fetchone()
+        if r is not None:
+            userexists = True
+    except:
+        #We would get an exception if the auth_user table did not exist
+        pass
+    con.rollback() #clear possible errors
+    
+    if authexists and not userexists:
+        #make a user
+        #I can't remember what this password is. Hopefully it's hard to guess
+        uqry = """INSERT INTO auth_user VALUES (%(id)s, 'manualuser}','','','',
+                  'pbkdf2_sha256$10000$QWwLmgl17URJ$cZ258SNnRqER3V1e4HMOMTMyjUZI0fAmlJr/elMLS14=',
+                  't','t','t','2013-10-08 22:21:35.566316-07','2013-10-08 22:01:57.650245-07')"""
+        cur.execute(uqry, {"id":uid})
+                  
+    guuid = str(uuid.uuid4())
+    sqry = """INSERT INTO subscription (uuid, resource, key, public, description, url, owner_id) VALUES 
+            (%(uuid)s,%(resource)s,%(subkey)s,'t',%(desc)s,'',%(uid)s);"""
+    cur.execute(sqry, {"uid":uid,"resource":resource, "desc":desc, "uuid":guuid,"subkey":subkey})
+    con.commit()
+    cur.close()
+    con.close()
+        
 def load_json(url):
     fp = urllib2.urlopen(url)
     try:
