@@ -183,7 +183,7 @@ git push origin master""" % config_file
         return d
 
     def start_service(self, service):
-        strname = service.script + "-" + service.dev.ip
+        strname = service.script + "-" + service.dev.ip.replace('.','_')
         c = ConfigParser.RawConfigParser()
         programname = 'program:{0}'.format(strname)
         # remove old config section
