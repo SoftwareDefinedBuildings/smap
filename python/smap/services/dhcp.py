@@ -119,19 +119,19 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         local_ip = ifaddresses(self.iface)[2][0]['addr']
         ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
         try:
-            arp_output = subprocess.check_output(['arp-scan', ip_range])
+            arp_output = subprocess.check_output(['arp'])
             for line in arp_output.split('\n'):
-                m = re.match("((\d{1,3}\.){3}\d{1,3})\\t((\w{1,2}:){5}\w{1,2})\\t(.*)", line)
+                m = re.match("((\d{1,3}\.){3}\d{1,3}) +\w+ +((\w{1,2}:){5}\w{1,2})", line)
                 if not m:
                     continue
                 g = m.groups(0)
-                s_ip, s_mac, hname = g[0],g[2],g[4]
-                if s_mac in self.arp_seen or hname == '(Unknown)':
+                s_ip, s_mac = g[0],g[2]
+                if s_mac in self.arp_seen:
                     continue
                 else:
                     self.arp_seen.add(s_mac)
-                print "Detected", s_ip, s_mac, hname, self.iface, "via arpscan"
-                dev = util.Device(s_ip, s_mac, hname, self.iface)
+                print "Detected", s_ip, s_mac, self.iface, "via arpscan"
+                dev = util.Device(s_ip, s_mac, None, self.iface)
                 self.discovered_callback(dev)
         except subprocess.CalledProcessError:
             print 'Probably an invalid ip_range:',ip_range
