@@ -75,6 +75,7 @@ class DiscoveryDriver(SmapDriver):
         self.db = {}
         self._driverport = 1234
         self._nmap_path = opts.get('nmap_path','/usr/bin/nmap')
+        self._scripts_path = opts.get('scripts_path','scripts')
         self.discovery_sources = [
             # dhcp.DhcpTailDiscoverySource(self.update_device, opts.get("syslog", "/var/log/syslog")),
             dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface"), opts.get("dhcpdump_path")),
@@ -110,7 +111,7 @@ class DiscoveryDriver(SmapDriver):
         d = defer.Deferred()
         pp = XmlProcessProtocol(d)
         print "Starting scan of", dev.ip
-        reactor.spawnProcess(pp, self._nmap_path, ['nmap', "--script=scripts", '-oX', '-', dev.ip])
+        reactor.spawnProcess(pp, self._nmap_path, ['nmap', "--script={0}".format(self._scripts_path), '-oX', '-', dev.ip])
         d.addCallbacks(self.process_scan_results, errback=self.error, callbackArgs=(dev,), errbackArgs=(dev,))
         d.addCallback(self.register_services)
 
