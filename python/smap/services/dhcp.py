@@ -88,7 +88,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         self.outReceived = self.dataReceived
         self.dhcpdump_path = dhcpdump_path
         self.arp_seen = set()
-        self.get_arp()
+        self.nmap_all()
 
     def start(self):
         path = self.dhcpdump_path
@@ -115,6 +115,38 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         k, v = m.groups(0)
         self.parsestate[k].add(v)
 
+    def nmap_all(self):
+        local_ip = ifaddresses(self.iface)[2][0]['addr']
+        ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
+        try:
+            nmap_output = subprocess.check_output(['nmap','-nsP',ip_range]).split('\n')
+            s_ip = s_mac = None
+            i = 0
+            while i < len(nmap_output):
+                line = nmap_output[i]
+                m = re.match(".* ((\d{1,3}\.){3}\d{1,3})", line)
+                if m:
+                    s_ip = m.groups()[0]
+                    i += 2
+                    continue
+                m = re.match(".* ((\w{1,2}:){5}\w{1,2})", line)
+                if m:
+                    s_mac = m.groups()[0]
+                if s_ip and s_mac:
+                    print "Detected", s_ip, s_mac, self.iface, "via nmap scan"
+                    dev = util.Device(s_ip, s_mac, None, self.iface)
+                    self.discovered_callback(dev)
+                    s_ip = s_mac = None
+                    i += 1
+                    continue
+                i += 1
+        except subprocess.CalledProcessError:
+            print 'Probably an invalid ip_range:',ip_range
+            return
+        except Exception as e:
+            print e
+            return
+        
     def get_arp(self):
         local_ip = ifaddresses(self.iface)[2][0]['addr']
         ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
