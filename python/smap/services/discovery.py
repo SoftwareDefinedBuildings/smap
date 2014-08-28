@@ -139,7 +139,7 @@ class DiscoveryDriver(SmapDriver):
         map(self.start_service, services)
 
     def update_config(self, service):
-        strname = service.script + "-" + service.dev.ip
+        strname = service.script + "-" + service.dev.ip.replace('.','_')
         path = os.path.join(self.config_repo, strname + '.ini')
         print "\tupdating config", path
         with open(path, 'w') as fp:
