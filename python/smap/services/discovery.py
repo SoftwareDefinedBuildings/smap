@@ -144,6 +144,16 @@ class DiscoveryDriver(SmapDriver):
         print "\tupdating config", path
         with open(path, 'w') as fp:
             print >>fp, """
+
+[report 0]
+ReportDeliveryLocation = mongo://localhost:3001
+
+[report 1]
+ReportDeliveryLocation = http://localhost:8079/add/lVzBMDpnkXApJmpjUDSvm4ceGfpbrLLSd9cq
+
+[Report 2]
+ReportDeliveryLocation = http://archiver.cal-sdb.org:9000/data/legacyadd/likeaboss
+
 [/]
 Port = 8080
 uuid = %(uuid)s
