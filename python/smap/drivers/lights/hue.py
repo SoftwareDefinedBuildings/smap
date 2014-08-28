@@ -66,6 +66,7 @@ class HUE(driver.SmapDriver):
     self.ip = opts.get('ip', None)
     self.user = opts.get('user', None)
     self.lights = []
+
     # We search for any new lights
     self.searchNewLights(self.ip, self.user)
     # Get a list of lights
@@ -77,7 +78,7 @@ class HUE(driver.SmapDriver):
     for light in self.lights:
       for option in self.api:
         if option["access"] == "rw":
-          self.add_timeseries('/'+light['name']+'/state/'+option["api"],
+          ts = self.add_timeseries('/'+light['name']+'/state/'+option["api"],
               option["unit"], data_type=option["data_type"], timezone=self.tz)
 
           setup={'model': option["act_type"], 'ip':self.ip,
@@ -90,13 +91,16 @@ class HUE(driver.SmapDriver):
             act = ContinuousIntegerActuator(**setup)
           if  option["act_type"] == "discrete":
             act = DiscreteActuator(**setup)
+          ts.add_actuator(act)
 
-          self.add_actuator('/'+light['name'] + '/state/' + option["api"] + '_act',
-              option["unit"], act, data_type = option["data_type"],
-              write_limit=1)
         else:
           self.add_timeseries('/'+light['name']+'/state/'+option["api"],
               option["unit"], data_type=option["data_type"], timezone=self.tz)
+
+    self.set_metadata('/', {'Metadata/Device': 'Lighting Controller',
+                            'Metadata/Model': 'Philips Hue',
+                            'Metadata/Driver': __name__})
+
   def start(self):
     # call self.read every self.rate seconds
     periodicSequentialCall(self.read).start(self.rate)
