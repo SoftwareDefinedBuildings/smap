@@ -155,8 +155,10 @@ ReportDeliveryLocation = http://localhost:8079/add/lVzBMDpnkXApJmpjUDSvm4ceGfpbr
 ReportDeliveryLocation = http://archiver.cal-sdb.org:9000/data/legacyadd/likeaboss
 
 [/]
-Port = 8080
 uuid = %(uuid)s
+
+[server]
+datadir = /tmp
 
 [/%(strname)s]
 uuid = %(uuid)s
