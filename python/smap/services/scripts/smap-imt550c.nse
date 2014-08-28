@@ -40,6 +40,8 @@ action = function(host, port)
   output_tab.type = 'smap.drivers.thermostats.imt550c.IMT550C'
   output_tab.Metadata__Instrument__Manufacturer = cert.subject.organizationName
   output_tab.ip = host.ip
+  output_tab.user = 'admin'
+  output_tab.password = 'admin'
   output_tab.readrate = 1
 
   return output_tab
