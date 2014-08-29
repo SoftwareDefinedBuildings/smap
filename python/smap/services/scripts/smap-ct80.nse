@@ -42,6 +42,7 @@ action = function(host, port)
   output_tab.type = 'smap.drivers.thermostats.ct80.CT80'
   output_tab.Metadata__InstrumentManufacturer = 'RTA'
   output_tab.Metadata__InstrumentModel = string.format(jsonresp['model'])
+  output_tab.Metadata__System = 'HVAC'
   output_tab.ip = host.ip
   output_tab.Rate = 1
   output_tab.user = ''

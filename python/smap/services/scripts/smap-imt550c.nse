@@ -39,6 +39,7 @@ action = function(host, port)
   local output_tab = stdnse.output_table()
   output_tab.type = 'smap.drivers.thermostats.imt550c.IMT550C'
   output_tab.Metadata__InstrumentManufacturer = cert.subject.organizationName
+  output_tab.Metadata__System = 'HVAC'
   output_tab.ip = host.ip
   output_tab.user = 'admin'
   output_tab.password = 'admin'
