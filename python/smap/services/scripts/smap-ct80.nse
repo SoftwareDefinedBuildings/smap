@@ -40,8 +40,8 @@ action = function(host, port)
   -- output a sMAP config file section
   local output_tab = stdnse.output_table()
   output_tab.type = 'smap.drivers.thermostats.ct80.CT80'
-  output_tab.Metadata__Instrument__Manufacturer = 'RTA'
-  output_tab.Metadata__Instrument__Model = string.format(jsonresp['model'])
+  output_tab.Metadata__InstrumentManufacturer = 'RTA'
+  output_tab.Metadata__InstrumentModel = string.format(jsonresp['model'])
   output_tab.ip = host.ip
   output_tab.Rate = 1
   output_tab.user = ''
