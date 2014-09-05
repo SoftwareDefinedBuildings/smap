@@ -156,6 +156,7 @@ ReportDeliveryLocation = http://archiver.cal-sdb.org:9000/data/legacyadd/likeabo
 
 [/]
 uuid = %(uuid)s
+Metadata/SourceName = $(strname)
 
 [server]
 datadir = /tmp
