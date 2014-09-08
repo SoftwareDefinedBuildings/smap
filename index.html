@@ -31,37 +31,68 @@
       </header>
       <section>
         <h1>
-<a name="smap" class="anchor" href="#smap"><span class="octicon octicon-link"></span></a>SMAP</h1>
+<a name="smap" class="anchor" href="#smap"><span class="octicon octicon-link"></span></a>sMAP</h1>
 
-<h2>
-<a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>Getting Started</h2>
+<h2>Installing</h2>
 
-<h3>
-<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h3>
+<p>There are currently two major branches of sMAP:</p>
+<ul>
+    <li><a href="https://github.com/SoftwareDefinedBuildings/smap/tree/master"><b>master</b></a>: backwards-compatible, all features implemented, fully supported</li>
+    <li><a hef="https://github.com/SoftwareDefinedBuildings/smap/tree/unitoftime"><b>unitoftime</b></a>: cutting-edge, some features broken, support for up to nanosecond precision timestamps</li>
+</ul>
 
-<h4>
-<a name="python" class="anchor" href="#python"><span class="octicon octicon-link"></span></a>Python</h4>
+<p>The sMAP project is moving in the direction of the <b>unitoftime</b> branch, but development continues on both. If you are unsure of which one to use, use <b>master</b>.</p>
 
-<p>To setup a clean environment, create a new python virtual environment with:</p>
+<p>The following instructions cover how to install the sMAP library. If you are interested in installing the full sMAP stack (ReadingDB, Archiver, sMAP, etc), then look at the
+more detailed installation page on the wiki (link forthcoming).</p>
 
-<pre><code>virtualenv venv
-</code></pre>
+<h3>Installing Master</h3>
 
-<p>Before proceeding with installation, make sure you've sourced the virtual environment with <code>source venv/bin/activate</code>.</p>
+<p>
+If you have <a href="http://pip.readthedocs.org/en/latest/installing.html"><b>pip</b></a> installed, you can just run
 
-<p>You must install the dependencies listed in <code>requirements.txt</code> before installing smap. Do this by issuing the following:</p>
+<pre>
+$ pip install smap
+</pre>
 
-<pre><code>pip install -r osx_requirements.txt
-</code></pre>
+from the terminal.
+</p>
 
-<p>After the dependencies are installed, run the installation:</p>
+<p>
+Or you can install from the github source:
 
-<pre><code>python setup.py install
-</code></pre>
+<pre>
+$ git clone git@github.com:SoftwareDefinedBuildings/smap.git
+$ cd smap/python
+$ sudo pip install -e .
+</pre>
+</p>
 
-<h2>
-<a name="build-status" class="anchor" href="#build-status"><span class="octicon octicon-link"></span></a>Build status</h2>
+<p>You're done!</p>
 
+<h3>Installing UnitofTime</h3>
+
+<p>
+If you are running Ubuntu 14.04 or 14.04.1, you can install sMAP from an apt package. Add the <b>cal-sdb/smap</b> PPA and then install the <b>python-smap</b> package:
+
+<pre>
+$ sudo add-apt-repository ppa:cal-sdb/smap
+$ sudo apt-get update
+$ sudo apt-get install -y python-smap
+</pre>
+
+Or you can install from the github source:
+
+<pre>
+$ git clone git@github.com:SoftwareDefinedBuildings/smap.git
+$ cd smap/python
+$ git checkout unitoftime
+$ sudo pip install -e .
+</pre>
+</p>
+
+
+<h2><a name="build-status" class="anchor" href="#build-status"><span class="octicon octicon-link"></span></a>Build status</h2>
 <p><a href="https://travis-ci.org/SoftwareDefinedBuildings/smap"><img src="https://travis-ci.org/SoftwareDefinedBuildings/smap.svg?branch=master" alt="Build Status"></a></p>
       </section>
       <footer>
