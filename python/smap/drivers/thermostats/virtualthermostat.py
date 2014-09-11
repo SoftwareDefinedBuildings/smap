@@ -29,8 +29,8 @@ class VirtualThermostat(driver.SmapDriver):
                                 'Metadata/Model': 'Virtual Thermostat',
                                 'Metadata/Driver': __name__})
 
-        temp_heat.add_actuator(SetpointActuator(tstat=self, path='temp_heat', _range=(45, 95)))
-        temp_cool.add_actuator(SetpointActuator(tstat=self, path='temp_cool', _range=(45, 95)))
+        temp_heat.add_actuator(SetpointActuator(tstat=self, path='temp_heat', _range=(45, 95), subscribe=opts.get('temp_heat')))
+        temp_cool.add_actuator(SetpointActuator(tstat=self, path='temp_cool', _range=(45, 95), subscribe=opts.get('temp_cool')))
         hold.add_actuator(OnOffActuator(tstat=self, path='hold'))
         override.add_actuator(OnOffActuator(tstat=self, path='override'))
         hvac_mode.add_actuator(ModeActuator(tstat=self, path='hvac_mode', states=[0,1,2,3]))
@@ -64,6 +64,7 @@ class VirtualThermostatActuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.tstat = opts.get('tstat')
         self.path = opts.get('path')
+        self.subscribe('http://localhost:8079',opts.get('subscribe'))
 
 class SetpointActuator(VirtualThermostatActuator, actuate.ContinuousIntegerActuator):
     def __init__(self, **opts):
