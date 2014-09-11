@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -48,13 +48,13 @@ import traceback
 from twisted.internet import defer
 from zope.interface import implements
 
-from smap import util
 from smap.interface import *
+from smap.archiver.client import RepublishClient
 
 
 class SmapActuator(object):
     """Classes that implement actuators should subclass this class.
-    
+
     Actuators should have at least two attributes:
       control_type: the sMAP control model
       control_description: the sMAP description of this particular models
@@ -64,7 +64,7 @@ class SmapActuator(object):
       parse_state(self, state): string from HTTP request parsing the
           submitted state into the form the actuator accepts
       translate_state(self, state)
-          
+
     Actuators should also implement get and set methods.  The request
           object is included so that actuators my inspect the client
           request if they wish to perform checks based on the request.
@@ -75,7 +75,7 @@ class SmapActuator(object):
     sMAP actuator models, and simply implement get and set methods.
     """
 
-    # override all of these 
+    # override all of these
     control_type = None
     control_description = {}
 
@@ -98,6 +98,16 @@ class SmapActuator(object):
         d = { 'Model': self.control_type }
         d.update(self.control_description)
         return d
+
+    def _republishcb(self, _, data):
+        # data is list of arrays of [time, val]
+        state = data[-1][-1][1] # get val of last reading
+        self.set_state(None, state)
+
+    def subscribe(self, archiver_url, where):
+        if where:
+            self._republishclient = RepublishClient(archiver_url, self._republishcb, restrict=where)
+            self._republishclient.connect()
 
 class BinaryActuator(SmapActuator):
     """A BinaryActuator is a controller which has only two states,
@@ -224,7 +234,7 @@ if __name__ == '__main__':
             print "getting"
             self.add(self.state)
             return self.state
-        
+
         @authenticated(["__has_ssl__"])
         def set_state(self, request, state):
             print "Setting state to", request,state
@@ -243,8 +253,8 @@ if __name__ == '__main__':
     inst.add_timeseries('/a1', act)
     inst.add_timeseries('/t1', 'V')
     rl = RateLimiter(10)
-    
-    a2 = inst.add_actuator('/a2', 'UoM', MyActuator, 
+
+    a2 = inst.add_actuator('/a2', 'UoM', MyActuator,
                            read_limit=10,
                            write_limit=10,
                            setup={})
