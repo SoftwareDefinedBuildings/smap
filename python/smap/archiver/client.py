@@ -42,7 +42,6 @@ from warnings import warn
 import numpy as np
 import smap.util as util
 from smap import util
-from smap.core import SmapException
 import smap.sjson as json
 from smap.archiver import tscache
 from smap.archiver.settings import conf
@@ -83,7 +82,7 @@ results together."""
         for v in line_obj:
             if not 'uuid' in v:
                 return line_obj
-            # raise SmapException("Invalid sMAP object: " + str(v))
+            # raise Exception("Invalid sMAP object: " + str(v))
             id = v['uuid']
             if not id in rv:
                 rv[id] = v
@@ -137,6 +136,7 @@ the result.
             rv = parser(fp.read())
         except urllib2.HTTPError, err:
             log.err("Bad request running query: ""%s"" " % q)
+            from smap.core import SmapException
             raise SmapException("Archiver query HTTP request error %s" % err.code)
         fp.close()
         return rv

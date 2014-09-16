@@ -8,33 +8,12 @@ local string = require "string"
 local url = require "url"
 
 description = [[
-Shows the title of the default page of a web server.
-
-The script will follow no more than one HTTP redirect, and only if the
-redirection leads to the same host. The script may send a DNS query to
-determine whether the host the redirect leads to has the same IP address as the
-original target.
+ Scans for nt160E
 ]]
-
----
---@output
--- Nmap scan report for scanme.nmap.org (74.207.244.221)
--- PORT   STATE SERVICE
--- 80/tcp open  http
--- |_http-title: Go ahead and ScanMe!
---
--- @xmloutput
--- <elem key="title">Go ahead and ScanMe!</elem>
--- @xmloutput
--- <elem key="title">Wikipedia, the free encyclopedia</elem>
--- <elem key="redirect_url">http://en.wikipedia.org/wiki/Main_Page</elem>
-
-author = "Diman Todorov"
 
 license = "Same as Nmap--See http://nmap.org/book/man-legal.html"
 
 categories = {"default", "discovery", "safe"}
-
 
 portrule = shortport.http
 
@@ -73,6 +52,7 @@ action = function(host, port)
   output_tab.type = 'smap.drivers.thermostats.nt160e.NT160e'
   output_tab.Metadata__Instrument__Manufacturer = 'Prolifix'
   output_tab.Metadata__Instrument__Model = string.format('%s%s', major, minor)
+  output_tab.Metadata__System = 'HVAC'
   output_tab.url = string.format('http://%s:%i/', host.ip, port.number)
   output_tab.login = ''
   output_tab.password = ''

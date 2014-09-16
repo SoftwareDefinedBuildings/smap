@@ -12,6 +12,10 @@ class Scheduler(SmapDriver):
         self.day_map = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
         self.previous_period = None
         self.changed = False
+        self.add_timeseries('/temp_heat', 'F', data_type='long')
+        self.add_timeseries('/temp_cool', 'F', data_type='long')
+        self.add_timeseries('/on', 'On/Off', data_type='long')
+        self.add_timeseries('/hvac_state', 'Mode', data_type='long')
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
@@ -21,7 +25,7 @@ class Scheduler(SmapDriver):
         master_sched = c.find_one({})
         self.now = datetime.datetime.now()
         day = self.day_map[self.now.weekday()]
-        
+
         today_sched = self.get_schedule(master_sched[day])
         current_period = self.get_current_period(today_sched)
         self.changed = self.previous_period != current_period
@@ -38,31 +42,14 @@ class Scheduler(SmapDriver):
                 if start > temp_latest:
                     current_period = p
                     temp_latest = start
+            current_period['_done'] = False
 
         schedule_points = current_period['points']
-
-        # get the relevant points in openbas
         if self.changed:
             for sp in schedule_points:
-                control_points = list(self.get_control_points(sp['path']))
-                self.actuate_points(control_points, sp['value'])
+                print sp['path'],sp['value']
+                self.add('/'+sp['path'], int(sp['value']))
 
-    def actuate_points(self, cp, val):
-        for p in cp:
-            # check if it's already reporting the desired value
-            # todo: if point['OverrideSchedule'] is not None
-            if p['value'] != val and 'ActuatorUUID' in p:
-                print "setting %s to %s" % (p['Path'], val)
-                url = "http://localhost:%s/data%s_act?state=%s" % (p['ServerPort'], p['Path'], str(val))
-                print url
-                opener = urllib2.build_opener(urllib2.HTTPHandler)
-                request = urllib2.Request(url, data='')
-                request.get_method = lambda: 'PUT'
-                try: 
-                    fp = opener.open(request)
-                except urllib2.HTTPError:
-                    print "Invalid path:" + url
-                    
     def get_control_points(self, path):
         clause = {'Path': { '$regex': '.*%s$' % path }}
         return self.MongoDatabase.points.find(clause)
@@ -70,7 +57,7 @@ class Scheduler(SmapDriver):
     def get_schedule(self, sched_type):
         c = self.MongoDatabase.schedules
         return c.find_one({'name': sched_type})
- 
+
     def get_current_period(self, sched):
         cur_period = None
         prev_start = datetime.time(0,0,0)
@@ -91,6 +78,6 @@ class Scheduler(SmapDriver):
             self.MongoClient = MongoClient(url, int(port))
         except MongoConnectionFailure:
             return False
-        self.MongoDatabase = getattr(self.MongoClient, 
+        self.MongoDatabase = getattr(self.MongoClient,
             opts.get('MongoDatabaseName', 'meteor'))
         return True

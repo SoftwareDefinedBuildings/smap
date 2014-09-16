@@ -60,6 +60,7 @@ action = function(host, port)
   output_tab.Metadata__InstrumentManufacturer = 'Phillips'
   output_tab.Metadata__InstrumentModel = hue['name']
   output_tab.Metadata__SoftwareVersion = hue['swversion']
+  output_tab.Metadata__System = 'Lighting'
   output_tab.ip = host.ip
   output_tab.Rate = 1
   output_tab.user = 'smapuser123'

@@ -151,11 +151,12 @@ ReportDeliveryLocation = mongo://localhost:3001
 [report 1]
 ReportDeliveryLocation = http://localhost:8079/add/lVzBMDpnkXApJmpjUDSvm4ceGfpbrLLSd9cq
 
-[Report 2]
+[report 2]
 ReportDeliveryLocation = http://archiver.cal-sdb.org:9000/data/legacyadd/likeaboss
 
 [/]
 uuid = %(uuid)s
+Metadata/SourceName = $(strname)
 
 [server]
 datadir = /tmp
