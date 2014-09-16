@@ -106,6 +106,7 @@ class SmapActuator(object):
 
     def subscribe(self, archiver_url, where):
         if where:
+            archiver_url = archiver_url if archiver_url else 'http://localhost:8079'
             self._republishclient = RepublishClient(archiver_url, self._republishcb, restrict=where)
             self._republishclient.connect()
 
