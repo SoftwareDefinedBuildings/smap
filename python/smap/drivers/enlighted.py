@@ -43,18 +43,15 @@ class Enlighted(driver.SmapDriver):
         self.password = opts.get('password')
         self.api = EnlightedAPI(self.ip, auth=(self.username, self.password))
         # Todo: how to get the sensor and zone metadata automatically? 
-        self.sensor_ids = [1]
+        self.sensor_ids = opts.get('sensors')
         for sensor_id in self.sensor_ids:
-            api = [{'path': '/sensor_%s/dim_level' % sensor_id, 'unit': '%'},
-                   {'path': '/sensor_%s/occupancy_status' % sensor_id, 'unit': 'state'},
-                   {'path': '/sensor_%s/time_since_last_occupancy' % sensor_id, 'unit': 'sec'}]
-            for resource in api: 
-                self.add_timeseries(resource['path'], resource['unit'], data_type="long")
-
+            self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
+            self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
+            
+            ts = self.add_timeseries('/sensor_%s/dim_level' % sensor_id, '%', data_type="long")
             setup = {'ip': self.ip, 'sensor_id': sensor_id, 'range': [0,100], 'api': self.api}
             act = ContinuousIntegerActuator(**setup)
-            self.add_actuator('/sensor_%s/dim_level_act' % sensor_id,
-                  '%', act, data_type='long', write_limit=1)
+            ts.add_actuator(act)
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
