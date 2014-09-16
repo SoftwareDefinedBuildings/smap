@@ -20,34 +20,33 @@ class ZoneController(SmapDriver):
     def setup(self, opts):
         self.rate = int(opts.get('rate', 1))
         self.synchronous = opts.get('synchronous').lower() == 'true'
-        archiver_url = opts.get('archiver')
+        self.archiver_url = opts.get('archiver')
         self.points = {}
         self.repubclients = {}
         for k,v in opts.iteritems():
             if k.startswith('subscribe/'):
                 point = k.split('/')[-1]
                 self.points[point] = None
-                self.repubclients[point] = RepublishClient(archiver_url, partial(self.cb, point), restrict=v)
+                self.repubclients[point] = [RepublishClient(self.archiver_url, partial(self.cb, point), restrict=v)]
 
         self.add_timeseries('/temp_heat', 'F', data_type='double')
         self.add_timeseries('/temp_cool', 'F', data_type='double')
 
-        # special callback example
-        self.repubclients['temp_sensor'] = RepublishClient(archiver_url, partial(self.sensor_callback, point), restrict=opts.get('subscribe/temp_sensor'))
+    def add_callback(self, point, function, where):
+        self.repubclients[point].append(RepublishClient(self.archiver_url, partial(function, point), restrict=where))
 
     def start(self):
         if self.synchronous:
             periodicSequentialCall(self.step).start(self.rate)
         # start subscriptions
-        for c in self.repubclients.itervalues():
-            c.connect()
+        for clientlist in self.repubclients.itervalues():
+            for c in clientlist:
+                c.connect()
 
     def step(self):
         # publish new setpoints
         for point, value in self.points.iteritems():
-            if value is None:
-                continue
-            if self.get_timeseries('/'+point):
+            if not (value is None) and self.get_timeseries('/'+point):
                 print 'publishing',point,'=',value
                 self.add('/'+point, float(value))
 
