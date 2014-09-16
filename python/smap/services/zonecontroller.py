@@ -56,10 +56,3 @@ class ZoneController(SmapDriver):
         self.points[point] = value
         if not self.synchronous:
             self.add('/'+point, float(value))
-
-
-    def sensor_callback(self, point, uuids, data):
-        print 'uuids',uuids
-        print 'data',data
-        avg_temp = sum(map(lambda x: x[-1][1], data)) / float(len(data))
-        print 'average temperature', avg_temp
