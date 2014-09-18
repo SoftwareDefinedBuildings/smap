@@ -29,9 +29,6 @@ class ZoneController(SmapDriver):
                 self.points[point] = None
                 self.repubclients[point] = [RepublishClient(self.archiver_url, partial(self.cb, point), restrict=v)]
 
-        self.add_timeseries('/temp_heat', 'F', data_type='double')
-        self.add_timeseries('/temp_cool', 'F', data_type='double')
-
     def add_callback(self, point, function, where):
         self.repubclients[point].append(RepublishClient(self.archiver_url, partial(function, point), restrict=where))
 
