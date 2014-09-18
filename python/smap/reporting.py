@@ -272,7 +272,6 @@ class MongoReportInstance(dict):
                     # typically, this will happen just once. See core.add
                     if 'configured' in d:
                         v['configured'] = bool(d['configured'])
-                    log.msg(v)
                     self.insert_or_update(v)
                 except Exception, e:
                     log.msg(e)

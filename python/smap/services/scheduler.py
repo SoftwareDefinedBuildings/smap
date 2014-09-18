@@ -16,6 +16,7 @@ class Scheduler(SmapDriver):
         self.add_timeseries('/temp_cool', 'F', data_type='long')
         self.add_timeseries('/on', 'On/Off', data_type='long')
         self.add_timeseries('/hvac_state', 'Mode', data_type='long')
+        self.is_mongo = urlparse.urlparse(opts.get('source')).scheme == 'mongodb'
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
@@ -46,10 +47,15 @@ class Scheduler(SmapDriver):
         schedule_points = current_period['points']
         if self.changed:
             for sp in schedule_points:
-                print sp['path'],sp['value']
+                print 'SCHEDULE',sp['path'],sp['value']
                 self.add('/'+sp['path'], int(sp['value']))
+        else:
+            print schedule_points
 
     def get_schedule(self, sched_type):
+        if self.is_mongo:
+            return self.schedules.find_one({'name': sched_type})
+        # otherwise...
         for schedule in self.schedules:
             if schedule['name'] == sched_type:
                 return schedule
@@ -57,6 +63,8 @@ class Scheduler(SmapDriver):
     def get_current_period(self, sched):
         cur_period = None
         prev_start = datetime.time(0,0,0)
+        if not sched:
+            return cur_period
         for p in sched['periods']:
             hour, minute = p['start'].split(':')
             start = datetime.time(int(hour), int(minute), 0)
@@ -80,8 +88,8 @@ class Scheduler(SmapDriver):
             db = uri.path[1:] # remove leading '/'
             MongoClient = MongoClient(url, int(port))
             MongoDatabase = getattr(MongoClient, db)
-            self.master_schedule = MongoDatabase.master_schedule.findOne()
-            self.schedules = MongoDatabase.schedules.find()
+            self.master_schedule = MongoDatabase.master_schedule.find_one()
+            self.schedules = MongoDatabase.schedules
         elif scheme == 'file':
             import json
             filename = uri.path[1:] # remove leading '/'
