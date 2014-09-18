@@ -34,11 +34,15 @@ class ZoneController(SmapDriver):
 
     def start(self):
         if self.synchronous:
-            periodicSequentialCall(self.step).start(self.rate)
+            periodicSequentialCall(self._step).start(self.rate)
         # start subscriptions
         for clientlist in self.repubclients.itervalues():
             for c in clientlist:
                 c.connect()
+
+    def _step(self):
+        self.points = {k: v for k,v in self.points.iteritems() if v is not None}
+        self.step()
 
     def step(self):
         # publish new setpoints
