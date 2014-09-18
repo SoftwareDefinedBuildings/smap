@@ -7,8 +7,8 @@ from smap.contrib import dtutil
 
 class Scheduler(SmapDriver):
     def setup(self, opts):
-        self.connect(opts)
-        self.rate = float(opts.get('Rate', 1))
+        self.schedule = self.load_schedule(opts.get('source'))
+        self.rate = float(opts.get('rate', 1))
         self.day_map = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
         self.previous_period = None
         self.changed = False
@@ -21,8 +21,7 @@ class Scheduler(SmapDriver):
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
-        c = self.MongoDatabase.master_schedule
-        master_sched = c.find_one({})
+        master_sched = self.master_schedule
         self.now = datetime.datetime.now()
         day = self.day_map[self.now.weekday()]
 
@@ -50,13 +49,10 @@ class Scheduler(SmapDriver):
                 print sp['path'],sp['value']
                 self.add('/'+sp['path'], int(sp['value']))
 
-    def get_control_points(self, path):
-        clause = {'Path': { '$regex': '.*%s$' % path }}
-        return self.MongoDatabase.points.find(clause)
-
     def get_schedule(self, sched_type):
-        c = self.MongoDatabase.schedules
-        return c.find_one({'name': sched_type})
+        for schedule in self.schedules:
+            if schedule['name'] == sched_type:
+                return schedule
 
     def get_current_period(self, sched):
         cur_period = None
@@ -69,15 +65,31 @@ class Scheduler(SmapDriver):
               prev_start = start
         return cur_period
 
-    def connect(self, opts):
-        from pymongo import MongoClient
-        from pymongo.errors import ConnectionFailure as MongoConnectionFailure
-        try:
-            u = urlparse.urlparse(opts.get('MongoUrl'))
-            url, port = u.netloc.split(':')
-            self.MongoClient = MongoClient(url, int(port))
-        except MongoConnectionFailure:
-            return False
-        self.MongoDatabase = getattr(self.MongoClient,
-            opts.get('MongoDatabaseName', 'meteor'))
-        return True
+    def load_schedule(self, source):
+        """
+        In order to make this slightly more general, we allow the source of the JSON-spec
+        schedule to be specified as a URI. Mongo, HTTP and File URIs are supported, but
+        we can easily imagine extending this to other databases or sources.
+        """
+        uri = urlparse.urlparse(source)
+        scheme = uri.scheme.lower()
+        if scheme == 'mongodb':
+            from pymongo import MongoClient
+            from pymongo.errors import ConnectionFailure as MongoConnectionFailure
+            url, port = uri.netloc.split(':')
+            db = uri.path[1:] # remove leading '/'
+            MongoClient = MongoClient(url, int(port))
+            MongoDatabase = getattr(MongoClient, db)
+            self.master_schedule = MongoDatabase.master_schedule.findOne()
+            self.schedules = MongoDatabase.schedules.find()
+        elif scheme == 'file':
+            import json
+            filename = uri.path[1:] # remove leading '/'
+            sched = json.load(open(filename))
+            self.master_schedule = sched['master_schedule']
+            self.schedules = sched['schedules']
+        elif scheme == 'http':
+            import requests
+            sched = json.loads(requests.get(source).content)
+            self.master_schedule = sched['master_schedule']
+            self.schedules = sched['schedules']

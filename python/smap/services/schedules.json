@@ -1,0 +1,109 @@
+{
+    "master_schedule": {
+        "fri": "weekday",
+        "mon": "weekday",
+        "sat": "weekend",
+        "sun": "weekend",
+        "thu": "weekday",
+        "tue": "weekday",
+        "wed": "weekday"
+    },
+    "schedules": [
+        {
+            "color": "#EDF1FA",
+            "name": "weekday",
+            "periods": [
+                {
+                    "name": "morning",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 72
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 83
+                        }
+                    ],
+                    "start": "7:30"
+                },
+                {
+                    "name": "afternoon",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 70
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 80
+                        }
+                    ],
+                    "start": "13:30"
+                },
+                {
+                    "name": "evening",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 50
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 90
+                        }
+                    ],
+                    "start": "18:30"
+                }
+            ]
+        },
+        {
+            "color": "#FAF6ED",
+            "name": "weekend",
+            "periods": [
+                {
+                    "name": "morning",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 65
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 85
+                        }
+                    ],
+                    "start": "09:30"
+                },
+                {
+                    "name": "afternoon",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 70
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 80
+                        }
+                    ],
+                    "start": "17:30"
+                },
+                {
+                    "name": "evening",
+                    "points": [
+                        {
+                            "path": "temp_heat",
+                            "value": 50
+                        },
+                        {
+                            "path": "temp_cool",
+                            "value": 90
+                        }
+                    ],
+                    "start": "21:00"
+                }
+            ]
+        }
+    ]
+}
