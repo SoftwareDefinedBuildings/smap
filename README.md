@@ -9,6 +9,7 @@ In order for the archiver to work, you need to be running the 'adaptive' branch 
 https://softwaredefinedbuildings.github.io/smap/
 
 # SMAP
+https://softwaredefinedbuildings.github.io/smap/
 
 ## Getting Started
 
