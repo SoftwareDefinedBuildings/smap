@@ -155,6 +155,8 @@ class IMT550C(driver.SmapDriver):
         for p in self.points0:
             url = 'http://%s/get?OID%s' % (self.ip, p["OID"])
             r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password))
+            if not r.ok:
+                break
             val = r.text.split('=', 1)[-1]
             if p["data_type"] == "long":
                 self.add("/" + p["name"], p['devtosmap'](long(val)))

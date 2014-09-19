@@ -134,6 +134,8 @@ class CT80(SmapDriver):
     def read(self):
         url = 'http://' + self.ip + "/tstat"
         r = requests.get(url)
+        if not r.ok:
+            return
         vals = json.loads(r.text)
          
         for p in self.points:
