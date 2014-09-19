@@ -43,7 +43,7 @@ action = function(host, port)
   output_tab.ip = host.ip
   output_tab.user = 'admin'
   output_tab.password = 'admin'
-  output_tab.readrate = 1
+  output_tab.readrate = 10
 
   return output_tab
 end
