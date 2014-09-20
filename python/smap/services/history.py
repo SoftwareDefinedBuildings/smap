@@ -26,11 +26,12 @@ the next most recent being 'configfile.json.1', then 'configfile.json.2' etc.
 """
 
 class Historian(object):
-    def __init__(self, basename):
+    def __init__(self, directory, basename):
         """
         basename is a string that is the root name of the config file, that is, for a configuration
         file named 'history.json', the basename is 'history'.
         """
+        self.directory = directory
         self.basename = basename
         self.config = {}
 
@@ -41,7 +42,7 @@ class Historian(object):
         'basename.json.n+1'.
         If [filename] doesn't end in a number, then it returns 'basename.json.1'
         """
-        match = re.search('({0}.json).?([0-9]+)?'.format(self.basename), filename)
+        match = re.search('(.*{0}.json).?([0-9]+)?'.format(self.basename), filename)
         if not match:
             print 'something is probably super wrong'
         name, number = match.groups()
@@ -55,10 +56,10 @@ class Historian(object):
         """
         # iterate through all the ones with numbers
         # start from the highest number and work our way down to 1
-        for filename in sorted(glob.iglob('{0}.json.*'.format(self.basename)), key=lambda x: int(x.split('.')[-1]), reverse=True):
+        for filename in sorted(glob.iglob(os.path.join(self.directory,'{0}.json.*'.format(self.basename))), key=lambda x: int(x.split('.')[-1]), reverse=True):
             shutil.move(filename, self._increment_filename(filename))
         # add .1 to the current basename.json
-        current = '{0}.json'.format(self.basename)
+        current = os.path.join(self.directory,'{0}.json'.format(self.basename))
         if os.path.exists(current):
             shutil.move(current, self._increment_filename(current))
 
@@ -67,5 +68,5 @@ class Historian(object):
         Given a new dictionary of configuration, we want to save it into basename.json
         """
         self._rotate()
-        json.dump(config, open(self.basename+'.json','w+'))
+        json.dump(config, open(os.path.join(self.directory,self.basename+'.json'),'w+'))
         self.config = config
