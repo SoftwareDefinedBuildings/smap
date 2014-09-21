@@ -117,7 +117,8 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
 
     def nmap_all(self):
         local_ip = ifaddresses(self.iface)[2][0]['addr']
-        ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
+        ip_range = '.'.join(local_ip.split('.')[:-1] + ['1/24'])
+        print 'starting new nmap scan', ip_range
         try:
             nmap_output = subprocess.check_output(['nmap','-nsP',ip_range]).split('\n')
             s_ip = s_mac = None
@@ -146,7 +147,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         except Exception as e:
             print e
             return
-        
+
     def get_arp(self):
         local_ip = ifaddresses(self.iface)[2][0]['addr']
         ip_range = '.'.join(local_ip.split('.')[:-1] + ['0/24'])
@@ -163,8 +164,7 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
                 else:
                     self.arp_seen.add(s_mac)
                 print "Detected", s_ip, s_mac, self.iface, "via arpscan"
-                dev = util.Device(s_ip, s_mac, None, self.iface)
-                self.discovered_callback(dev)
+                return util.Device(s_ip, s_mac, None, self.iface)
         except subprocess.CalledProcessError:
             print 'Probably an invalid ip_range:',ip_range
             return
@@ -190,15 +190,18 @@ class DhcpSnoopDiscovery(protocol.ProcessProtocol, LineReceiver):
         m = re.match("((\d{1,3}\.){3}\d{1,3}) \(((\w{1,2}:){5}\w{1,2})\) "
                      "> ((\d{1,3}\.){3}\d{1,3}) \(((\w{1,2}:){5}\w{1,2})\)", ipstr)
         if not m: return
+        self.nmap_all()
+        return
+
         g = m.groups(0)
         s_ip, s_mac = g[0], g[2]
         if s_ip == '0.0.0.0':
             print "Detected null source address... arp required?", s_mac
-            self.get_arp()
+            dev = self.get_arp()
         else:
             print "Detected", s_ip, s_mac, hname, self.iface, "via snooping"
             dev = util.Device(s_ip, s_mac, hname, self.iface)
-            self.discovered_callback(dev)
+        self.discovered_callback(dev)
 
 if __name__ == '__main__':
     d = DhcpSnoopDiscovery(lambda x: x, "eth1")

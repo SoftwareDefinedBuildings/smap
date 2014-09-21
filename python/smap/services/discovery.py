@@ -29,6 +29,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+@author Gabe Fierro <gt.fierro@berkeley.edu>
 """
 
 import os
@@ -42,6 +43,7 @@ from twisted.internet import reactor, protocol, defer
 from twisted.internet.utils import getProcessOutputAndValue
 
 from smap.driver import SmapDriver
+from history import Historian
 
 import dhcp
 import util
@@ -70,14 +72,13 @@ class DiscoveryDriver(SmapDriver):
     produces new sMAP config files.
     """
     def setup(self, opts):
-        # self.lease_file = opts.get("lease_file", "/var/lib/dhcp/dhcpd.leases")
         self.config_repo = opts.get("config_repo", '.')
         self.db = {}
         self._driverport = 1234
         self._nmap_path = opts.get('nmap_path','/usr/bin/nmap')
         self._scripts_path = opts.get('scripts_path','scripts')
+        self.historian = Historian('/var/smap','discovery')
         self.discovery_sources = [
-            # dhcp.DhcpTailDiscoverySource(self.update_device, opts.get("syslog", "/var/log/syslog")),
             dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface"), opts.get("dhcpdump_path")),
             ]
     @property
@@ -92,12 +93,18 @@ class DiscoveryDriver(SmapDriver):
         map(operator.methodcaller("stop"), self.discovery_sources)
 
     def update_device(self, dev):
-        if dev.key() in self.db:
-            # print "Device already discovered:", dev
-            dev = self.db[dev.key()]
+        if dev.mac in self.historian.config:
+            # if we've seen it before, check to see if we have the same IP for it as before
+            # if we have the same IP, we skip it
+            # if we have a new IP, remove the old ini and conf files, add the new one, and run 'supervisor update',
+            # which will stop the old process automatically
+            if self.historian[dev.mac]['ip'] == dev.ip:
+                return
+            else:
+                os.remove(self.historian[dev.mac]['conf'])
+                os.remove(self.historian[dev.mac]['ini'])
         else:
-            self.db[dev.key()] = dev
-
+            self.historian.config[dev.mac] = dev.to_json()
         if not dev.last_discovery and not dev.scan_pending:
             dev.scan_pending = True
             print "Scheduling device scan", dev
@@ -105,6 +112,7 @@ class DiscoveryDriver(SmapDriver):
 
     def error(self, *args):
         print 'Error:',args[1].ip, args[1].mac
+        print args
 
     def scan_device(self, dev):
         # if dev.ip != '10.4.10.100': return
@@ -135,12 +143,15 @@ class DiscoveryDriver(SmapDriver):
         return services
 
     def register_services(self, services):
+        print services
         configs = map(self.update_config, services)
         map(self.start_service, services)
 
     def update_config(self, service):
         strname = service.script + "-" + service.dev.ip.replace('.','_')
         path = os.path.join(self.config_repo, strname + '.ini')
+        print self.historian.config
+        self.historian.config[service.dev.mac]['ini'] = path
         print "\tupdating config", path
         with open(path, 'w') as fp:
             print >>fp, """
@@ -156,7 +167,7 @@ ReportDeliveryLocation = http://archiver.cal-sdb.org:9000/data/legacyadd/likeabo
 
 [/]
 uuid = %(uuid)s
-Metadata/SourceName = $(strname)
+Metadata/SourceName = %(strname)s
 
 [server]
 datadir = /tmp
@@ -167,21 +178,6 @@ uuid = %(uuid)s
             for k, v in service.conf.iteritems():
                 print >>fp, k.replace("__", "/"), "=", v
         return path
-
-    def push_config(self, config_file):
-        print "committing changes to", config_file
-        push_script = """
-git add %s;
-git commit -m "Commit by autodiscovery process";
-git push origin master""" % config_file
-        d = getProcessOutputAndValue("/bin/sh", args=["-c", push_script], env={"PATH": "/usr/bin"}, path=self.config_repo)
-        def check_commit((stdout, stderr, code)):
-            if code != 0:
-                print "error: ", stderr
-                # make sure to kill any callback chains
-                raise util.PushError(stderr)
-        d.addCallback(check_commit)
-        return d
 
     def start_service(self, service):
         strname = service.script + "-" + service.dev.ip.replace('.','_')
@@ -204,6 +200,8 @@ git push origin master""" % config_file
         c.set(programname,'stderr_logfile_backups',5)
         filename = '/etc/supervisor/conf.d/{0}.conf'.format(strname)
         c.write(open(filename,'w+'))
+        self.historian.config[service.dev.mac]['conf'] = filename
+        self.historian.save()
         print "starting service", service
         # hot reload of supervisord
         subprocess.check_call(['sudo','supervisorctl','update','-c','/etc/supervisor/supervisord.conf'])

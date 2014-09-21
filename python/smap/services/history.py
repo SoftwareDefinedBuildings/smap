@@ -34,6 +34,9 @@ class Historian(object):
         self.directory = directory
         self.basename = basename
         self.config = {}
+        configpath = os.path.join(self.directory, self.basename+'.json')
+        if os.path.exists(configpath):
+            self.config = json.load(open(configpath))
 
     def _increment_filename(self, filename):
         """
@@ -70,3 +73,9 @@ class Historian(object):
         self._rotate()
         json.dump(config, open(os.path.join(self.directory,self.basename+'.json'),'w+'))
         self.config = config
+
+    def save(self):
+        """
+        Save our own configuration in a new versioned file
+        """
+        self.new_config(self.config)

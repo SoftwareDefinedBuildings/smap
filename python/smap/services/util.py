@@ -50,6 +50,14 @@ class Device(object):
     def __str__(self):
         return self.ip
 
+    def to_json(self):
+        return {'mac': self.mac,
+                'ip': self.ip,
+                'name': self.name,
+                'conf': '',
+                'ini': ''
+                }
+
 class Service(object):
     """Container for something that can be represented as a smap
     service on a device"
