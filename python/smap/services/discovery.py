@@ -84,10 +84,16 @@ class DiscoveryDriver(SmapDriver):
             ]
     @property
     def driverport(self):
-        self._driverport += 1
-        if self._driverport in self._usedports:
-            return self.driverport
-        self._usedports.add(self._driverport)
+        if not self._usedports:
+            self._usedports.add(1234)
+            return 1234
+        p = min(self._usedports)
+        if p == max(self._usedports):
+            s.add(p+1)
+            return p+1
+        while p in self._usedports and p <= max(self._usedports):
+            p += 1
+        self._usedports.add(p)
         return self._driverport
 
     def start(self):
