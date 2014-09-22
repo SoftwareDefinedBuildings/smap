@@ -199,7 +199,7 @@ uuid = %(uuid)s
         c.add_section(programname)
         # use custom port and custom pidfile
         newport = self.driverport
-        c.set(programname,'command','twistd --pidfile=/var/run/smap/{strname}.pid -n smap -p {port} {config_repo}/{strname}.ini'.format(config_repo=self.config_repo, strname=strname, port=newport))
+        c.set(programname,'command','twistd --pidfile=/var/run/{strname}.pid -n smap -p {port} {config_repo}/{strname}.ini'.format(config_repo=self.config_repo, strname=strname, port=newport))
         c.set(programname,'priority',2)
         c.set(programname,'autorestart',True)
         c.set(programname,'user','smap')
