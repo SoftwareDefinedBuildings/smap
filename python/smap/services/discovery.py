@@ -75,6 +75,7 @@ class DiscoveryDriver(SmapDriver):
         self.config_repo = opts.get("config_repo", '.')
         self.db = {}
         self._driverport = 1234
+        self._usedports = set()
         self._nmap_path = opts.get('nmap_path','/usr/bin/nmap')
         self._scripts_path = opts.get('scripts_path','scripts')
         self.historian = Historian('/var/smap','discovery')
@@ -84,6 +85,9 @@ class DiscoveryDriver(SmapDriver):
     @property
     def driverport(self):
         self._driverport += 1
+        if self._driverport in self._usedports:
+            return self.driverport
+        self._usedports.add(self._driverport)
         return self._driverport
 
     def start(self):
@@ -101,8 +105,9 @@ class DiscoveryDriver(SmapDriver):
             if self.historian.config[dev.mac]['ip'] == dev.ip:
                 return
             else:
-                os.remove(self.historian[dev.mac]['conf'])
-                os.remove(self.historian[dev.mac]['ini'])
+                self._usedports.remove(self.historian.config[dev.mac]['port'])
+                os.remove(self.historian.config[dev.mac]['conf'])
+                os.remove(self.historian.config[dev.mac]['ini'])
         else:
             self.historian.config[dev.mac] = dev.to_json()
         if not dev.last_discovery and not dev.scan_pending:
@@ -124,7 +129,6 @@ class DiscoveryDriver(SmapDriver):
         d.addCallback(self.register_services)
 
     def process_scan_results(self, root, dev):
-        # root.find('host')
         services = []
         print "device scan of", dev.ip, "complete ...",
         host = root.find("host") if root else None
@@ -188,7 +192,8 @@ uuid = %(uuid)s
         # add new section
         c.add_section(programname)
         # use custom port and custom pidfile
-        c.set(programname,'command','twistd --pidfile=/var/run/smap/{strname}.pid -n smap -p {port} {config_repo}/{strname}.ini'.format(config_repo=self.config_repo, strname=strname, port=self.driverport))
+        newport = self.driverport
+        c.set(programname,'command','twistd --pidfile=/var/run/smap/{strname}.pid -n smap -p {port} {config_repo}/{strname}.ini'.format(config_repo=self.config_repo, strname=strname, port=newport))
         c.set(programname,'priority',2)
         c.set(programname,'autorestart',True)
         c.set(programname,'user','smap')
@@ -201,6 +206,7 @@ uuid = %(uuid)s
         filename = '/etc/supervisor/conf.d/{0}.conf'.format(strname)
         c.write(open(filename,'w+'))
         self.historian.config[service.dev.mac]['conf'] = filename
+        self.historian.config[service.dev.mac]['port'] = newport
         self.historian.save()
         print "starting service", service
         # hot reload of supervisord
