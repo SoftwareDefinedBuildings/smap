@@ -104,12 +104,13 @@ $ sudo apt-get install -y python-smap readingdb powerdb2
 </pre>
 
 The <b>powerdb2</b> installation will ask you to create a superuser near the end of the installation process; remember the username and password you
-input here! After the packages are installed, you can navigate to <a href="http://localhost/admin">http://localhost/admin</a>, login with
+input here! After the packages are installed, the plotting interface will be available at <a href="http://localhost">http://localhost</a>.
+To publish to the archiver, navigate to <a href="http://localhost/admin">http://localhost/admin</a>, login with
 the superuser you configured, and create a Subscription Key. You can now report to this archiver by including the following in your .ini files:
 
 <pre>
 [report 0]
-ReportDeliveryLocation = http://localhost:8079/add/<subscription key here>
+ReportDeliveryLocation = http://localhost:8079/add/%lt;subscription key here%gt;
 </pre>
 
 <h2><a name="build-status" class="anchor" href="#build-status"><span class="octicon octicon-link"></span></a>Build status</h2>
