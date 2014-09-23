@@ -91,6 +91,26 @@ $ sudo pip install -e .
 </pre>
 </p>
 
+<h3>Installing the sMAP Archiver</h3>
+
+<p>
+There are two different sMAP archivers -- one for the <b>unitoftime</b> branch and one for <b>master</b>. We have optimized the installation
+process for the <b>unitoftime</b> archiver, assuming you are running Ubuntu 14.04 or 14.04.1
+</p>
+<pre>
+$ sudo add-apt-repository ppa:cal-sdb/smap
+$ sudo apt-get update
+$ sudo apt-get install -y python-smap readingdb powerdb2
+</pre>
+
+The <b>powerdb2</b> installation will ask you to create a superuser near the end of the installation process; remember the username and password you
+input here! After the packages are installed, you can navigate to <a href="http://localhost/admin">http://localhost/admin</a>, login with
+the superuser you configured, and create a Subscription Key. You can now report to this archiver by including the following in your .ini files:
+
+<pre>
+[report 0]
+ReportDeliveryLocation = http://localhost:8079/add/<subscription key here>
+</pre>
 
 <h2><a name="build-status" class="anchor" href="#build-status"><span class="octicon octicon-link"></span></a>Build status</h2>
 <p><a href="https://travis-ci.org/SoftwareDefinedBuildings/smap"><img src="https://travis-ci.org/SoftwareDefinedBuildings/smap.svg?branch=master" alt="Build Status"></a></p>
