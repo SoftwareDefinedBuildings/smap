@@ -29,6 +29,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 @author Tyler Hoyt <thoyt@berkeley.edu>
 """
+"""
+This driver writes directly to the CT80, with all the quirks in its API. For a more thorough description,
+look at ct80.py in this same folder
+"""
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
