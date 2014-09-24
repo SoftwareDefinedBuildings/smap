@@ -122,7 +122,7 @@ class CT80(SmapDriver):
         vals = json.loads(r.text)
 
         for p in self.points:
-            if p['name'] not in vals: # sometimes the ct80 hiccups and doesn't give data
+            if p['name'] not in vals or p['name'] in ['t_heat','t_cool']: # sometimes the ct80 hiccups and doesn't give data OR the mode limits what we see
                 continue
             if type(vals[p['name']]) not in [int, float]:
                 return
@@ -131,6 +131,8 @@ class CT80(SmapDriver):
         # check which setpoint to write: if current temp is closer to heating setpoing,
         # set t_heat, else set t_cool
         if self._setpoints['t_heat'] is not None and self._setpoints['t_cool'] is not None:
+            self.add('/temp_heat', self._setpoints['t_heat'])
+            self.add('/temp_cool', self._setpoints['t_cool'])
             if abs(self._setpoints['t_heat'] - vals['temp']) < abs(self._setpoints['t_cool'] - vals['temp']):
                 print 'Writing temp_heat', self._setpoints['t_heat']
                 self._sp_actuators['temp_heat'].set_state(None, self._setpoints['t_heat'])
