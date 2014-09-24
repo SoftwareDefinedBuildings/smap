@@ -65,7 +65,7 @@ class CT80(SmapDriver):
         self.actuators = [
             {"name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
             {"name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
-            {"name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
+            {"name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1,2,3]},
             {"name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
             {"name": "override", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
             {"name": "hold", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
@@ -94,19 +94,20 @@ class CT80(SmapDriver):
         self.add_timeseries('/humidity', '%RH', data_type="double")
 
         
-        setup = {'ip': self.ip}
         for a in self.actuators:
+            setup = {'ip': self.ip}
             setup["name"] = a["name"]
             if a["act_type"] == "discrete":
                 setup["states"] = a["states"]
                 act = DiscreteActuator(**setup)
+                ts[a['name']].add_actuator(act)
             elif a["act_type"] == "continuous":
                 setup["range"] = a["range"]
                 act = ContinuousActuator(**setup)
+                ts[a['name']].add_actuator(act)
             else:
                 print 'invalid actuator type'
                 continue
-            ts[a['name']].add_actuator(act)
 
         # setup metadata for each timeseries
         metadata_type = [
@@ -149,7 +150,7 @@ class CT80(SmapDriver):
         val = json.loads(r.text)
         self.add('/humidity', val['humidity'])
 
-class _CT80Actuator(actuate.ContinuousActuator):
+class _CT80Actuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.ip = opts.get('ip', None)
         self.name = opts.get('name', None)
