@@ -89,7 +89,7 @@ class DiscoveryDriver(SmapDriver):
             return 1234
         p = min(self._usedports)
         if p == max(self._usedports):
-            s.add(p+1)
+            self._usedports.add(p+1)
             return p+1
         while p in self._usedports and p <= max(self._usedports):
             p += 1
