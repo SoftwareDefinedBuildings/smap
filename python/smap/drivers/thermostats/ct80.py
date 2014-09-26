@@ -59,7 +59,7 @@ class CT80(SmapDriver):
                            't_cool': None}
         self._sp_actuators = {'temp_heat': None,
                               'temp_cool': None}
-    
+
         # driver-specific metadata
         self.set_metadata('/', {'Metadata/Device': 'Thermostat',
                                 'Metadata/Model': 'CT80 RTA',
@@ -139,7 +139,11 @@ class CT80(SmapDriver):
             else:
                 print 'Writing temp_cool', self._setpoints['t_cool']
                 self._sp_actuators['temp_cool'].set_state(None, self._setpoints['t_cool'])
-            
+        else: # publish the current t_heat, t_cool of the thermostat
+            if 't_heat' in vals:
+                self.add('/temp_heat', vals['t_heat'])
+            if 't_cool' in vals:
+                self.add('/temp_cool', vals['t_cool'])
 
         r = requests.get(url + '/humidity')
         val = json.loads(r.text)
