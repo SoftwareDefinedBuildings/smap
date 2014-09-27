@@ -35,6 +35,7 @@ from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 import requests
+from requests.exceptions import ConnectionError
 import json
 from smap import actuate
 import time
@@ -115,11 +116,18 @@ class CT80(SmapDriver):
 
     def read(self):
         url = 'http://' + self.ip + "/tstat"
-        r = requests.get(url)
+        try:
+            r = requests.get(url)
+        except ConnectionError as e:
+            print 'error connecting',e
+            return
         if not r.ok:
             print 'got status code',r.status_code,'from api'
             return
         vals = json.loads(r.text)
+
+        if 't_heat' not in self.points and 't_cool' not in vals: # hiccup
+            return
 
         for p in self.points:
             if p['name'] not in vals or p['name'] in ['t_heat','t_cool']: # sometimes the ct80 hiccups and doesn't give data OR the mode limits what we see
