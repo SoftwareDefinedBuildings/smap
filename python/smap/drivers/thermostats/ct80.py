@@ -174,7 +174,6 @@ class _CT80Actuator(actuate.SmapActuator):
         # don't actuate the CT80. To write temp_heat or temp_cool to the CT80,
         # we have to have request == None
         if request and self.name in ['t_heat','t_cool']:
-            print 'caching',self.name,state
             self.driver._setpoints[self.name] = state
             return
         payload = '{"' + self.name + '": ' + str(state) + '}'
