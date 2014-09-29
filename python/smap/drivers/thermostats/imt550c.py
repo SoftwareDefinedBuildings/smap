@@ -34,6 +34,7 @@ from smap import actuate, driver
 from smap.util import periodicSequentialCall
 from smap.contrib import dtutil
 from requests.auth import HTTPDigestAuth
+from requests.exceptions import ConnectionError
 import json
 import time
 
@@ -154,9 +155,14 @@ class IMT550C(driver.SmapDriver):
     def read(self):
         for p in self.points0:
             url = 'http://%s/get?OID%s' % (self.ip, p["OID"])
-            r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password))
-            if not r.ok:
-                break
+            try:
+                r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password))
+                if not r.ok:
+                    print 'got status code',r.status_code,'from api'
+                    return
+            except ConnectionError as e:
+                print 'error connecting',e
+                return
             val = r.text.split('=', 1)[-1]
             if p["data_type"] == "long":
                 self.add("/" + p["name"], p['devtosmap'](long(val)))
