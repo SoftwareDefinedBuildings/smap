@@ -82,7 +82,7 @@ class Eagle(SmapDriver):
             fdemand *= self.multiplier
             self.add('/demand', fdemand)
             print 'demand:', fdemand, 'kW'
-        except AttributeError:
+        except ZeroDivisionError, AttributeError:
             pass
        
         # add summation readings
