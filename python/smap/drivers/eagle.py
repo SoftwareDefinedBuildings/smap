@@ -61,13 +61,18 @@ class Eagle(SmapDriver):
         periodicSequentialCall(self.read).start(self.rate)
 
     def read(self):
-        xml = self.get_device_data(self.device['DeviceMacId'])
-        # wrap in root element since response aint valid xml!
-        xml = "<xml>\n" + xml + "\n</xml>"
-        root = ET.fromstring(xml)
+        try:
+            xml = self.get_device_data(self.device['DeviceMacId'])
+            # wrap in root element since response aint valid xml!
+            xml = "<xml>\n" + xml + "\n</xml>"
+            root = ET.fromstring(xml)
         
-        # add demand reading
-        ID = root.find('InstantaneousDemand')
+            # add demand reading
+            ID = root.find('InstantaneousDemand')
+        except Exception as e:
+            print e
+            return
+
         try:
             timestamp = int(ID.find('TimeStamp').text, 16)
             demand = int(ID.find('Demand').text, 16)
@@ -112,6 +117,7 @@ class Eagle(SmapDriver):
 
     def list_devices(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
         s.connect((self.url, 5002))
         time.sleep(1)
 
@@ -122,6 +128,7 @@ class Eagle(SmapDriver):
 
     def get_device_data(self, mac_id):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
         s.connect((self.url, 5002))
         time.sleep(1)
 
