@@ -56,6 +56,9 @@ class Eagle(SmapDriver):
             { 'Instrument/ModelId': self.device['ModelId'],
               'Instrument/MacId': self.device['DeviceMacId'], 
               'Instrument/Manufacturer': self.device['Manufacturer'] })
+        self.set_metadata('/', {'Metadata/Device': 'Energy Meter',
+                                'Metadata/Model': 'Rainforest Eagle',
+                                'Metadata/Driver': __name__})
             
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
