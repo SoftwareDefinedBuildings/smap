@@ -43,7 +43,7 @@ from twisted.internet import threads
 class IMT550C(driver.SmapDriver):
     def setup(self, opts):
         self.tz = opts.get('Metadata/Timezone', None)
-        self.rate = float(opts.get('Rate', 5))
+        self.rate = float(opts.get('rate', 5))
         self.ip = opts.get('ip', None)
         self.user = opts.get('user', None)
         self.password = opts.get('password', None)
@@ -159,15 +159,17 @@ class IMT550C(driver.SmapDriver):
                 r = requests.get(url, auth=HTTPDigestAuth(self.user, self.password))
                 if not r.ok:
                     print 'got status code',r.status_code,'from api'
+                    time.sleep(10)
                     return
-            except ConnectionError as e:
+                val = r.text.split('=', 1)[-1]
+                if p["data_type"] == "long":
+                    self.add("/" + p["name"], p['devtosmap'](long(val)))
+                else:
+                    self.add("/" + p["name"], p['devtosmap'](float(val)))
+            except Exception as e:
                 print 'error connecting',e
+                time.sleep(10)
                 return
-            val = r.text.split('=', 1)[-1]
-            if p["data_type"] == "long":
-                self.add("/" + p["name"], p['devtosmap'](long(val)))
-            else:
-                self.add("/" + p["name"], p['devtosmap'](float(val)))
 
 class ThermoActuator(actuate.SmapActuator):
 
