@@ -162,6 +162,10 @@ class IMT550C(driver.SmapDriver):
                     time.sleep(10)
                     return
                 val = r.text.split('=', 1)[-1]
+                # when the thermostat reboots, sometimes we get extraneous readings
+                if abs(int(val)) > 20000:
+                    time.sleep(10)
+                    return
                 if p["data_type"] == "long":
                     self.add("/" + p["name"], p['devtosmap'](long(val)))
                 else:
