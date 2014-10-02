@@ -93,7 +93,7 @@ class Actuator(actuate.SmapActuator):
 
 class BinaryActuator(Actuator, actuate.BinaryActuator):
     def __init__(self, **opts):
-        actuate.ContinuousIntegerActuator.__init__(self)
+        actuate.BinaryActuator.__init__(self)
         Actuator.__init__(self, **opts)
 
     def get_state(self, request):
