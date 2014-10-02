@@ -48,10 +48,20 @@ class Enlighted(driver.SmapDriver):
             self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
             self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
 
-            ts = self.add_timeseries('/sensor_%s/dim_level' % sensor_id, '%', data_type="long")
-            setup = {'ip': self.ip, 'sensor_id': sensor_id, 'range': [0,100], 'api': self.api}
-            act = ContinuousIntegerActuator(**setup)
-            ts.add_actuator(act)
+            bri = self.add_timeseries('/sensor_%s/bri' % sensor_id, '%', data_type="long")
+            bri.add_actuator(ContinuousIntegerActuator(ip=self.ip, sensor_id=sensor_id, range=[0,100], api=self.api))
+            self.set_metadata('/sensor_%s/bri' % sensor_id, {'Metadata/Type': 'Reading'})
+            self.set_metadata('/sensor_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command'})
+
+            on = self.add_timeseries('/sensor_%s/on' % sensor_id, '%', data_type="long")
+            self.set_metadata('/sensor_%s/on' % sensor_id, {'Metadata/Type': 'Reading'})
+            self.set_metadata('/sensor_%s/on_act' % sensor_id, {'Metadata/Type': 'Command'})
+            on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api))
+
+        # driver-specific metadata
+        self.set_metadata('/', {'Metadata/Device': 'Light Controller',
+                                'Metadata/Model': 'Enlighted',
+                                'Metadata/Driver': __name__})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.rate)
@@ -59,8 +69,9 @@ class Enlighted(driver.SmapDriver):
     def read(self):
         for sensor_id in self.sensor_ids:
             try:
-                self.add('/sensor_%s/dim_level' % sensor_id,
-                    self.api.getSensorDimLevel(sensor_id))
+                dimlevel = self.api.getSensorDimLevel(sensor_id)
+                self.add('/sensor_%s/bri' % sensor_id, dimlevel)
+                self.add('/sensor_%s/on' % sensor_id, int(dimlevel > 1))
                 self.add('/sensor_%s/occupancy_status' % sensor_id,
                     self.api.getSensorOccupancyStatus(sensor_id))
                 self.add('/sensor_%s/time_since_last_occupancy' % sensor_id,
@@ -80,10 +91,28 @@ class Actuator(actuate.SmapActuator):
     def set_state(self, request, state):
         return self.api.setSensorDimLevel(self.sensor_id, state, 10000)
 
+class BinaryActuator(Actuator, actuate.BinaryActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousIntegerActuator.__init__(self)
+        Actuator.__init__(self, **opts)
+
+    def get_state(self, request):
+        return int(self.api.getSensorDimLevel(self.sensor_id) > 1)
+
+    def set_state(self, request, state):
+        # state = 0,1, so we set brightness to 0 or 100
+        return self.api.setSensorDimLevel(self.sensor_id, state*100, 10000)
+
 class ContinuousIntegerActuator(Actuator, actuate.ContinuousIntegerActuator):
     def __init__(self, **opts):
         actuate.ContinuousIntegerActuator.__init__(self, opts["range"])
         Actuator.__init__(self, **opts)
+
+    def get_state(self, request):
+        return self.api.getSensorDimLevel(self.sensor_id)
+
+    def set_state(self, request, state):
+        return self.api.setSensorDimLevel(self.sensor_id, state, 10000)
 
 class EnlightedAPI(object):
     def __init__(self, ip, auth=None):
