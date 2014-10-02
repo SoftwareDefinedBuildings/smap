@@ -8,7 +8,8 @@ from smap.contrib import dtutil
 class Scheduler(SmapDriver):
     def setup(self, opts):
         self.schedule = self.load_schedule(opts.get('source'))
-        self.rate = float(opts.get('rate', 1))
+        self.pollrate = float(opts.get('pollrate', 1))
+        self.publishrate = float(opts.get('publishrate', 300))
         self.day_map = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
         self.previous_period = None
         self.changed = False
@@ -19,7 +20,10 @@ class Scheduler(SmapDriver):
         self.is_mongo = urlparse.urlparse(opts.get('source')).scheme == 'mongodb'
 
     def start(self):
-        periodicSequentialCall(self.read).start(self.rate)
+        periodicSequentialCall(self.read).start(self.pollrate)
+        if self.publishrate:
+            periodicSequentialCall(self.publish).start(self.publishrate)
+
 
     def read(self):
         master_sched = self.master_schedule
@@ -44,13 +48,20 @@ class Scheduler(SmapDriver):
                     temp_latest = start
             current_period['_done'] = False
 
-        schedule_points = current_period['points']
+        self.schedule_points = current_period['points']
         if self.changed:
-            for sp in schedule_points:
+            for sp in self.schedule_points:
                 print 'SCHEDULE',sp['path'],sp['value']
                 self.add('/'+sp['path'], int(sp['value']))
         else:
-            print schedule_points
+            print self.schedule_points
+
+    def publish(self):
+        if self.schedule_points:
+            for sp in self.schedule_points:
+                print 'regular publish SCHEDULE',sp['path'],sp['value']
+                self.add('/'+sp['path'], int(sp['value']))
+
 
     def get_schedule(self, sched_type):
         if self.is_mongo:

@@ -48,8 +48,11 @@ class ZoneController(SmapDriver):
             map(lambda x: x.close(), self.repubclients[point])
 
     def _step(self):
-        self.points = {k: v for k,v in self.points.iteritems() if v is not None}
-        self.step()
+        try:
+            self.points = {k: v for k,v in self.points.iteritems() if v is not None}
+            self.step()
+        except KeyError as e:
+            print "Not published yet!", e
 
     def set_name(self, name):
         self.set_metadata('/',{'Metadata/Name': str(name)})
