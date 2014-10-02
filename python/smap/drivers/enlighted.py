@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -42,12 +42,12 @@ class Enlighted(driver.SmapDriver):
         self.username = opts.get('username')
         self.password = opts.get('password')
         self.api = EnlightedAPI(self.ip, auth=(self.username, self.password))
-        # Todo: how to get the sensor and zone metadata automatically? 
+        # Todo: how to get the sensor and zone metadata automatically?
         self.sensor_ids = opts.get('sensors')
         for sensor_id in self.sensor_ids:
             self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
             self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
-            
+
             ts = self.add_timeseries('/sensor_%s/dim_level' % sensor_id, '%', data_type="long")
             setup = {'ip': self.ip, 'sensor_id': sensor_id, 'range': [0,100], 'api': self.api}
             act = ContinuousIntegerActuator(**setup)
@@ -58,13 +58,16 @@ class Enlighted(driver.SmapDriver):
 
     def read(self):
         for sensor_id in self.sensor_ids:
-            self.add('/sensor_%s/dim_level' % sensor_id, 
-                self.api.getSensorDimLevel(sensor_id))
-            self.add('/sensor_%s/occupancy_status' % sensor_id, 
-                self.api.getSensorOccupancyStatus(sensor_id))
-            self.add('/sensor_%s/time_since_last_occupancy' % sensor_id, 
-                self.api.getSensorLastOccupancySeen(sensor_id))
-    
+            try:
+                self.add('/sensor_%s/dim_level' % sensor_id,
+                    self.api.getSensorDimLevel(sensor_id))
+                self.add('/sensor_%s/occupancy_status' % sensor_id,
+                    self.api.getSensorOccupancyStatus(sensor_id))
+                self.add('/sensor_%s/time_since_last_occupancy' % sensor_id,
+                    self.api.getSensorLastOccupancySeen(sensor_id))
+            except Exception as e:
+                print 'ERR',e
+
 class Actuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.ip = opts['ip']
@@ -89,7 +92,7 @@ class EnlightedAPI(object):
         self.session.headers.update({'Content-Type':'application/xml'})
         self.session.verify = False
         self.session.auth = auth
-       
+
     def parse(self, msg):
         rv = {}
         root = ET.fromstring(msg)
