@@ -55,6 +55,9 @@ class CT80(SmapDriver):
     def setup(self, opts):
         self.tz = opts.get('Timezone', 'America/Los_Angeles')
         self.rate = float(opts.get('Rate', 5))
+        self.archiver = opts.get('archiver','http://localhost:8079')
+        self._temp_heat_subscription = opts.get('temp_heat','')
+        self._temp_cool_subscription = opts.get('temp_cool','')
         self.ip = opts.get('ip', None)
         self._setpoints = {'t_heat': None,
                            't_cool': None}
@@ -79,13 +82,13 @@ class CT80(SmapDriver):
                         {"smapname": "program_mode", "name": "program_mode", "unit": "Mode", "data_type": "long"}
                       ]
         self.actuators = [
-            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
-            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100)},
-            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1,2,3]},
-            {"smapname": "fan_mode", "name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
-            {"smapname": "override", "name": "override", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
-            {"smapname": "hold", "name": "hold", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1]},
-            {"smapname": "program_mode", "name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1]},
+            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_heat_subscribe},
+            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_cool_subscribe},
+            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1,2,3], "subscribe":""},
+            {"smapname": "fan_mode", "name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
+            {"smapname": "override", "name": "override", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
+            {"smapname": "hold", "name": "hold", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
+            {"smapname": "program_mode", "name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1], "subscribe":""},
           ]
 
         ts = {}
@@ -99,6 +102,8 @@ class CT80(SmapDriver):
         # instantiate actuators
         for a in self.actuators:
             setup = {'ip': self.ip, 'driver': self, 'name': a['name']}
+            if a['subscribe']:
+                setup['subscribe'] = a['subscribe'] # skip empty subscriptions
             if a["act_type"] == "discrete":
                 setup["states"] = a["states"]
                 act = DiscreteActuator(**setup)
