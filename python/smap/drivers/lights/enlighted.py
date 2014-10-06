@@ -46,17 +46,18 @@ class Enlighted(driver.SmapDriver):
         self.sensor_ids = opts.get('sensors')
         for sensor_id in self.sensor_ids:
             self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
+            self.set_metadata('/sensor_%s/occupancy_status', {'Metadata/Sensor': 'Occupancy'})
             self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
 
-            bri = self.add_timeseries('/sensor_%s/bri' % sensor_id, '%', data_type="long")
+            bri = self.add_timeseries('/light_%s/bri' % sensor_id, '%', data_type="long")
             bri.add_actuator(ContinuousIntegerActuator(ip=self.ip, sensor_id=sensor_id, range=[0,100], api=self.api))
-            self.set_metadata('/sensor_%s/bri' % sensor_id, {'Metadata/Type': 'Reading'})
-            self.set_metadata('/sensor_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command'})
+            self.set_metadata('/light_%s/bri' % sensor_id, {'Metadata/Type': 'Reading'})
+            self.set_metadata('/light_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command'})
 
             on = self.add_timeseries('/sensor_%s/on' % sensor_id, '%', data_type="long")
             on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api))
-            self.set_metadata('/sensor_%s/on' % sensor_id, {'Metadata/Type': 'Reading'})
-            self.set_metadata('/sensor_%s/on_act' % sensor_id, {'Metadata/Type': 'Command'})
+            self.set_metadata('/light_%s/on' % sensor_id, {'Metadata/Type': 'Reading'})
+            self.set_metadata('/light_%s/on_act' % sensor_id, {'Metadata/Type': 'Command'})
 
         # driver-specific metadata
         self.set_metadata('/', {'Metadata/Device': 'Light Controller',
@@ -70,8 +71,8 @@ class Enlighted(driver.SmapDriver):
         for sensor_id in self.sensor_ids:
             try:
                 dimlevel = self.api.getSensorDimLevel(sensor_id)
-                self.add('/sensor_%s/bri' % sensor_id, dimlevel)
-                self.add('/sensor_%s/on' % sensor_id, int(dimlevel > 1))
+                self.add('/light_%s/bri' % sensor_id, dimlevel)
+                self.add('/light_%s/on' % sensor_id, int(dimlevel > 1))
                 self.add('/sensor_%s/occupancy_status' % sensor_id,
                     self.api.getSensorOccupancyStatus(sensor_id))
                 self.add('/sensor_%s/time_since_last_occupancy' % sensor_id,
