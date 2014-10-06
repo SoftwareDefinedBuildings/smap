@@ -99,6 +99,9 @@ class CT80(SmapDriver):
         # points not in the root resource
         self.add_timeseries('/humidity', '%RH', data_type="double")
 
+        # set timeseries-specific metadata
+        self.set_metadata('/temp', {'Metadata/Sensor': 'Temperature'})
+
         # instantiate actuators
         for a in self.actuators:
             setup = {'ip': self.ip, 'driver': self, 'name': a['name']}

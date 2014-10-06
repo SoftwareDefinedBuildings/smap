@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -89,7 +89,7 @@ class IMT550C(driver.SmapDriver):
                             "range": [0,1], "access": 6,
                             "devtosmap": lambda x: {1:0, 3:1, 2:0}[x],
                             "smaptodev": lambda x: {0:1, 1:3}[x],
-                            "act_type": "discrete"}, # hold/override                          
+                            "act_type": "discrete"}, # hold/override
                           {"name": "hvac_mode", "unit": "Mode", "data_type": "long",
                             "OID": "4.1.1", "range": [0,1,2,3],
                             "access": 6,
@@ -143,6 +143,9 @@ class IMT550C(driver.SmapDriver):
             ]
         for ts, tstype in metadata_type:
             self.set_metadata(ts,{'Metadata/Type':tstype})
+
+        self.set_metadata('/temp', {'Metadata/Sensor': 'Temperature'})
+        self.set_metadata('/humidity', {'Metadata/Sensor': 'Humidity'})
 
         self.set_metadata('/', {'Metadata/Device': 'Thermostat',
                                 'Metadata/Model': 'IMT550C',

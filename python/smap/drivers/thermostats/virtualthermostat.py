@@ -16,7 +16,9 @@ class VirtualThermostat(driver.SmapDriver):
 
         self.readperiod = float(opts.get('ReadPeriod',.5))
         self.add_timeseries('/temp', 'F', data_type='long') 
+        self.set_metadata('/tmp',{'Metadata/Sensor': 'Temperature'})
         self.add_timeseries('/humidity', '%RH', data_type='long') 
+        self.set_metadata('/tmp',{'Metadata/Sensor': 'Humidity'})
         self.add_timeseries('/hvac_state', 'Mode', data_type='long') 
         temp_heat = self.add_timeseries('/temp_heat', 'F', data_type='long') 
         temp_cool = self.add_timeseries('/temp_cool', 'F', data_type='long') 
