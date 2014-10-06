@@ -54,6 +54,8 @@ class VirtualThermostat(driver.SmapDriver):
             ]
         for ts, tstype in metadata_type:
             self.set_metadata(ts,{'Metadata/Type':tstype})
+        self.set_metadata('/temp', {'Metadata/Sensor': 'Temperature'})
+        self.set_metadata('/humidity', {'Metadata/Sensor': 'Humidity'})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)

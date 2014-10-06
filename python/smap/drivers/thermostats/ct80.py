@@ -101,6 +101,7 @@ class CT80(SmapDriver):
 
         # set timeseries-specific metadata
         self.set_metadata('/temp', {'Metadata/Sensor': 'Temperature'})
+        self.set_metadata('/humidity', {'Metadata/Sensor': 'Humidity'})
 
         # instantiate actuators
         for a in self.actuators:
