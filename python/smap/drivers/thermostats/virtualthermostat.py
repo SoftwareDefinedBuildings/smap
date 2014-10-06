@@ -16,9 +16,9 @@ class VirtualThermostat(driver.SmapDriver):
 
         self.readperiod = float(opts.get('ReadPeriod',.5))
         self.add_timeseries('/temp', 'F', data_type='long') 
-        self.set_metadata('/tmp',{'Metadata/Sensor': 'Temperature'})
+        self.set_metadata('/temp',{'Metadata/Sensor': 'Temperature'})
         self.add_timeseries('/humidity', '%RH', data_type='long') 
-        self.set_metadata('/tmp',{'Metadata/Sensor': 'Humidity'})
+        self.set_metadata('/humidity',{'Metadata/Sensor': 'Humidity'})
         self.add_timeseries('/hvac_state', 'Mode', data_type='long') 
         temp_heat = self.add_timeseries('/temp_heat', 'F', data_type='long') 
         temp_cool = self.add_timeseries('/temp_cool', 'F', data_type='long') 
@@ -54,8 +54,6 @@ class VirtualThermostat(driver.SmapDriver):
             ]
         for ts, tstype in metadata_type:
             self.set_metadata(ts,{'Metadata/Type':tstype})
-        self.set_metadata('/temp', {'Metadata/Sensor': 'Temperature'})
-        self.set_metadata('/humidity', {'Metadata/Sensor': 'Humidity'})
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
