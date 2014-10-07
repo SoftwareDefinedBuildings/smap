@@ -54,7 +54,7 @@ class Enlighted(driver.SmapDriver):
             self.set_metadata('/light_%s/bri' % sensor_id, {'Metadata/Type': 'Reading'})
             self.set_metadata('/light_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command'})
 
-            on = self.add_timeseries('/sensor_%s/on' % sensor_id, '%', data_type="long")
+            on = self.add_timeseries('/light_%s/on' % sensor_id, '%', data_type="long")
             on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api))
             self.set_metadata('/light_%s/on' % sensor_id, {'Metadata/Type': 'Reading'})
             self.set_metadata('/light_%s/on_act' % sensor_id, {'Metadata/Type': 'Command'})
