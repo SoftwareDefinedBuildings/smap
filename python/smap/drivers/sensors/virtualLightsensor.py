@@ -7,6 +7,7 @@ class VirtualLightSensor(driver.SmapDriver):
         self.luxreading = float(opts.get('initiallux',40))
         self.rate = float(opts.get('rate','1'))
         self.add_timeseries('/illumination','Lx', data_type='double')
+        self.set_metadata('/illumination',{'Metadata/Sensor': 'Illumination'})
 
         self.set_metadata('/', {'Metadata/Device': 'Illumination Sensor',
                                 'Metadata/Model': 'Virtual Light Sensor',
