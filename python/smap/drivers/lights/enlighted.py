@@ -46,18 +46,18 @@ class Enlighted(driver.SmapDriver):
         self.sensor_ids = opts.get('sensors')
         for sensor_id in self.sensor_ids:
             self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
-            self.set_metadata('/sensor_%s/occupancy_status' % sensor_id, {'Metadata/Sensor': 'Occupancy'})
+            self.set_metadata('/sensor_%s/occupancy_status' % sensor_id, {'Metadata/Sensor': 'Occupancy', 'Metadata/System': 'Monitoring'})
             self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
 
             bri = self.add_timeseries('/light_%s/bri' % sensor_id, '%', data_type="long")
             bri.add_actuator(ContinuousIntegerActuator(ip=self.ip, sensor_id=sensor_id, range=[0,100], api=self.api))
-            self.set_metadata('/light_%s/bri' % sensor_id, {'Metadata/Type': 'Reading'})
-            self.set_metadata('/light_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command'})
+            self.set_metadata('/light_%s/bri' % sensor_id, {'Metadata/Type': 'Reading', 'Metadata/System': 'Lighting'})
+            self.set_metadata('/light_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command', 'Metadata/System': 'Lighting'})
 
             on = self.add_timeseries('/light_%s/on' % sensor_id, '%', data_type="long")
             on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api))
-            self.set_metadata('/light_%s/on' % sensor_id, {'Metadata/Type': 'Reading'})
-            self.set_metadata('/light_%s/on_act' % sensor_id, {'Metadata/Type': 'Command'})
+            self.set_metadata('/light_%s/on' % sensor_id, {'Metadata/Type': 'Reading', 'Metadata/System': 'Lighting'})
+            self.set_metadata('/light_%s/on_act' % sensor_id, {'Metadata/Type': 'Command', 'Metadata/System': 'Lighting'})
 
         # driver-specific metadata
         self.set_metadata('/', {'Metadata/Device': 'Light Controller',
