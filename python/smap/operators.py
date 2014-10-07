@@ -79,6 +79,7 @@ class Operator(object):
     required_tags = set(['uuid'])
     optional_tags = set([])
     block_streaming = False
+    varardic = False
 
     def __init__(self, inputs, 
                  outputs=OP_N_TO_1, 
@@ -158,6 +159,12 @@ class Operator(object):
 
     def __str__(self):
         return self.name
+
+    def sketch(self):
+        """Return a sketch definition that can be passed to readingdb,
+        if available.
+        """
+        return None
 
 class OperatorDriver(driver.SmapDriver):
     """Base class for code which wants to process single streams.

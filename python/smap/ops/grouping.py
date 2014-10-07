@@ -36,6 +36,7 @@ import operator
 import numpy as np
 import time
 import bisect
+import re
 
 from scipy.interpolate import UnivariateSpline
 from twisted.python import log
@@ -343,6 +344,10 @@ class GroupByDatetimeField(Operator):
         # now we have to insert nans to indicate missing data so the
         # rows from all streams are aligned.
         return join_union(rv)
+
+    def sketch(self):
+        return (re.sub('\(.*$', '', self.ops[0].name), 
+                int(self.bin_width.total_seconds()))
         
 class InterpolateOperator(Operator):
     """ Interpolation operator built on top of scipy/numpy interpolation
@@ -509,7 +514,7 @@ class GroupByTagOperator(Operator):
         return util.flatten(rv)
 
 class _OrderedOperator(Operator):
-    def __init__(self, inputs, sort=None, reverse=False):
+    def __init__(self, inputs, sort=None, reverse=False, label=None):
         # set default sort differently for the different methods
         if sort:
             keys = zip(map(lambda x: x.get(sort, ''), inputs), range(0, len(inputs)))
@@ -523,6 +528,8 @@ class _OrderedOperator(Operator):
         Operator.__init__(self, inputs)
         if sort and sort != 'uuid':
             self.outputs[0][sort] = ','.join(map(operator.itemgetter(0), keys))
+        if label and label != 'uuid':
+            self.outputs[0][label] = ','.join(map(lambda x: x.get(label, ''), inputs))
 
     def process(self, data):
         if not self.order:
@@ -540,6 +547,9 @@ class PasteOperator(_OrderedOperator):
  sort='uuid': specify a tag name whose value will be used to determine
     what order the columns in the matrix will be performed in.
  reverse=False: reverse the sorted order.
+ label=None: specify an additional tag name for labeling.  The value
+    of this tag on output streams will be the comma-separated
+    concatenation of the value of that tag on the input streams.
 
     The resulting matix has the columns of inputs joined on timestamp
     -- each row corresponds to a timestamp in one or more of the
@@ -550,8 +560,8 @@ class PasteOperator(_OrderedOperator):
     operator_name = "paste"
     operator_constructors = [()]
 
-    def __init__(self, inputs, sort='uuid', reverse=False):
-        return _OrderedOperator.__init__(self, inputs, sort=sort, reverse=reverse)
+    def __init__(self, inputs, sort='uuid', reverse=False, label=None):
+        return _OrderedOperator.__init__(self, inputs, sort=sort, reverse=reverse, label=label)
 
     def _process(self, data):
         return [transpose_streams(join_union(data))]
