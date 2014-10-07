@@ -178,7 +178,6 @@ names = {}
 ##  result for presentation to the client.
 
 def ext_default(x):
-    print x
     return map(operator.itemgetter(0), x)
 
 def ext_non_null(x):

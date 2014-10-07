@@ -46,6 +46,21 @@ from smap.ops import installed_ops, grouping
 from smap.archiver import data
 from smap.archiver import querygen as qg
 
+SUPPORTED_SKETCHES = [
+    ('mean', 300),
+    ('count', 300),
+    ('min', 300),
+    ('max', 300),
+    ('mean', 900),
+    ('count', 900),
+    ('min', 900),
+    ('max', 900),
+    ('mean', 3600),
+    ('count', 3600),
+    ('min', 3600),
+    ('max', 3600)
+    ]
+
 def get_operator(name, args):
     """Look up an operator by name.  If given args, try to parse them
     using whatever initializer lists are available.
@@ -75,6 +90,9 @@ def lookup_operator_by_name(name, args, kwargs):
                 continue
 
             return lambda inputs: installed_ops[name](inputs, *alist, **kwargs_)
+        if installed_ops[name].varardic:
+            return lambda inputs: installed_ops[name](inputs, *args, **kwargs)
+            
         raise qg.QueryException("No valid constructor for operator %s: %s" % 
                                 (name, str(args)))
 
@@ -152,6 +170,20 @@ class OperatorApplicator(object):
                 if not 'Metadata/Extra/Operator' in o:
                     o['Metadata/Extra/Operator'] = str(self.op)
 
+        # ask the operator expression for a sketch name that describe
+        # it -- eg, ('mean', 300).  If that's in our list of supported
+        # sketches (by the backend), we can nullify that operator and
+        # fetch the sketch instead.
+        sketch = self.op.sketch()
+        if sketch and sketch[1] in SUPPORTED_SKETCHES:
+            node, self.sketch = sketch
+            node.nullify()      # convert the sketch ast node to a no-op
+            name, size = self.sketch
+            # try to load things in readingdb-friendly 10000-point chunks
+            self.chunk_length = size * 9990
+        else:
+            self.sketch = None
+        print "Final sketch:", self.sketch
         self.resumeProducing()
 
     def load_chunk(self):
@@ -186,7 +218,8 @@ class OperatorApplicator(object):
             'starttime' : [start],
             'endtime' : [end],
             'limit' : [self.data_spec['limit'][0]],
-            'streamlimit' : [self.data_spec['limit'][1]]
+            'streamlimit' : [self.data_spec['limit'][1]],
+            'sketch': self.sketch
         }
         d = self.requester.load_data(self, 
                                      self.data_spec['method'], 
