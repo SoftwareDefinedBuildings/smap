@@ -94,10 +94,12 @@ class ArchiverServiceMaker(object):
         service = MultiService()
         for svc in settings.conf['server']:
             scfg = settings.conf['server'][svc]
+            logging = scfg.get('logging', 'false').lower() == 'true'
             site = getSite(cp, 
                            resources=scfg['resources'],
                            http_repub=http_repub, 
-                           websocket_repub=websocket_repub)
+                           websocket_repub=websocket_repub,
+                           logging=logging)
             if not len(scfg['ssl']) > 1:
                 service.addService(internet.TCPServer(scfg['port'],
                                                       site,

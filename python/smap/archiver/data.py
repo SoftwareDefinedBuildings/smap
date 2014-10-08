@@ -134,6 +134,7 @@ class SmapData:
     """
     def __init__(self, db):
         self.db = db
+        self.writes = 0
 
     def _add_data_real(self, ids, obj):
         """Send data to a readingdb backend
@@ -145,6 +146,8 @@ class SmapData:
                 data = [(x[0], 0, x[1]) 
                         for x in ts['Readings'] if x[0] > 0]
                 # print "add", len(data), "to", ids[ts['uuid']], data[0][0]
+                #TODO: count how many writes for logging
+                self.writes += 1
                 while len(data) > 128:
                     settings.rdb.db_add(r, ids[ts['uuid']], data[:128])
                     del data[:128]

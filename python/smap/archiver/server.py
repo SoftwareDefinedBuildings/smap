@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,22 +15,22 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 from twisted.web import resource, server, static
 from twisted.web.resource import NoResource
 from twisted.python import log
@@ -40,6 +40,9 @@ from smap import util
 from smap.server import RootResource, setResponseCode
 from smap.core import SmapException
 from smap.archiver import settings, data, api, republisher, transfer
+
+recv_adds = 0
+pend_writes = 0
 
 class DataResource(resource.Resource):
     """This resource manages the functionality of the add/ resource,
@@ -77,8 +80,9 @@ class DataResource(resource.Resource):
     def render_POST(self, request):
         """Handle new data"""
         # first check if the api key is valid
-        d = self.db.runQuery("SELECT id, public FROM subscription WHERE key = %s", 
+        d = self.db.runQuery("SELECT id, public FROM subscription WHERE key = %s",
                              (request.prepath[-1],))
+        recv_adds += 1
         d.addCallback(lambda x: self._check_subscriber(request, x))
 
         # if so, add the data
@@ -103,9 +107,9 @@ class DataResource(resource.Resource):
         d.addErrback(add_error)
         return server.NOT_DONE_YET
 
-def getSite(db, 
+def getSite(db,
             resources=['add', 'api', 'republish', 'wsrepublish', 'static'],
-            http_repub=None, websocket_repub=None):
+            http_repub=None, websocket_repub=None, logging=False):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': resources})
     if not http_repub:
@@ -113,22 +117,33 @@ def getSite(db,
     if not websocket_repub:
         websocket_repub = republisher.WebSocketRepublishResource(db)
 
-    def repub_fn(*args):        
+    def repub_fn(*args):
         if 'republish' in resources:
             http_repub.republish(*args)
         if 'wsrepublish' in resources:
             websocket_repub.republish(*args)
 
+    dr = DataResource(db, repub_fn)
     if 'republish' in resources:
         root.putChild('republish', http_repub)
     if 'wsrepublish' in resources:
         root.putChild('wsrepublish', websocket_repub)
     if 'add' in resources:
-        root.putChild('add', DataResource(db, repub_fn))
+        root.putChild('add', dr)
     if 'api' in resources:
         root.putChild('api', api.Api(db))
     if 'static' in resources:
         print "static"
         root.putChild('static', static.File('static'))
+
+    def logstats():
+        global recv_adds
+        print "Recv Adds:{0}--Writes:{1}".format(recv_adds, dr.data.writes)
+        recv_adds = 0
+        dr.data.writes = 0
+    if logging:
+        l = task.LoopingCall(logstats)
+        l.start(1)
+
     return server.Site(root)
 
