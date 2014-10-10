@@ -59,8 +59,8 @@ class CT80(SmapDriver):
         self._temp_heat_subscription = opts.get('temp_heat','')
         self._temp_cool_subscription = opts.get('temp_cool','')
         self.ip = opts.get('ip', None)
-        self._setpoints = {'t_heat': None,
-                           't_cool': None}
+        self._setpoints = {'t_heat': 60,
+                           't_cool': 80}
         self._sp_actuators = {'temp_heat': None,
                               'temp_cool': None}
 
@@ -71,24 +71,24 @@ class CT80(SmapDriver):
         # list of API points
         self.points = [
                         {"smapname": "temp", "name": "temp", "unit": "F", "data_type": "double"},
-                        {"smapname": "hvac_mode", "name": "tmode", "unit": "Mode", "data_type": "long"},
-                        {"smapname": "hvac_state", "name": "tstate", "unit": "State", "data_type": "long"},
-                        {"smapname": "fan_mode", "name": "fmode", "unit": "Mode", "data_type": "long"},
-                        {"smapname": "fan_state", "name": "fstate", "unit": "State", "data_type": "long"},
-                        {"smapname": "override", "name": "override", "unit": "Mode", "data_type": "long"},
-                        {"smapname": "hold", "name": "hold", "unit": "Mode", "data_type": "long"},
+                        {"smapname": "hvac_mode", "name": "tmode", "unit": "Mode", "data_type": "double"},
+                        {"smapname": "hvac_state", "name": "tstate", "unit": "State", "data_type": "double"},
+                        {"smapname": "fan_mode", "name": "fmode", "unit": "Mode", "data_type": "double"},
+                        {"smapname": "fan_state", "name": "fstate", "unit": "State", "data_type": "double"},
+                        {"smapname": "override", "name": "override", "unit": "Mode", "data_type": "double"},
+                        {"smapname": "hold", "name": "hold", "unit": "Mode", "data_type": "double"},
                         {"smapname": "temp_heat", "name": "t_heat", "unit": "F", "data_type": "double"},
                         {"smapname": "temp_cool", "name": "t_cool", "unit": "F", "data_type": "double"},
-                        {"smapname": "program_mode", "name": "program_mode", "unit": "Mode", "data_type": "long"}
+                        {"smapname": "program_mode", "name": "program_mode", "unit": "Mode", "data_type": "double"}
                       ]
         self.actuators = [
-            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_heat_subscribe},
-            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_cool_subscribe},
-            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1,2,3], "subscribe":""},
-            {"smapname": "fan_mode", "name": "fmode", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
-            {"smapname": "override", "name": "override", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
-            {"smapname": "hold", "name": "hold", "act_type": "discrete", "unit": "F", "data_type": "long", "states": [0,1], "subscribe":""},
-            {"smapname": "program_mode", "name": "program_mode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1], "subscribe":""},
+            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_heat_subscription},
+            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_cool_subscription},
+            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1,2,3], "subscribe":""},
+            {"smapname": "fan_mode", "name": "fmode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "override", "name": "override", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "hold", "name": "hold", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "program_mode", "name": "program_mode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
           ]
 
         ts = {}
@@ -118,6 +118,10 @@ class CT80(SmapDriver):
                 if a['smapname'] in ['temp_heat', 'temp_cool']:
                     self._sp_actuators[a['smapname']] = act
                 ts[a['smapname']].add_actuator(act)
+            elif a["act_type"] == "binary":
+                act = BinaryActuator(**setup)
+                ts[a['smapname']].add_actuator(act)
+
 
     def start(self):
         # call self.read every self.rate seconds
@@ -143,13 +147,13 @@ class CT80(SmapDriver):
                 continue
             if type(vals[p['name']]) not in [int, float]:
                 return
-            self.add('/' + p["smapname"], vals[p["name"]])
+            self.add('/' + p["smapname"], float(vals[p["name"]]))
 
         # check which setpoint to write: if current temp is closer to heating setpoing,
         # set t_heat, else set t_cool
         if self._setpoints['t_heat'] is not None and self._setpoints['t_cool'] is not None:
-            self.add('/temp_heat', self._setpoints['t_heat'])
-            self.add('/temp_cool', self._setpoints['t_cool'])
+            self.add('/temp_heat', float(self._setpoints['t_heat']))
+            self.add('/temp_cool', float(self._setpoints['t_cool']))
             if abs(self._setpoints['t_heat'] - vals['temp']) < abs(self._setpoints['t_cool'] - vals['temp']):
                 print 'Writing temp_heat', self._setpoints['t_heat']
                 self._sp_actuators['temp_heat'].set_state(None, self._setpoints['t_heat'])
@@ -158,13 +162,13 @@ class CT80(SmapDriver):
                 self._sp_actuators['temp_cool'].set_state(None, self._setpoints['t_cool'])
         else: # publish the current t_heat, t_cool of the thermostat
             if 't_heat' in vals:
-                self.add('/temp_heat', vals['t_heat'])
+                self.add('/temp_heat', float(vals['t_heat']))
             if 't_cool' in vals:
-                self.add('/temp_cool', vals['t_cool'])
+                self.add('/temp_cool', float(vals['t_cool']))
 
         r = requests.get(url + '/humidity')
         val = json.loads(r.text)
-        self.add('/humidity', val['humidity'])
+        self.add('/humidity', float(val['humidity']))
 
 class _CT80Actuator(actuate.SmapActuator):
     def __init__(self, **opts):
@@ -188,6 +192,11 @@ class _CT80Actuator(actuate.SmapActuator):
         payload = '{"' + self.name + '": ' + str(state) + '}'
         r = requests.post(self.url, data=payload)
         return state
+
+class BinaryActuator(_CT80Actuator, actuate.BinaryActuator):
+    def __init__(self, **opts):
+        actuate.BinaryActuator.__init__(self)
+        _CT80Actuator.__init__(self, **opts)
 
 class DiscreteActuator(_CT80Actuator, actuate.NStateActuator):
     def __init__(self, **opts):
