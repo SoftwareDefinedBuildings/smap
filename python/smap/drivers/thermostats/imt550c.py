@@ -67,8 +67,8 @@ class IMT550C(driver.SmapDriver):
                           {"name": "fan_state", "unit": "Mode", "data_type": "long",
                             "OID": "4.1.4", "range": [0,1], "access": 4,
                             "devtosmap":  lambda x: {0:0, 1:0, 2:1}[x],
-                            "smaptodev": lambda x: {x:x}[x],
-                            "act_type": "discrete"}, # thermFanState
+                            "smaptodev": lambda x: x,
+                            "act_type": "binary"}, # thermFanState
                           {"name": "temp_heat", "unit": "F", "data_type": "double",
                             "OID": "4.1.5", "range": (45.0,95.0), "access": 6,
                             "devtosmap": lambda x: x/10, "smaptodev": lambda x: x*10,
@@ -83,13 +83,13 @@ class IMT550C(driver.SmapDriver):
                             "range": [0,1], "access": 6,
                             "devtosmap": lambda x: {1:0, 2:1, 3:0}[x],
                             "smaptodev": lambda x: {0:1, 1:2}[x],
-                            "act_type": "discrete"}, # hold/override
+                            "act_type": "binary"}, # hold/override
                           {"name": "override", "unit": "Mode",
                             "data_type": "long", "OID": "4.1.9",
                             "range": [0,1], "access": 6,
                             "devtosmap": lambda x: {1:0, 3:1, 2:0}[x],
                             "smaptodev": lambda x: {0:1, 1:3}[x],
-                            "act_type": "discrete"}, # hold/override
+                            "act_type": "binary"}, # hold/override
                           {"name": "hvac_mode", "unit": "Mode", "data_type": "long",
                             "OID": "4.1.1", "range": [0,1,2,3],
                             "access": 6,
@@ -121,8 +121,13 @@ class IMT550C(driver.SmapDriver):
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
                     act = ContinuousIntegerActuator(**setup)
+                elif p['act_type'] == 'binary':
+                    setup={'model': 'binary', 'ip':self.ip, 'user':self.user,
+                            'password':self.password, 'OID': p['OID'],
+                            'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
+                    act = BinaryActuator(**setup)
                 else:
-                    print "sth is wrong here"
+                    print "something is wrong here", p
                     continue
                 ts[p['name']].add_actuator(act)
 
@@ -199,7 +204,7 @@ class ThermoActuator(actuate.SmapActuator):
         payload = {"OID"+self.OID: int(self.smaptodev(state)), "submit": "Submit"}
         r = requests.get('http://'+self.ip+"/pdp/",
             auth=HTTPDigestAuth(self.user, self.password), params=payload)
-        return self.devtosmap(state)
+        return state
 
 class DiscreteActuator(ThermoActuator, actuate.NStateActuator):
     def __init__(self, **opts):
@@ -214,4 +219,9 @@ class ContinuousActuator(ThermoActuator, actuate.ContinuousActuator):
 class ContinuousIntegerActuator(ThermoActuator, actuate.ContinuousIntegerActuator):
     def __init__(self, **opts):
         actuate.ContinuousIntegerActuator.__init__(self, opts['range'])
+        ThermoActuator.__init__(self, **opts)
+
+class BinaryActuator(ThermoActuator, actuate.BinaryActuator):
+    def __init__(self, **opts):
+        actuate.BinaryActuator.__init__(self)
         ThermoActuator.__init__(self, **opts)
