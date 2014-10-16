@@ -96,6 +96,7 @@ setup(name="Smap",
         "smap.drivers.thermostats",
         "smap.drivers.lights",
         "smap.drivers.sensors",
+        "smap.drivers.enocean",
         # packages for the acme driver -- don't install this in trunk/
         "smap.drivers.acmex2", "tinyos", "tinyos.message",
 
