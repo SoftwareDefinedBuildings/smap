@@ -82,6 +82,7 @@ class DataResource(resource.Resource):
         # first check if the api key is valid
         d = self.db.runQuery("SELECT id, public FROM subscription WHERE key = %s",
                              (request.prepath[-1],))
+        global recv_adds
         recv_adds += 1
         d.addCallback(lambda x: self._check_subscriber(request, x))
 
