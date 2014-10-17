@@ -39,7 +39,6 @@ import datetime, time
 import traceback
 
 import sensordb
-import auth
 import obvius
 
 from twisted.internet import reactor, threads, task
