@@ -215,7 +215,7 @@ elif opts.load:
             cf.add_section(meter_path)
             cf.set(meter_path, 'type', 'smap.drivers.obvius.bmo.BMOLoader')
             cf.set(meter_path, 'Metadata/Extra/MeterName', metername)
-            cf.set(meter_path, 'Metadata/Instrument/Model', metertype)
+            cf.set(meter_path, 'Metadata/Instrument/Model', '"' + metertype + '"')
             cf.set(meter_path, 'Metadata/Location/Building', building_name)
             cf.set(meter_path, 'Url', url)
 
