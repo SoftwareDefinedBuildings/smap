@@ -34,6 +34,8 @@ import os
 import urlparse
 
 from twisted.internet import reactor, task, defer, threads
+from twisted.internet.endpoints import TCP6ClientEndpoint
+from twisted.web.error import SchemeNotSupported
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
@@ -97,6 +99,16 @@ def reporting_map(rpt, col_cb, ts_cb):
 
 def is_https_url(url):
     return urlparse.urlparse(url).scheme == 'https'
+
+class Agent6(Agent):
+    def _getEndpoint(self, scheme, host, port):
+        try:
+            return super(Agent6, self)._getEndpoint(scheme, host, port)
+        except SchemeNotSupported:
+            if scheme == 'http6':
+                return TCP6ClientEndpoint(self._reactor, host, port)
+            else:
+                raise
 
 class DataBuffer:
     """Buffer outgoing data.
@@ -362,9 +374,9 @@ class HttpReportInstance(dict):
 
         dest_url = self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]
         if is_https_url(dest_url):
-            agent = Agent(reactor, SslClientContextFactory(self))
+            agent = Agent6(reactor, SslClientContextFactory(self))
         else:
-            agent = Agent(reactor)
+            agent = Agent6(reactor)
 
         try:
             formatter = get_formatter(self.get('Format', 'json'))
