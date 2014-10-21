@@ -3,7 +3,7 @@ Copyright (c) 2011, 2012, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions 
+modification, are permitted provided that the following conditions
 are met:
 
  - Redistributions of source code must retain the above copyright
@@ -15,15 +15,15 @@ are met:
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
-THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
@@ -41,7 +41,7 @@ except ImportError:
     import collections as ordereddict
 
 import core
-import util
+from util import buildkv, dict_merge, norm_path, build_recursive
 import driver
 import smapconf
 import checkers
@@ -70,7 +70,7 @@ def _save_path(conf, inst, path):
 
     for k, v in cur.iteritems():
         if k in ['uuid', 'Readings', 'Proxy', 'Contents']: continue
-        for (name, value) in  util.buildkv(k, v):
+        for (name, value) in  buildkv(k, v):
             conf.set(path, name, value)
 
 def dump(inst, file):
@@ -88,7 +88,7 @@ def dump(inst, file):
         cur = inst.get_collection(q[0])
         if cur and cur.has_key('Contents') and not q[0] in inst.drivers:
             for child in cur['Contents']:
-                q.append(util.norm_path(q[0] + '/' + child))
+                q.append(norm_path(q[0] + '/' + child))
         _save_path(conf, inst, q[0])
 
         if conf.get(q[0], 'type') == 'Timeseries':
@@ -117,7 +117,7 @@ contain a ``uuid`` key to set the root identifier for the source.
 :param instargs: arguments passed to the :py:class:`~smap.core.SmapInstance` constructor.
 :return smap.core.SmapInstance: the created instancev
 :raise smap.loader.SmapLoadError: an error is encountered processing the file
-:raise smap.core.SmapError: some other error is encountered validating the loaded object 
+:raise smap.core.SmapError: some other error is encountered validating the loaded object
     """
     found = None
     for l in ['', os.getcwd(), sys.prefix]:
@@ -133,12 +133,12 @@ contain a ``uuid`` key to set the root identifier for the source.
     # if there's a server section, override the default server
     # configuration with that
     if 'server' in conf:
-        smapconf.SERVER = util.dict_merge(smapconf.SERVER, 
-                                          dict(((k.lower(), v) for (k, v) in 
+        smapconf.SERVER = dict_merge(smapconf.SERVER,
+                                          dict(((k.lower(), v) for (k, v) in
                                                 conf['server'].iteritems())))
     if 'logging' in conf:
-        smapconf.LOGGING = util.dict_merge(smapconf.LOGGING, 
-                                           dict(((k.lower(), v) for (k, v) in 
+        smapconf.LOGGING = dict_merge(smapconf.LOGGING,
+                                           dict(((k.lower(), v) for (k, v) in
                                                  conf['logging'].iteritems())))
 
     # we need the root to have a uuid
@@ -179,21 +179,21 @@ contain a ``uuid`` key to set the root identifier for the source.
 
             reports.append(reportinst)
             continue
-                      
+
         elif not s.startswith('/'):
             # path sections must start with a '/'
             # other sections might be present and could be parsed by
             # other parts of the program
             print "Warning: skipping section", s, "since it does not begin with a '/'"
             continue
-        elif len(sections) and not util.norm_path(s) in sections: 
+        elif len(sections) and not norm_path(s) in sections:
             # skip all but the listed sections if we were asked to
             continue
 
-        s = util.norm_path(s)
+        s = norm_path(s)
 
         # build the UUID for the item
-        props = util.build_recursive(dict(conf[s].items()))
+        props = build_recursive(dict(conf[s].items()))
         id = None
         if 'uuid' in conf[s]:
             key = None
@@ -201,15 +201,15 @@ contain a ``uuid`` key to set the root identifier for the source.
         elif 'key' in conf[s]:
             key = conf[s]['key']
         else:
-            # default to the path if 
+            # default to the path if
             key = s
         if key:
             id = inst.uuid(key)
             # raise SmapLoadError("Every config file section must have a uuid or a key!")
 
         # create the timeseries or collection
-        if (s == '/' or 
-            conf[s].get("type", None) == 'Collection' or 
+        if (s == '/' or
+            conf[s].get("type", None) == 'Collection' or
             inst.get_collection(s) != None):
             if s == '/':
                 c = inst.get_collection('/')
@@ -224,26 +224,26 @@ contain a ``uuid`` key to set the root identifier for the source.
         elif conf[s].get("type", "Timeseries") == "Timeseries":
             if inst.get_timeseries(s) != None:
                 c = inst.get_timeseries(s)
-            else:   
+            else:
                 try:
                     props['Properties']['UnitofMeasure']
                 except KeyError:
                     raise SmapLoadError("A Timeseries must have at least "
                                         "the Properites/UnitofMeasure key")
-                
+
                 # the Timeseries uses defaults if the conf file doesn't
                 # contain the right sections.
                 c = core.Timeseries(id, props['Properties']['UnitofMeasure'],
-                                    data_type=props['Properties'].get('ReadingType', 
+                                    data_type=props['Properties'].get('ReadingType',
                                                                       core.Timeseries.DEFAULTS['Properties/ReadingType']),
-                                    timezone=props['Properties'].get('Timezone', 
+                                    timezone=props['Properties'].get('Timezone',
                                                                      core.Timeseries.DEFAULTS['Properties/Timezone']),
                                     buffersz=int(props.get('BufferSize', core.Timeseries.DEFAULTS['BufferSize'])))
                 inst.add_timeseries(s, c)
         else:
             if not id:
                 raise SmapLoadError("A driver must have a key or uuid to generate a namespace")
-            
+
             # load a new driver manager layer
             newdrv = driver.SmapDriver.get_driver(inst, conf[s]['type'], s, id)
             # create a collection and add it at the attachment point
@@ -251,7 +251,7 @@ contain a ``uuid`` key to set the root identifier for the source.
             if not c:
                 c = core.Collection(s, inst)
                 inst.add_collection(s, c)
-            
+
             # Add config file specified checkers for the driver
             check = checkers.get(inst, newdrv, conf[s])
             if check:
@@ -265,7 +265,7 @@ contain a ``uuid`` key to set the root identifier for the source.
         if props.has_key('Metadata'):
             # the driver may have added metadata; however config file
             # metadata overrides it
-            c['Metadata'] = util.dict_merge(c.get('Metadata', {}),
+            c['Metadata'] = dict_merge(c.get('Metadata', {}),
                                             props['Metadata'])
         if props.has_key('Description'):
             c['Description'] = props['Description']
