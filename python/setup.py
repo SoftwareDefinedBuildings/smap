@@ -28,7 +28,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import os
 from distutils.core import setup, Extension
-import smap
 
 # SDH : 10/22/2014 : to make setup.py work either in python/ or at the root of the git
 # repo, we do this.
