@@ -48,7 +48,7 @@ class Device:
         self.window.set_border_width(20)
 
         self.imagepath = imagepath
-        self.readrate = int(readrate)
+        self.readrate = int(readrate * 1000)
         self.uri = source_uri
 
         self.timeseries = {}
@@ -64,6 +64,15 @@ class Device:
         """
         #TODO: use the actuators
         self.timeseries[path] = label
+
+    def adjust_image(self, path, fxn):
+        def _get_val_for_img(path):
+            latest = getlatestvalue(self.uri+path)
+            self.image.clear()
+            self.image.set_from_file(fxn(latest))
+            self.image.show()
+            return True
+        gobject.timeout_add(self.readrate, lambda : _get_val_for_img(path))
 
     def add_table(self):
         """
@@ -83,10 +92,10 @@ class Device:
         button.show()
 
         # add the image to the top
-        image = gtk.Image()
-        image.set_from_file(self.imagepath)
-        self.table.attach(image, 0, self.cols, 0, 1)
-        image.show()
+        self.image = gtk.Image()
+        self.image.set_from_file(self.imagepath)
+        self.table.attach(self.image, 0, self.cols, 0, 1)
+        self.image.show()
 
         for idx, path in enumerate(self.timeseries):
             # add label to first column
@@ -111,7 +120,7 @@ class Device:
         """
         label = gtk.Label(self.timeseries[path])
         self.table.attach(label, xstart, xend, ystart, yend, yoptions=gtk.SHRINK)
-        gobject.timeout_add_seconds(self.readrate, lambda : self._update(label, self.timeseries[path], path))
+        gobject.timeout_add(self.readrate, lambda : self._update(label, self.timeseries[path], path))
         label.show()
 
     def add_button(self, name, xstart, xend, ystart, yend, callback, args):
