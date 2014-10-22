@@ -17,7 +17,6 @@ light = device.Device("Virtual Light", "img/lightoff.png", "http://localhost:808
 light.add_timeseries("/lights/light0/on", "State")
 light.adjust_image("/lights/light0/on", get_image)
 light.add_timeseries("/lights/light0/bri", "Brightness")
-light.add_table()
 light.finish()
 
 def run():

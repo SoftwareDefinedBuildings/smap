@@ -4,6 +4,7 @@ import gtk
 import gobject
 import requests
 import json
+import pango
 gtk.gdk.threads_init()
 
 def getlatestvalue(path):
@@ -15,8 +16,8 @@ def getlatestvalue(path):
         return str(data['Readings'][-1][-1])
     except:
         return "Error"
-    
-    
+
+
 
 class Device:
     def callback(self, widget, data=None):
@@ -31,7 +32,7 @@ class Device:
         """
         gtk.main_quit()
         return False
-    
+
     def __init__(self, title, imagepath, source_uri, readrate):
         """
         Lays the groundwork for creating a GUI for this sMAP driver.
@@ -52,8 +53,11 @@ class Device:
         self.imagepath = imagepath
         self.readrate = int(readrate * 1000)
         self.uri = source_uri
+        self.fix = gtk.Fixed()
 
         self.timeseries = {}
+        self.texts = []
+        self._labels = {}
 
     def add_timeseries(self, path, label, with_actuator=False):
         """
@@ -76,9 +80,25 @@ class Device:
             return True
         gobject.timeout_add(self.readrate, lambda : _get_val_for_img(path))
 
-    def add_table(self):
+    def overlay_text(self, path, xtext, ytext, label, style):
+        self.texts.append((path,xtext,ytext,label,style))
+
+    def _start_text_update(self, path, x, y, label, style):
+        def _get_val_for_text(path, label):
+            latest = getlatestvalue(self.uri+path)
+            self._labels[path].set_label("{0}: {1}".format(label,latest))
+            return True
+
+        self._labels[path] = gtk.Label("{0}: n/a".format(label))
+        font = pango.FontDescription(style)
+        self._labels[path].modify_font(font)
+        self.fix.put(self._labels[path], x, y)
+        gobject.timeout_add(self.readrate, lambda : _get_val_for_text(path, label))
+        self._labels[path].show()
+
+    def finish(self):
         """
-        After you have finished adding timeseries, calling add_table
+        After you have finished adding timeseries, calling finish
         will render those timeseries on the GUI
         """
         #TODO: discover how many columns
@@ -87,14 +107,14 @@ class Device:
 
 
         # add the image to the top
-        self.fix = gtk.Fixed()
         self.image = gtk.Image()
         self.image.set_from_file(self.imagepath)
         self.image.show()
         self.fix.put(self.image,0,0)
-        #a = gtk.Label("44")
-        #self.fix.put(a, 20, 20)
-        #a.show()
+
+        for path, x, y, label, style in self.texts:
+            self._start_text_update(path, x, y, label, style)
+
         self.box.pack_start(self.fix, False, False, 0)
         self.fix.show()
 
@@ -110,6 +130,10 @@ class Device:
             # add label to first column
             self.add_label(path, 0, 1, idx+1, idx+2)
 
+        self.window.add(self.box)
+        self.table.show()
+        self.box.show()
+        self.window.show()
 
     def _update(self, labelobj, label, path):
         """
@@ -137,13 +161,6 @@ class Device:
         button.connect("clicked", callback, *args)
         self.table.attach(button, xstart, xend, ystart, yend, yoptions=gtk.SHRINK)
         button.show()
-
-
-    def finish(self):
-        self.window.add(self.box)
-        self.table.show()
-        self.box.show()
-        self.window.show()
 
 def main():
     gtk.gdk.threads_enter()
