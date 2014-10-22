@@ -47,6 +47,8 @@ class Device:
         self.window.connect("delete_event",self.delete_event)
         self.window.set_border_width(20)
 
+        self.box = gtk.VBox(False, 0)
+
         self.imagepath = imagepath
         self.readrate = int(readrate * 1000)
         self.uri = source_uri
@@ -82,20 +84,27 @@ class Device:
         #TODO: discover how many columns
         self.cols = 2
         self.rows = len(self.timeseries) + 2 # add 2 for the image and the quit button
-        self.table = gtk.Table(self.cols, self.rows, False)
-        self.window.add(self.table)
 
+
+        # add the image to the top
+        self.fix = gtk.Fixed()
+        self.image = gtk.Image()
+        self.image.set_from_file(self.imagepath)
+        self.image.show()
+        self.fix.put(self.image,0,0)
+        #a = gtk.Label("44")
+        #self.fix.put(a, 20, 20)
+        #a.show()
+        self.box.pack_start(self.fix, False, False, 0)
+        self.fix.show()
+
+        self.table = gtk.Table(self.cols, self.rows, False)
+        self.box.pack_start(self.table, False, False, 0)
         # add the quit button to the bottom
         button = gtk.Button("Quit")
         button.connect("clicked", lambda w: gtk.main_quit())
         self.table.attach(button, 0, self.cols, self.rows-1, self.rows, yoptions=gtk.SHRINK)
         button.show()
-
-        # add the image to the top
-        self.image = gtk.Image()
-        self.image.set_from_file(self.imagepath)
-        self.table.attach(self.image, 0, self.cols, 0, 1)
-        self.image.show()
 
         for idx, path in enumerate(self.timeseries):
             # add label to first column
@@ -131,7 +140,9 @@ class Device:
 
 
     def finish(self):
+        self.window.add(self.box)
         self.table.show()
+        self.box.show()
         self.window.show()
 
 def main():
