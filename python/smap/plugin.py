@@ -31,6 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import os
+import sys
 
 from zope.interface import implements
 

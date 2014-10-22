@@ -30,6 +30,13 @@ import os
 from distutils.core import setup, Extension
 import smap
 
+# SDH : 10/22/2014 : to make setup.py work either in python/ or at the root of the git
+# repo, we do this.
+# Don't love this, but this means we should be able to install it
+# using pip from an source link; that breaks now.
+if os.path.basename(os.getcwd()) == 'python':
+    os.chdir('..')
+
 # import this to build the parser table so it will be installed
 # import smap.archiver.queryparse
 
@@ -99,7 +106,7 @@ setup(name="Smap",
         ],
       requires=["avro", "dateutil", "twisted", "ordereddict", 
                 "ply", "psycopg2", "numpy", "scipy", "simplejson"],
-      # package_dir={"smap" : "smap"},
+      package_dir={"" : "python"},
       package_data={"smap" : ['schema/*.av', 
                               'archiver/sql/*.psql',
                               'archiver/settings.spec',
@@ -107,7 +114,7 @@ setup(name="Smap",
                     "conf": ['*.ini'],
                     },
       data_files=[
-        ('/etc/supervisor/conf.d/', ['supervisor/archiver.conf']),
+        # ('/etc/supervisor/conf.d/', ['supervisor/archiver.conf']),
         # ('/etc/monit/conf.d', ['monit/archiver']),
         # ('/etc/smap/', ['conf/archiver.ini']),
         ],
@@ -115,10 +122,10 @@ setup(name="Smap",
         # modbus_module,
         # bacnet_module,
         ],
-      scripts=['bin/jprint', 'bin/uuid', 'bin/smap-query', 
-               'bin/smap-run-driver', 'bin/smap-load',
-               'bin/smap-load-csv', 'bin/smap-tool',
-               'bin/smap-reporting', 'bin/smap-monitize',
-               'bin/smap-subscribe'],
+      scripts=['python/bin/jprint', 'python/bin/uuid', 'python/bin/smap-query', 
+               'python/bin/smap-run-driver', 'python/bin/smap-load',
+               'python/bin/smap-load-csv', 'python/bin/smap-tool',
+               'python/bin/smap-reporting', 'python/bin/smap-monitize',
+               'python/bin/smap-subscribe'],
       install_requires = [
         'twisted', 'configobj', 'avro', 'python-dateutil', 'lockfile'])
