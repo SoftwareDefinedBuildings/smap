@@ -80,12 +80,14 @@ class Device:
             return True
         gobject.timeout_add(self.readrate, lambda : _get_val_for_img(path))
 
-    def overlay_text(self, path, xtext, ytext, label, style):
-        self.texts.append((path,xtext,ytext,label,style))
+    def overlay_text(self, path, xtext, ytext, label, style, formatter=None):
+        self.texts.append((path,xtext,ytext,label,style, formatter))
 
-    def _start_text_update(self, path, x, y, label, style):
-        def _get_val_for_text(path, label):
+    def _start_text_update(self, path, x, y, label, style, formatter):
+        def _get_val_for_text(path, label, formatter):
             latest = getlatestvalue(self.uri+path)
+            if formatter:
+                latest = formatter(latest)
             self._labels[path].set_label("{0}: {1}".format(label,latest))
             return True
 
@@ -93,7 +95,7 @@ class Device:
         font = pango.FontDescription(style)
         self._labels[path].modify_font(font)
         self.fix.put(self._labels[path], x, y)
-        gobject.timeout_add(self.readrate, lambda : _get_val_for_text(path, label))
+        gobject.timeout_add(self.readrate, lambda : _get_val_for_text(path, label, formatter))
         self._labels[path].show()
 
     def finish(self):
@@ -112,8 +114,8 @@ class Device:
         self.image.show()
         self.fix.put(self.image,0,0)
 
-        for path, x, y, label, style in self.texts:
-            self._start_text_update(path, x, y, label, style)
+        for path, x, y, label, style, formatter in self.texts:
+            self._start_text_update(path, x, y, label, style, formatter)
 
         self.box.pack_start(self.fix, False, False, 0)
         self.fix.show()
