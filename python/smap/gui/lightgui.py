@@ -1,17 +1,13 @@
 import device
 import requests
+import os
 
-"""
-How many rows? -- how ever many timeseries
-How many columns? -- the max number of discrete points for an actuator: at least 2
-
-"""
-
+path = os.path.dirname(os.path.realpath(__file__))
 def get_image(value):
     if int(value) == 1:
-        return "img/lighton.png"
+        return os.path.join(path,"img/lighton.png")
     else:
-        return "img/lightoff.png"
+        return os.path.join(path,"img/lightoff.png")
 
 light = device.Device("Virtual Light", "img/lightoff.png", "http://localhost:8080/data", .25)
 light.add_timeseries("/lights/light0/on", "State")

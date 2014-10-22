@@ -1,6 +1,9 @@
 from smap import driver, actuate
 from smap.util import periodicSequentialCall
 
+import threading
+import importlib
+
 class VirtualThermostat(driver.SmapDriver):
     def setup(self, opts):
         self.state = {'temp': 70,
@@ -55,8 +58,15 @@ class VirtualThermostat(driver.SmapDriver):
         for ts, tstype in metadata_type:
             self.set_metadata(ts,{'Metadata/Type':tstype})
 
+        if 'gui' in opts:
+            guiobj = importlib.import_module(opts.get('gui'))
+            self.gui = threading.Thread(target=guiobj.run)
+            self.gui.daemon = True
+
     def start(self):
         periodicSequentialCall(self.read).start(self.readperiod)
+        if hasattr(self, 'gui'):
+            self.gui.start()
 
     def read(self):
         for k,v in self.state.iteritems():

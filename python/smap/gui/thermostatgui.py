@@ -1,5 +1,8 @@
 import device
 import requests
+import os
+
+path = os.path.dirname(os.path.realpath(__file__))
 
 def format_hvac_state(value):
     return {"0": "Off",
@@ -7,7 +10,7 @@ def format_hvac_state(value):
             "2": "Cooling",
             "3": "Auto"}[str(value)]
 
-tstat = device.Device("Virtual Thermostat", "img/thermostat.png", "http://localhost:8080/data", 1)
+tstat = device.Device("Virtual Thermostat", os.path.join(path,"img/thermostat.png"), "http://localhost:8080/data", 1)
 tstat.add_timeseries("/thermostats/thermostat0/temp", "Temperature")
 tstat.overlay_text("/thermostats/thermostat0/temp", 160, 135, "T", "Times New Roman 20")
 
