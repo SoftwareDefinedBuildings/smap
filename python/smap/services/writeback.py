@@ -2,6 +2,7 @@ from smap.archiver.client import SmapClient
 from smap.util import periodicSequentialCall, buildkv
 from smap.driver import SmapDriver
 
+from twisted.internet.utils import getProcessOutputAndValue
 from itertools import groupby
 from configobj import ConfigObj
 import os
@@ -20,10 +21,30 @@ class WriteBack(SmapDriver):
             c = ConfigObj(ini)
             if '/' in c and 'Metadata/SourceName' in c['/']:
                 self.uuid_conf[c['/']['Metadata/SourceName']] = ini
-        print self.uuid_conf
 
     def start(self):
         periodicSequentialCall(self.query).start(self.rate)
+
+    def _git_commit(self):
+        """
+        If there is a .git directory in self.smap_ini_dir, we do a commit
+        after we finish mirroring the metadata back to the ini files
+        """
+        if os.path.exists(os.path.join(self.smap_ini_dir, '.git')):
+            print ' '.join(self.uuid_conf.values())
+            script = """
+git add {0};
+git commit -m "update ini files via writeback";
+git push origin master""".format(' '.join(self.uuid_conf.values()))
+            d = getProcessOutputAndValue("/bin/sh", args=["-c", script], env={'PATH': '/usr/bin'}, path=self.smap_ini_dir)
+            def check((stdout, stderr, code)):
+                if code != 0: #failure
+                    print stdout
+                    print stderr
+                    raise Exception(stderr)
+            d.addCallback(d)
+        else:
+            print 'no directory .git found in {0}'.format(self.smap_ini_dir)
 
     def _get_prefixes(self, path):
         components = path.split('/')
@@ -56,9 +77,9 @@ class WriteBack(SmapDriver):
                 for prefix in self._get_prefixes(path):
                     kvs.difference_update(path_kv[prefix])
                 path_kv[path] = kvs
-                print path, kvs
                 if path not in c:
                     c[path] = {}
                 for k,v in kvs:
                     c[path][k] = v
             c.write()
+        self._git_commit()
