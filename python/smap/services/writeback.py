@@ -36,13 +36,13 @@ class WriteBack(SmapDriver):
 git add {0};
 git commit -m "update ini files via writeback";
 git push origin master""".format(' '.join(self.uuid_conf.values()))
-            d = getProcessOutputAndValue("/bin/sh", args=["-c", script], env={'PATH': '/usr/bin'}, path=self.smap_ini_dir)
+            d = getProcessOutputAndValue("/bin/sh", args=["-c", script], path=self.smap_ini_dir)
             def check((stdout, stderr, code)):
+                print stdout
+                print stderr
                 if code != 0: #failure
-                    print stdout
-                    print stderr
                     raise Exception(stderr)
-            d.addCallback(d)
+            d.addCallback(check)
         else:
             print 'no directory .git found in {0}'.format(self.smap_ini_dir)
 
