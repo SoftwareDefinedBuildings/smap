@@ -56,6 +56,7 @@ class Device:
         self.fix = gtk.Fixed()
 
         self.timeseries = {}
+        self.actuators = {}
         self.texts = []
         self._labels = {}
 
@@ -83,6 +84,9 @@ class Device:
     def overlay_text(self, path, xtext, ytext, label, style, formatter=None):
         self.texts.append((path,xtext,ytext,label,style, formatter))
 
+    def add_actuator(self, actpath, label, *args):
+        self.actuators[actpath] = {'label': label, 'args': args}
+
     def _start_text_update(self, path, x, y, label, style, formatter):
         def _get_val_for_text(path, label, formatter):
             latest = getlatestvalue(self.uri+path)
@@ -105,7 +109,7 @@ class Device:
         """
         #TODO: discover how many columns
         self.cols = 2
-        self.rows = len(self.timeseries) + 2 # add 2 for the image and the quit button
+        self.rows = len(self.timeseries) + len(actuators) + 2 # add 2 for the image and the quit button
 
 
         # add the image to the top
@@ -131,6 +135,9 @@ class Device:
         for idx, path in enumerate(self.timeseries):
             # add label to first column
             self.add_label(path, 0, 1, idx+1, idx+2)
+
+        for idx, path in enumerate(self.actuators):
+            self.add_button(path, 0, 1, idx+1, idx+2)
 
         self.window.add(self.box)
         self.table.show()
