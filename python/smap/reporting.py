@@ -287,7 +287,7 @@ class HttpReportInstance(dict):
     @staticmethod
     def accepts(dests):
         for d in dests:
-            if not d.scheme in ['http', 'https']:
+            if not d.scheme in ['http', 'https', 'http6']:
                 return False
         return True
 
