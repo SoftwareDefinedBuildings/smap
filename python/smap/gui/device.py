@@ -109,7 +109,7 @@ class Device:
         """
         #TODO: discover how many columns
         self.cols = 2
-        self.rows = len(self.timeseries) + len(actuators) + 2 # add 2 for the image and the quit button
+        self.rows = len(self.timeseries) + len(self.actuators) + 2 # add 2 for the image and the quit button
 
 
         # add the image to the top
@@ -137,7 +137,7 @@ class Device:
             self.add_label(path, 0, 1, idx+1, idx+2)
 
         for idx, path in enumerate(self.actuators):
-            self.add_button(path, 0, 1, idx+1, idx+2)
+            self.add_button(path, 0, 1, len(self.timeseries)+idx+1, len(self.timeseries)+idx+2, lambda x:x, [])
 
         self.window.add(self.box)
         self.table.show()
@@ -166,8 +166,18 @@ class Device:
         label.show()
 
     def add_button(self, name, xstart, xend, ystart, yend, callback, args):
-        button = gtk.Button(name)
-        button.connect("clicked", callback, *args)
+        button = gtk.ToggleButton(name)
+        def binary(widget, data):
+            print data
+            if widget.get_active(): # if active
+                print 'turning on'
+                requests.put(self.uri+data+'?state=1')
+                widget.set_active(1)
+            else:
+                print 'turning off'
+                requests.put(self.uri+data+'?state=0')
+                widget.set_active(0)
+        button.connect("toggled", binary, name)
         self.table.attach(button, xstart, xend, ystart, yend, yoptions=gtk.SHRINK)
         button.show()
 
