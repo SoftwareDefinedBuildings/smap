@@ -99,23 +99,30 @@ class Raritan(driver.SmapDriver):
         self.console = ConsoleClient()
         self.console.connect_to_console(self.ip, self.port)
         self.rate = float(opts.get('rate', 1))
-        self.add_timeseries('/outlet1/state', 'On/Off', data_type='long', timezone=self.tz)
-        self.add_timeseries('/outlet2/state', 'On/Off', data_type='long', timezone=self.tz)
-        self.add_timeseries('/outlet3/state', 'On/Off', data_type='long', timezone=self.tz)
-        self.add_timeseries('/outlet4/state', 'On/Off', data_type='long', timezone=self.tz)
-        self.add_timeseries('/outlet5/state', 'On/Off', data_type='long', timezone=self.tz)
-        self.add_timeseries('/outlet6/state', 'On/Off', data_type='long', timezone=self.tz)
+        o1 = self.add_timeseries('/outlet1/on', 'On/Off', data_type='long', timezone=self.tz)
+        o2 = self.add_timeseries('/outlet2/on', 'On/Off', data_type='long', timezone=self.tz)
+        o3 = self.add_timeseries('/outlet3/on', 'On/Off', data_type='long', timezone=self.tz)
+        o4 = self.add_timeseries('/outlet4/on', 'On/Off', data_type='long', timezone=self.tz)
+        o5 = self.add_timeseries('/outlet5/on', 'On/Off', data_type='long', timezone=self.tz)
+        o6 = self.add_timeseries('/outlet6/on', 'On/Off', data_type='long', timezone=self.tz)
 
-        self.add_actuator('/outlet1/state_act', 'On/Off', OnOffActuator(outlet=1, console=self.console))
-        self.add_actuator('/outlet2/state_act', 'On/Off', OnOffActuator(outlet=2, console=self.console))
-        self.add_actuator('/outlet3/state_act', 'On/Off', OnOffActuator(outlet=3, console=self.console))
-        self.add_actuator('/outlet4/state_act', 'On/Off', OnOffActuator(outlet=4, console=self.console))
-        self.add_actuator('/outlet5/state_act', 'On/Off', OnOffActuator(outlet=5, console=self.console))
-        self.add_actuator('/outlet6/state_act', 'On/Off', OnOffActuator(outlet=6, console=self.console))
+        o1.add_actuator(OnOffActuator(outlet=1, console=self.console))
+        o2.add_actuator(OnOffActuator(outlet=2, console=self.console))
+        o3.add_actuator(OnOffActuator(outlet=3, console=self.console))
+        o4.add_actuator(OnOffActuator(outlet=4, console=self.console))
+        o5.add_actuator(OnOffActuator(outlet=5, console=self.console))
+        o6.add_actuator(OnOffActuator(outlet=6, console=self.console))
+        
+        self.set_metadata('/', {'Metadata/Device': 'General Controller',
+                                'Metadata/Model': 'Raritan',
+                                'Metadata/Driver': __name__})
+        for dev in range(1,7):
+            self.set_metadata('/outlet{0}/on'.format(dev), {'Metadata/Type': 'Reading'})
+            self.set_metadata('/outlet{0}/on_act'.format(dev), {'Metadata/Type': 'Command'})
 
 
     def start(self):
-        periodicSequentialCall(self.read).start(self.rate)
+        periodicSequentialCall(self.read).on(self.rate)
 
     
     def read(self):
@@ -130,7 +137,7 @@ class Raritan(driver.SmapDriver):
             source  = re.compile(r'(^[a-z/0-9]+)').findall(newstate)
             val = re.compile(r'powerState is ([12])').findall(newstate)
             if val:
-                self.add('/outlet{0}/state'.format(i+1), int(val[0]))
+                self.add('/outlet{0}/on'.format(i+1), int(val[0]))
 
 class RaritanActuator(actuate.SmapActuator):
     def __init__(self, **opts):
