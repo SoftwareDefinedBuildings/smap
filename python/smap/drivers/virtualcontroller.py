@@ -24,11 +24,7 @@ class VirtualController(driver.SmapDriver):
         periodicSequentialCall(self.read).start(self.readperiod)
 
     def read(self):
-        if random() < self.transition:
-            self.val = ~self.val + 2
-            self.state['on'] = self.val
-        print self.val
-        self.add('/on', self.val)
+        self.add('/on', self.state['on'])
 
 class VirtualControllerActuator(actuate.SmapActuator):
     def __init__(self, **opts):
