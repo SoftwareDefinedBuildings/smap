@@ -122,7 +122,7 @@ class Raritan(driver.SmapDriver):
 
 
     def start(self):
-        periodicSequentialCall(self.read).on(self.rate)
+        periodicSequentialCall(self.read).start(self.rate)
 
     
     def read(self):
