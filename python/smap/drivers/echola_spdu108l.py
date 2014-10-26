@@ -49,7 +49,7 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
         
         ts = [None]*8
         for k in range(1,9):
-            ts[k-1] = self.add_timeseries('/outlet' + str(k) + '/state', 'binary', data_type='long', timezone=self.tz)
+            ts[k-1] = self.add_timeseries('/outlet' + str(k) + '/on', 'binary', data_type='long', timezone=self.tz)
             self.add_timeseries('/outlet' + str(k) + '/power', 'Watts', data_type='double', timezone=self.tz)
         self.add_timeseries('/unit_power', 'Watts', data_type='double', timezone=self.tz)
         
@@ -64,10 +64,10 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
                                 'Metadata/Model': 'Echola SPDU 108L',
                                 'Metadata/Driver': __name__})
         for k in range(0,8):
-            self.set_metadata('/outlet{0}/state'.format(k), {'Metadata/Type': 'Reading'})
+            self.set_metadata('/outlet{0}/on'.format(k), {'Metadata/Type': 'Reading'})
             self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Type': 'Reading'})
             self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Sensor': 'Energy'})
-            self.set_metadata('/outlet{0}/state_act'.format(k), {'Metadata/Type': 'Command'})
+            self.set_metadata('/outlet{0}/on_act'.format(k), {'Metadata/Type': 'Command'})
         self.set_metadata('/unit_power',{'Metadata/Type': 'Reading'})
         self.set_metadata('/unit_power',{'Metadata/Sensor': 'Energy'})
         
@@ -81,7 +81,7 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
         data_dict = xmltodict.parse(data_xml).get('response')
         
         for k in range(1,9):
-            self.add('/outlet' + str(k) + '/state', int(data_dict['pstate' + str(k)]))
+            self.add('/outlet' + str(k) + '/on', int(data_dict['pstate' + str(k)]))
             self.add('/outlet' + str(k) + '/power', float(data_dict['pow' + str(k)]))
         self.add('/unit_power', float(data_dict['powt']))
         
