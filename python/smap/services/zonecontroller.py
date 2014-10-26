@@ -15,8 +15,8 @@ from configobj import ConfigObj
 class ZoneController(SmapDriver):
     def setup(self, opts):
         self.rate = int(opts.get('rate', 1))
-        self.synchronous = opts.get('synchronous').lower() == 'true'
-        self.archiver_url = opts.get('archiver')
+        self.synchronous = opts.get('synchronous','false').lower() == 'true'
+        self.archiver_url = opts.get('archiver','http://localhost:8079')
         self.points = {}
         self.repubclients = {}
         self._loop = None
@@ -70,7 +70,8 @@ class ZoneController(SmapDriver):
         print 'Received',point,'=',value
         self.points[point] = value
         if not self.synchronous:
-            self.add('/'+point, float(value))
+            if self.get_timeseries('/'+point):
+              self.add('/'+point, float(value))
 
 """
 We tell the Decider driver about a standalone ini file (that is, a dormant one and not the one that contains
