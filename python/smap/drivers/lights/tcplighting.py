@@ -139,11 +139,10 @@ class TCP(driver.SmapDriver):
     def read(self):
         devices = get_states(self.posturl, self.token)
         for device in devices:
-            print '/'+str(device[0])+'/state'
-            self.add('/'+str(device[0])+'/state',int(device[1]))
+            self.add('/'+str(device[0])+'/on',int(device[1]))
             self.add('/'+str(device[0])+'/power',float(device[2]))
             level = int(device[3]) if int(device[1]) else 0
-            self.add('/'+str(device[0])+'/level',level)
+            self.add('/'+str(device[0])+'/bri',level)
 
 class TCPLActuator(actuate.SmapActuator):
 
