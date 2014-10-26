@@ -56,7 +56,7 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
         print 'READ POINTS SET UP'
         
         for k in range(1,9):
-            ts[k-1].add_actuator(OnOffActuator(outlet=k, readURL=self.readURL, actURL=self.actURL))
+            ts[k-1].add_actuator(OnOffActuator(outlet=k, readURL=self.readURL, actURL=self.actURL, archiver=opts.get('archiver'), subscribe=opts.get('outlet{0}'.format(k))))
             
         print 'ACTUATOR POINTS SET UP'            
 
@@ -91,6 +91,7 @@ class EcholaActuator(actuate.SmapActuator):
         self.outlet = opts.get('outlet')
         self.readURL = opts.get('readURL')
         self.actURL = opts.get('actURL')
+        self.subscribe(opts.get('archiver'), opts.get('subscribe'))
 
     def get_state(self, request):
         r = requests.get(self.readURL)
