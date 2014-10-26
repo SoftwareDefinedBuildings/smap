@@ -63,7 +63,7 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
         self.set_metadata('/', {'Metadata/Device': 'General Controller',
                                 'Metadata/Model': 'Echola SPDU 108L',
                                 'Metadata/Driver': __name__})
-        for k in range(0,8):
+        for k in range(1,9):
             self.set_metadata('/outlet{0}/on'.format(k), {'Metadata/Type': 'Reading'})
             self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Type': 'Reading'})
             self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Sensor': 'Energy'})
