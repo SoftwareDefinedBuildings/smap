@@ -117,11 +117,21 @@ class TCP(driver.SmapDriver):
         self.gateway_id, self.framework_version, self.serial_number = get_serverinfo(self.posturl, self.token)
         devices = get_states(self.posturl, self.token)
         for device in devices:
-            self.add_timeseries('/'+str(device[0])+'/on', 'On/Off', data_type='long', timezone=self.tz)
+            on = add_timeseries('/'+str(device[0])+'/on', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
-            self.add_timeseries('/'+str(device[0])+'/bri', 'Brightness', data_type='long', timezone=self.tz)
-            self.add_actuator('/'+str(device[0])+'/on_act', 'On/Off', OnOffActuator(ip=self.ip, device_id=str(device[0])))
-            self.add_actuator('/'+str(device[0])+'/bri_act', 'Brightness', BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
+            bri = add_timeseries('/'+str(device[0])+'/bri', 'Brightness', data_type='long', timezone=self.tz)
+            on.add_actuator(OnOffActuator(ip=self.ip, device_id=str(device[0])))
+            bri.add_actuator(BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
+            self.set_metadata('/{0}/on', {'Metadata/Type': 'Reading'})
+            self.set_metadata('/{0}/power', {'Metadata/Type': 'Reading'})
+            self.set_metadata('/{0}/bri', {'Metadata/Type': 'Reading'})
+            self.set_metadata('/{0}/bri_act', {'Metadata/Type': 'Command'})
+            self.set_metadata('/{0}/on_act', {'Metadata/Type': 'Command'})
+
+        self.set_metadata('/', {'Metadata/Device': 'Lighting Controller',
+                                'Metadata/Model': 'TCP Lighting',
+                                'Metadata/Driver': __name__})
+
 
     def start(self):
         periodicSequentialCall(self.read).start(self.readrate)
