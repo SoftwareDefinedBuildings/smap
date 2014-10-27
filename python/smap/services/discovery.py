@@ -108,7 +108,7 @@ class DiscoveryDriver(SmapDriver):
             # if we have the same IP, we skip it
             # if we have a new IP, remove the old ini and conf files, add the new one, and run 'supervisor update',
             # which will stop the old process automatically
-            if self.historian.config[dev.mac]['ip'] == dev.ip:
+            if self.historian.config[dev.mac]['ip'] == dev.ip and os.path.exists(self.historian.config[dev.mac]['conf']):
                 return
             else:
                 self._usedports.remove(self.historian.config[dev.mac]['port'])
