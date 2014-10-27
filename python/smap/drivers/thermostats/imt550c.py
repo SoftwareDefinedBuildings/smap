@@ -110,22 +110,22 @@ class IMT550C(driver.SmapDriver):
                     setup={'model': 'discrete', 'ip':self.ip, 'states': p['range'],
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-                    act = DiscreteActuator(**setup)
+                    act = DiscreteActuator(subscribe=opts.get(p['name']),archiver=opts.get('archiver'), **setup)
                 elif p['act_type'] == 'continuous':
                     setup={'model': 'continuous', 'ip':self.ip, 'range': p['range'],
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-                    act = ContinuousActuator(**setup)
+                    act = ContinuousActuator(subscribe=opts.get(p['name']),archiver=opts.get('archiver'), **setup)
                 elif p['act_type'] == 'continuousInteger':
                     setup={'model': 'continuousInteger', 'ip':self.ip, 'range': p['range'],
                         'user': self.user, 'password': self.password, 'OID': p['OID'],
                         'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-                    act = ContinuousIntegerActuator(**setup)
+                    act = ContinuousIntegerActuator(subscribe=opts.get(p['name']),archiver=opts.get('archiver'), **setup)
                 elif p['act_type'] == 'binary':
                     setup={'model': 'binary', 'ip':self.ip, 'user':self.user,
                             'password':self.password, 'OID': p['OID'],
                             'devtosmap': p['devtosmap'], 'smaptodev': p['smaptodev']}
-                    act = BinaryActuator(**setup)
+                    act = BinaryActuator(subscribe=opts.get(p['name']),archiver=opts.get('archiver'), **setup)
                 else:
                     print "something is wrong here", p
                     continue
