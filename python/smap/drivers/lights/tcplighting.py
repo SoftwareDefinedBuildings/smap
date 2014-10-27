@@ -124,6 +124,7 @@ class TCP(driver.SmapDriver):
             bri.add_actuator(BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
             self.set_metadata('/{0}/on'.format(device[0]), {'Metadata/Type': 'Reading'})
             self.set_metadata('/{0}/power'.format(device[0]), {'Metadata/Type': 'Reading'})
+            self.set_metadata('/{0}/power'.format(device[0]), {'Metadata/Sensor': 'Energy'})
             self.set_metadata('/{0}/bri'.format(device[0]), {'Metadata/Type': 'Reading'})
             self.set_metadata('/{0}/bri_act'.format(device[0]), {'Metadata/Type': 'Command'})
             self.set_metadata('/{0}/on_act'.format(device[0]), {'Metadata/Type': 'Command'})
