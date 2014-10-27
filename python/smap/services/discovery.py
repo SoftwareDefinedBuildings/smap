@@ -78,6 +78,7 @@ class DiscoveryDriver(SmapDriver):
         self._usedports = set()
         self._nmap_path = opts.get('nmap_path','/usr/bin/nmap')
         self._scripts_path = opts.get('scripts_path','scripts')
+        self._restarts = opts.get('restart',[])
         self.historian = Historian('/var/smap','discovery')
         self.discovery_sources = [
             dhcp.DhcpSnoopDiscovery(self.update_device, opts.get("dhcp_iface"), opts.get("dhcpdump_path")),
@@ -217,7 +218,9 @@ uuid = %(uuid)s
         print "starting service", service
         # hot reload of supervisord
         subprocess.check_call(['sudo','supervisorctl','update','-c','/etc/supervisor/supervisord.conf'])
-
+        # restart supervisord processes
+        for proc in self._restarts:
+            subprocess.check_call(['sudo','supervisorctl','restart','-c','/etc/supervisor/supervisord.conf',proc])
 
 if __name__ == '__main__':
 
