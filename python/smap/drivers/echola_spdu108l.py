@@ -66,7 +66,6 @@ class ECHOLA_SPDU108L(driver.SmapDriver):
         for k in range(1,9):
             self.set_metadata('/outlet{0}/on'.format(k), {'Metadata/Type': 'Reading'})
             self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Type': 'Reading'})
-            self.set_metadata('/outlet{0}/power'.format(k), {'Metadata/Sensor': 'Energy'})
             self.set_metadata('/outlet{0}/on_act'.format(k), {'Metadata/Type': 'Command'})
         self.set_metadata('/unit_power',{'Metadata/Type': 'Reading'})
         self.set_metadata('/unit_power',{'Metadata/Sensor': 'Energy'})

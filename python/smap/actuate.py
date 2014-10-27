@@ -101,8 +101,9 @@ class SmapActuator(object):
 
     def _republishcb(self, _, data):
         # data is list of arrays of [time, val]
-        state = data[-1][-1][1] # get val of last reading
-        self.set_state(None, state)
+        if data:
+          state = data[-1][-1][1] # get val of last reading
+          self.set_state(None, state)
 
     def subscribe(self, archiver_url, where):
         if where:
