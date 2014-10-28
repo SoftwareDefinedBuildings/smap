@@ -139,7 +139,7 @@ class CT80(SmapDriver):
             return
         vals = json.loads(r.text)
 
-        if 't_heat' not in self.points and 't_cool' not in vals: # hiccup
+        if 't_heat' not in vals and 't_cool' not in vals: # hiccup
             return
 
         for p in self.points:
