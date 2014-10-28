@@ -53,6 +53,7 @@ action = function(host, port)
   output_tab.Metadata__Instrument__Manufacturer = 'Prolifix'
   output_tab.Metadata__Instrument__Model = string.format('%s%s', major, minor)
   output_tab.Metadata__System = 'HVAC'
+  output_tab.Metadata__Role = 'Building HVAC'
   output_tab.url = string.format('http://%s:%i/', host.ip, port.number)
   output_tab.login = ''
   output_tab.password = ''

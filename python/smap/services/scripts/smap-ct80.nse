@@ -43,6 +43,7 @@ action = function(host, port)
   output_tab.Metadata__InstrumentManufacturer = 'RTA'
   output_tab.Metadata__InstrumentModel = string.format(jsonresp['model'])
   output_tab.Metadata__System = 'HVAC'
+  output_tab.Metadata__Role = 'Building HVAC'
   output_tab.ip = host.ip
   output_tab.Rate = 5
   output_tab.user = ''
