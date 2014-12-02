@@ -48,7 +48,7 @@ SCHEMAS = [
     "UnitofTime", "Duration", 
     "ReadingType", "ReadingValue",
     
-    'InstrumentMetadata', 'LocationMetadata', 'OperatorMetadata',
+    'InstrumentMetadata', 'LocationMetadata', 'OperatorMetadata', 'BACnetMetadata',
     
     # timeseries subobjects
     "Actuator", 

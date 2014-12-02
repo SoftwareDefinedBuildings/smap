@@ -1,0 +1,24 @@
+{
+  "name" : "BACnetMetadata",
+  "type" : "record",
+  "namespace" : "edu.berkeley.cs.local",
+  "doc" : "Metadata imported from a BACnet System",
+  "fields" : [
+    {"name" : "Object_Type", "type" : ["null", "int"]},
+    {"name" : "Object_Name", "type" : ["null", "string"]},
+    {"name" : "Description", "type" : ["null", "string"]},
+    {"name" : "Device_Type", "type" : ["null", "string"]},
+    {"name" : "Out_Of_Service", "type" : ["null", "boolean"]},
+    {"name" : "Update_Interval", "type" : ["null", "int"]},
+    {"name" : "Units", "type" : ["null", "int"]},
+    {"name" : "Min_Pres_Value", "type" : ["null", "float"]},
+    {"name" : "Max_Pres_Value", "type" : ["null", "float"]},
+    {"name" : "Resolution", "type" : ["null", "float"]},
+    {"name" : "COV_Increment", "type" : ["null", "float"]},
+    {"name" : "Time_Delay", "type" : ["null", "int"]},
+    {"name" : "Notification_Class", "type" : ["null", "int"]},
+    {"name" : "High_Limit", "type" : ["null", "float"]},
+    {"name" : "Low_Limit", "type" : ["null", "float"]},
+    {"name" : "Profile_Name", "type" : ["null", "string"]}
+  ]
+}
