@@ -222,11 +222,10 @@ def parse_time(ts):
 
 def make_select_rv(t, sel, wherestmt='true'):
     return sel.extract, ("""SELECT %s FROM stream s, subscription sub
-              WHERE (%s) AND (%s) AND
-              sub.id = s.subscription_id""" % 
+              WHERE (%s) AND (%s)""" % 
                          (sel.select, 
                           wherestmt,
-                          qg.build_authcheck(t.parser.request)))
+                          qg.build_authcheck(t.parser.request, action="select")))
 
 def build_setstring(setvals, wherevals):
     #  set tags 
@@ -291,7 +290,7 @@ def make_set_rv(t):
     # the where caluse always looks the same
     q += "(SELECT s.id FROM stream s, subscription sub " + \
         "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
-        qg.build_authcheck(t.parser.request, forceprivate=True)  + ") " 
+        qg.build_authcheck(t.parser.request, forceprivate=True, action='set')  + ") " 
 
     if not noop:
         # return the list of modifications.  if this was a noop we
@@ -322,7 +321,7 @@ def make_delete_rv(t):
                ) %(returning)s
             """ % { 
             'restrict': t[3].render(),
-            'auth': qg.build_authcheck(t.parser.request, forceprivate=True),
+            'auth': qg.build_authcheck(t.parser.request, forceprivate=True, action='delete'),
             'statement': statement,
             'returning': returning
             }
@@ -353,7 +352,7 @@ def make_delete_rv(t):
         q = statement + " WHERE id IN " + \
             "(SELECT s.id FROM stream s, subscription sub " + \
             "WHERE (" + where_clause.render() + ") AND s.subscription_id = sub.id AND " + \
-            qg.build_authcheck(t.parser.request, forceprivate=True)  + ")" + returning
+            qg.build_authcheck(t.parser.request, forceprivate=True, action='delete')  + ")" + returning
         return ext_tag_deletor, q
 
 

@@ -36,17 +36,39 @@ import operator
 from data import escape_string
 from smap import core
 
-def build_authcheck(request, ti='', forceprivate=False):
+"""object representing a client's permission.
+"""
+
+def build_authcheck(request, ti='', forceprivate=False, action=None):
     """Build an SQL WHERE clause which enforces access restrictions.
     Will pull any credentials out of the request object passed in.
+
+    "action" should either be None, in which case the subscription
+    permissions will be used, or one of the can_XXX permissions in the
+    permission table.
     """
     if not 'private' in request.args and not forceprivate:
         query = "(sub%s.public " % ti
     else:
         query = "(false "
+
     if 'key' in request.args:
-        query += 'OR ' + ' OR '.join(["sub.key = %s" % escape_string(x + ti)
-                                      for x in request.args['key']])
+        query += 'OR ( (' + ' OR '.join(["sub.key = %s" % escape_string(x + ti)
+                                      for x in request.args['key']]) + \
+                                       ') AND sub.id = s.subscription_id) '
+
+    if 'key' in request.args and action is not None:
+        # add permissions granted by the permissions table
+        query += ('OR ( (sub.id IN (SELECT perm_sub.subscription_id '
+                  '              FROM permission perm, permission_subscriptions perm_sub'
+                  '              WHERE perm.id = perm_sub.permission_id AND ' 
+                  '               ((perm.valid_after IS NULL OR perm.valid_after < current_timestamp) AND' 
+                  '                (perm.valid_until IS NULL or perm.valid_until > current_timestamp)) AND (') + \
+                  ' OR '.join(('perm.key = %s' % escape_string(x + ti)
+                               for x in request.args['key'])) + \
+                               (') AND perm.can_%s IS true)' % action) + \
+                               ') AND sub.id = s.subscription_id)'
+
     query += ")"
     return query
 
