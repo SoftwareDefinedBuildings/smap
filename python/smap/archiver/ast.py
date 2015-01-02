@@ -37,6 +37,10 @@ from smap.archiver.data import escape_string
 from smap.archiver.stream import get_operator
 from smap.ops.util import NullOperator
 
+# list of operators that don't effect sketching performance and thus
+# don't effect the selection of sketch
+SKETCHNULL_OPLIST = ['null', 'w', 'tag_rename', 'set_key', 'tag_rename']
+
 class AstNode(operators.Operator):
     def __init__(self, inputs, op, *children):
         self.op = op
@@ -63,7 +67,7 @@ class AstNode(operators.Operator):
             sketch = self.children[-1].sketch()
             # ignore these because we assert that they don't change
             # anything that will effect the sketches we'll load.
-            if sketch and sketch[1] in ['null', 'w']:
+            if sketch and sketch[1] in SKETCHNULL_OPLIST:
                 return self, self.op.sketch()
             else:
                 return sketch
