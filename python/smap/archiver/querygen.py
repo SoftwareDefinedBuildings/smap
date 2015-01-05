@@ -33,8 +33,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
 import operator
 
-from data import escape_string
 from smap import core
+from smap.archiver.data import escape_string
 
 """object representing a client's permission.
 """
@@ -59,15 +59,15 @@ def build_authcheck(request, ti='', forceprivate=False, action=None):
 
     if 'key' in request.args and action is not None:
         # add permissions granted by the permissions table
-        query += ('OR ( (sub.id IN (SELECT perm_sub.subscription_id '
-                  '              FROM permission perm, permission_subscriptions perm_sub'
-                  '              WHERE perm.id = perm_sub.permission_id AND ' 
-                  '               ((perm.valid_after IS NULL OR perm.valid_after < current_timestamp) AND' 
-                  '                (perm.valid_until IS NULL or perm.valid_until > current_timestamp)) AND (') + \
-                  ' OR '.join(('perm.key = %s' % escape_string(x + ti)
-                               for x in request.args['key'])) + \
-                               (') AND perm.can_%s IS true)' % action) + \
-                               ') AND sub.id = s.subscription_id)'
+        query += """OR ( (sub.id IN (SELECT perm_sub.subscription_id 
+FROM permission perm, permission_subscriptions perm_sub
+WHERE perm.id = perm_sub.permission_id AND 
+ ((perm.valid_after IS NULL OR perm.valid_after < current_timestamp) AND
+  (perm.valid_until IS NULL or perm.valid_until > current_timestamp)) AND (""" + \
+            ' OR '.join(('perm.key = %s' % escape_string(x + ti)
+                         for x in request.args['key'])) + \
+                         (') AND perm.can_%s IS true)' % action) + \
+                         ') AND sub.id = s.subscription_id)'
 
     query += ")"
     return query

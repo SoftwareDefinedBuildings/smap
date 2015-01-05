@@ -42,13 +42,13 @@ ALTER TABLE stream
 CREATE TABLE permission (
        id INT PRIMARY KEY,
        key VARCHAR(36),
+       description VARCHAR(256),
         
        valid_after TIMESTAMP DEFAULT NULL,
        valid_until TIMESTAMP DEFAULT NULL,
-       can_select BOOLEAN DEFAULT true,
-       can_delete BOOLEAN DEFAULT false,
-       can_set BOOLEAN DEFAULT false,
-       can_add BOOLEAN DEFAULT false
+       can_select BOOLEAN NOT NULL DEFAULT true,
+       can_delete BOOLEAN NOT NULL DEFAULT false,
+       can_set BOOLEAN NOT NULL DEFAULT false,
 );
 CREATE SEQUENCE permission_id_seq;
 ALTER TABLE permission
@@ -61,7 +61,7 @@ CREATE TABLE permission_subscriptions (
        subscription_id INT,
        permission_id INT,
 
+       UNIQUE (permission_id, subscription_id),
        FOREIGN KEY (subscription_id) REFERENCES subscription(id),
        FOREIGN KEY (permission_id) REFERENCES permission(id)
 );
-
