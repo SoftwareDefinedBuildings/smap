@@ -30,10 +30,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-from twisted.internet import defer
+import copy
+import time
+
+from twisted.internet import defer, threads
 from twisted.web import resource, server
 from twisted.python import log
-
 
 from autobahn.twisted.websocket import WebSocketServerFactory, \
     WebSocketServerProtocol
@@ -42,6 +44,7 @@ from autobahn.twisted.resource import WebSocketResource, \
 
 from smap.core import SmapException
 from smap.server import setResponseCode
+from smap.archiver import settings
 import smap.util as util
 import smap.sjson as json
 import queryparse as qp
@@ -51,6 +54,10 @@ class RepublishEndpoint(object):
     """Generic endpoint for a republish endpoint.  Subclass and
     implement write() (at least).
     """
+    # if a client request should fail if republishing on this endpoint
+    # fails.
+    CLIENT_FAIL = False
+
     def __init__(self, db, request):
         self.db = db
         self.request = request
@@ -239,3 +246,33 @@ class WebSocketRepublishResource(WebSocketResource):
             except:
                 import traceback
                 traceback.print_exc()
+
+
+class MongoRepublisher(object):
+    """Insert sMAP records into a MongoDB collection
+    """
+    CLIENT_FAIL = True
+    
+    def __init__(self, db):
+        self.db = db
+        self.keys = settings.conf['mongo']['keys']
+
+        # optional import -- it will kill the caller if txmongo is unavailable
+        import pymongo
+        self.mongo = pymongo.MongoClient(settings.conf['mongo']['host'],
+                                         settings.conf['mongo']['port'],
+                                         socketTimeoutMS=1000)
+
+    def republish(self, key, public, obj):
+        # check perms
+        if (not public and 
+            key not in self.keys and 
+            not settings.conf['mongo']['publish_all_private']):
+            return
+
+        col = self.mongo.smap.republish
+        # pymongo mutates the argument ...
+        insert = copy.deepcopy(obj)
+        insert['__submitted'] = int(time.time() * 1000)
+        insert['__key'] = key
+        return threads.deferToThread(col.save, insert)

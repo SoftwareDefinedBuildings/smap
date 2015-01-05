@@ -28,3 +28,10 @@ module = string(default="readingdb")
 host = string(default="localhost")
 port = integer(default=4242)
 divisor = integer(default=1000)
+
+[mongo]
+enabled = boolean(default=False)
+host = string(default="localhost")
+port = integer(default=27017)
+keys = list(default=list())
+publish_all_private = boolean(default=False)

@@ -91,13 +91,20 @@ class ArchiverServiceMaker(object):
         # create a single republisher to send the data out on
         http_repub = republisher.ReResource(cp)
         websocket_repub = republisher.WebSocketRepublishResource(cp)
+        if settings.conf['mongo']['enabled']:
+            mongo_repub = republisher.MongoRepublisher(cp)
+        else:
+            mongo_repub = None
+
         service = MultiService()
         for svc in settings.conf['server']:
             scfg = settings.conf['server'][svc]
             site = getSite(cp, 
                            resources=scfg['resources'],
                            http_repub=http_repub, 
-                           websocket_repub=websocket_repub)
+                           websocket_repub=websocket_repub,
+                           mongo_repub=mongo_repub)
+
             if not len(scfg['ssl']) > 1:
                 service.addService(internet.TCPServer(scfg['port'],
                                                       site,
