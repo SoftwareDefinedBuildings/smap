@@ -3,6 +3,9 @@ default backend = string(default="http://localhost:8079")
 location = string(default='')
 threadpool size = integer(default=30)
 
+[features]
+permissions = boolean(default=False)
+
 [server]
   [[__many__]]
   port = integer(default=8079)

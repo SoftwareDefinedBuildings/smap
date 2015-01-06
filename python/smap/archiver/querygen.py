@@ -35,6 +35,7 @@ import operator
 
 from smap import core
 from smap.archiver.data import escape_string
+from smap.archiver import settings
 
 """object representing a client's permission.
 """
@@ -57,7 +58,8 @@ def build_authcheck(request, ti='', forceprivate=False, action=None):
                                       for x in request.args['key']]) + \
                                        ') AND sub.id = s.subscription_id) '
 
-    if 'key' in request.args and action is not None:
+    if (settings.conf['features']['permissions'] and 
+        'key' in request.args and action is not None):
         # add permissions granted by the permissions table
         query += """OR ( (sub.id IN (SELECT perm_sub.subscription_id 
 FROM permission perm, permission_subscriptions perm_sub
