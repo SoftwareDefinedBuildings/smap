@@ -37,9 +37,6 @@ from smap.archiver.data import escape_string
 from smap.archiver.stream import get_operator
 from smap.ops.util import NullOperator
 
-# list of operators that don't effect sketching performance and thus
-# don't effect the selection of sketch
-SKETCHNULL_OPLIST = ['null', 'w', 'tag_rename', 'set_key', 'tag_rename']
 
 class AstNode(operators.Operator):
     def __init__(self, inputs, op, *children):
@@ -61,18 +58,27 @@ class AstNode(operators.Operator):
         subdata = operators.DataChunk(data.region, data.first, data.last, subdata)
         return self.op(subdata)
 
+    def subsketch(self):
+        if isinstance(self.op, AstNode):
+            return self.op.sketch()
+        else:
+            return self, self.op.sketch()
+
     def sketch(self):
         """Want to find the right-deepest, non-w, non-null operator."""
+
         if self.children:
             sketch = self.children[-1].sketch()
             # ignore these because we assert that they don't change
             # anything that will effect the sketches we'll load.
-            if sketch and sketch[1] in SKETCHNULL_OPLIST:
-                return self, self.op.sketch()
+            if sketch and sketch[1] in ['null', 'w']:
+                # sometimes the operator is actually an operator
+                return self.subsketch()
             else:
                 return sketch
         else:
-            return self, self.op.sketch()
+            return self.subsketch()
+
 
     def nullify(self):
         self.op = NullOperator(self.op.outputs)

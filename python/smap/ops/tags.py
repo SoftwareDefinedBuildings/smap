@@ -55,6 +55,9 @@ class SetKeyOperator(Operator):
     def process(self, inputs):
         return inputs
 
+    def sketch(self):
+        return "null"
+
 class ConsistentSetKeyOperator(SetKeyOperator):
     name = operator_name = 'tag_copy'
 
@@ -78,6 +81,9 @@ class RenameOperator(Operator):
     def process(self, data):
         return data
 
+    def sketch(self):
+        return "null"
+
 class ConistentRenmeOperator(RenameOperator):
     name = operator_name = 'tag_rename'
 
@@ -88,6 +94,9 @@ class CopyTagOperator(RenameOperator):
 
     def __init__(self, inputs, tag, newname, remove=False):
         RenameOperator.__init__(self, inputs, tag, newname, remove=remove)
+
+    def sketch(self):
+        return "null"
 
 class TagPick(Operator):
     """ "Pick" streams by tag value
@@ -120,3 +129,6 @@ class TagPick(Operator):
 
     def process(self, data):
         return map(lambda i: data[i], self.order)
+
+    def sketch(self):
+        return "null"

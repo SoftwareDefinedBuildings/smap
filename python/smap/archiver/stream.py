@@ -45,6 +45,7 @@ import smap.operators as operators
 from smap.ops import installed_ops, grouping
 from smap.archiver import data
 from smap.archiver import querygen as qg
+from smap.archiver import settings
 
 SUPPORTED_SKETCHES = [
     ('mean', 300),
@@ -170,20 +171,22 @@ class OperatorApplicator(object):
                 if not 'Metadata/Extra/Operator' in o:
                     o['Metadata/Extra/Operator'] = str(self.op)
 
-        # ask the operator expression for a sketch name that describe
-        # it -- eg, ('mean', 300).  If that's in our list of supported
-        # sketches (by the backend), we can nullify that operator and
-        # fetch the sketch instead.
-        sketch = self.op.sketch()
-        if sketch and sketch[1] in SUPPORTED_SKETCHES:
-            node, self.sketch = sketch
-            node.nullify()      # convert the sketch ast node to a no-op
-            name, size = self.sketch
-            # try to load things in readingdb-friendly 10000-point chunks
-            self.chunk_length = size * 9990
-        else:
-            self.sketch = None
-        print "Final sketch:", self.sketch
+        self.sketch = None
+        if settings.conf['features']['sketches']:
+            # ask the operator expression for a sketch name that describe
+            # it -- eg, ('mean', 300).  If that's in our list of supported
+            # sketches (by the backend), we can nullify that operator and
+            # fetch the sketch instead.
+            sketch = self.op.sketch()
+            print "INITAL SKETCH POTENTIAL", sketch
+            if sketch and sketch[1] in SUPPORTED_SKETCHES:
+                node, self.sketch = sketch
+                node.nullify()      # convert the sketch ast node to a no-op
+                name, size = self.sketch
+                # try to load things in readingdb-friendly 10000-point chunks
+                self.chunk_length = size * 9990
+                print "Final sketch:", self.sketch
+
         self.resumeProducing()
 
     def load_chunk(self):

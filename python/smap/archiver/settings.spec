@@ -5,6 +5,7 @@ threadpool size = integer(default=30)
 
 [features]
 permissions = boolean(default=False)
+sketches = boolean(default=False)
 
 [server]
   [[__many__]]
