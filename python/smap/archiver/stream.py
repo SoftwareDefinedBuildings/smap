@@ -178,7 +178,6 @@ class OperatorApplicator(object):
             # sketches (by the backend), we can nullify that operator and
             # fetch the sketch instead.
             sketch = self.op.sketch()
-            print "INITAL SKETCH POTENTIAL", sketch
             if sketch and sketch[1] in SUPPORTED_SKETCHES:
                 node, self.sketch = sketch
                 node.nullify()      # convert the sketch ast node to a no-op

@@ -48,7 +48,7 @@ CREATE TABLE permission (
        valid_until TIMESTAMP DEFAULT NULL,
        can_select BOOLEAN NOT NULL DEFAULT true,
        can_delete BOOLEAN NOT NULL DEFAULT false,
-       can_set BOOLEAN NOT NULL DEFAULT false,
+       can_set BOOLEAN NOT NULL DEFAULT false
 );
 CREATE SEQUENCE permission_id_seq;
 ALTER TABLE permission
@@ -58,6 +58,7 @@ ALTER TABLE permission
 -- contains permission -> set(subscription) that contains the
 -- subscriptions that the permission applies to
 CREATE TABLE permission_subscriptions (
+       id INT PRIMARY KEY,
        subscription_id INT,
        permission_id INT,
 
@@ -65,3 +66,8 @@ CREATE TABLE permission_subscriptions (
        FOREIGN KEY (subscription_id) REFERENCES subscription(id),
        FOREIGN KEY (permission_id) REFERENCES permission(id)
 );
+
+CREATE SEQUENCE permission_subscriptions_id_seq;
+ALTER TABLE permission
+  ALTER COLUMN id
+    SET DEFAULT NEXTVAL('permission_subscriptions_id_seq');

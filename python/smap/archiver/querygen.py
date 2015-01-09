@@ -52,11 +52,12 @@ def build_authcheck(request, ti='', forceprivate=False, action=None):
         query = "(sub%s.public " % ti
     else:
         query = "(false "
+    query += " AND sub.id = s.subscription_id "
 
     if 'key' in request.args:
         query += 'OR ( (' + ' OR '.join(["sub.key = %s" % escape_string(x + ti)
                                       for x in request.args['key']]) + \
-                                       ') AND sub.id = s.subscription_id) '
+                                       ')'
 
     if (settings.conf['features']['permissions'] and 
         'key' in request.args and action is not None):
