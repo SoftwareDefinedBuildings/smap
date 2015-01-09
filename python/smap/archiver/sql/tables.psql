@@ -68,6 +68,6 @@ CREATE TABLE permission_subscriptions (
 );
 
 CREATE SEQUENCE permission_subscriptions_id_seq;
-ALTER TABLE permission
+ALTER TABLE permission_subscriptions
   ALTER COLUMN id
     SET DEFAULT NEXTVAL('permission_subscriptions_id_seq');
