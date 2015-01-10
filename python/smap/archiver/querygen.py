@@ -48,16 +48,16 @@ def build_authcheck(request, ti='', forceprivate=False, action=None):
     permissions will be used, or one of the can_XXX permissions in the
     permission table.
     """
+    query = "sub.id = s.subscription_id AND "
     if not 'private' in request.args and not forceprivate:
-        query = "(sub%s.public " % ti
+        query += "(sub%s.public " % ti
     else:
-        query = "(false "
-    query += " AND sub.id = s.subscription_id "
+        query += "(false "
 
     if 'key' in request.args:
         query += 'OR ( (' + ' OR '.join(["sub.key = %s" % escape_string(x + ti)
                                       for x in request.args['key']]) + \
-                                       ')'
+                                       ') )'
 
     if (settings.conf['features']['permissions'] and 
         'key' in request.args and action is not None):
