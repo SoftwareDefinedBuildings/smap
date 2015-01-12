@@ -116,6 +116,7 @@ class CT80(SmapDriver):
                 setup["range"] = a["range"]
                 act = ContinuousActuator(**setup)
                 if a['smapname'] in ['temp_heat', 'temp_cool']:
+                    act = ContinuousActuator(subscribe=opts.get(a['smapname']), **setup)
                     self._sp_actuators[a['smapname']] = act
                 ts[a['smapname']].add_actuator(act)
             elif a["act_type"] == "binary":
@@ -156,10 +157,10 @@ class CT80(SmapDriver):
             self.add('/temp_cool', float(self._setpoints['t_cool']))
             if abs(self._setpoints['t_heat'] - vals['temp']) < abs(self._setpoints['t_cool'] - vals['temp']):
                 print 'Writing temp_heat', self._setpoints['t_heat']
-                self._sp_actuators['temp_heat'].set_state(None, self._setpoints['t_heat'])
+                self._sp_actuators['temp_heat'].set_state("write", self._setpoints['t_heat'])
             else:
                 print 'Writing temp_cool', self._setpoints['t_cool']
-                self._sp_actuators['temp_cool'].set_state(None, self._setpoints['t_cool'])
+                self._sp_actuators['temp_cool'].set_state("write", self._setpoints['t_cool'])
         else: # publish the current t_heat, t_cool of the thermostat
             if 't_heat' in vals:
                 self.add('/temp_heat', float(vals['t_heat']))
@@ -176,6 +177,7 @@ class _CT80Actuator(actuate.SmapActuator):
         self.name = opts.get('name', None)
         self.driver = opts.get('driver')
         self.url = 'http://' + self.ip + '/tstat'
+        self.subscribe(opts.get('archiver','http://localhost:8079'), opts.get('subscribe'))
 
     def get_state(self, request):
         r = requests.get(self.url)
@@ -186,7 +188,7 @@ class _CT80Actuator(actuate.SmapActuator):
         # if we get a web request for temp_heat or temp_cool, we cache it but
         # don't actuate the CT80. To write temp_heat or temp_cool to the CT80,
         # we have to have request == None
-        if request and self.name in ['t_heat','t_cool']:
+        if not request and self.name in ['t_heat','t_cool']:
             self.driver._setpoints[self.name] = state
             return
         payload = '{"' + self.name + '": ' + str(state) + '}'
