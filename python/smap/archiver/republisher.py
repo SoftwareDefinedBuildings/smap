@@ -263,6 +263,18 @@ class MongoRepublisher(object):
                                          settings.conf['mongo']['port'],
                                          socketTimeoutMS=1000)
 
+    def _sanitize_keys(self, obj):
+        # hilariously, the Mongo "database" doesn't support keys
+        # starting with '$' or containing '.'
+        for k in obj.keys():
+            kprime = None
+            if k[0] == "$" or k.find(".") != -1:
+                kprime = k.replace(".", "_")
+                if kprime[0] == "$":
+                    kprime = kprime[1:]
+                obj[kprime] = obj[k]
+                del obj[k]
+
     def republish(self, key, public, obj):
         # check perms
         if (not public and 
@@ -273,6 +285,7 @@ class MongoRepublisher(object):
         col = self.mongo.smap.republish
         # pymongo mutates the argument ...
         insert = copy.deepcopy(obj)
+        self._sanitize_keys(insert)
         insert['__submitted'] = int(time.time() * 1000)
         insert['__key'] = key
         return threads.deferToThread(col.save, insert)
