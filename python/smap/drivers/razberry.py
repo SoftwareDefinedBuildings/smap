@@ -1,5 +1,5 @@
 """
-Copyright (c) 2011, 2012, Regents of the University of California
+Copyright (c) 2014, University of Southern Denmark
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,9 @@ Known limitations: Require restart if additional z-wave devices are added and do
 """
 @author Mikkel Baun Kjaergaard <mbkj@mmmi.sdu.dk>
 """
-import time,json,urllib2
+import time
+import json
+import urllib2
 from smap import driver, util
 
 class RazBerry(driver.SmapDriver):
