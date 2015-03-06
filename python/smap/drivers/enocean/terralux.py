@@ -26,6 +26,9 @@ class _Actuator(actuate.SmapActuator):
 
         self.api = USB300(self.serial_port, self.usb_stick_id, self.baud_rate, self.fixture_id)
 
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
+
     def get_state(self, request):
         return self.state
 
@@ -75,12 +78,14 @@ class TerraluxController(driver.SmapDriver):
             'usb_stick_id': opts.pop('usb_stick_id', 'ffe14000'),
             'serial_port': opts.pop('serial_port', '/dev/ttyUSB0'),
             'baud_rate': opts.pop('baud_rate', '57600'),
-            'dim_limits': opts.pop('dim_limits')
+            'dim_limits': opts.pop('dim_limits'),
+            'archiver': opts.get('archiver'),
         }
 
         self.fixture_ids = opts.pop('fixture_list')
         for fixture in self.fixture_ids:
             setup['fixture_id'] = fixture
+            setup['subscribe'] = '/light_{0}/dim'.format(fixture)
             ts = self.add_timeseries('/light_%s/dim' % fixture, 'Dim Level', data_type='long', write_limit=5)
             ts.add_actuator(ContinuousIntegerActuator(**setup))
             self.set_metadata('/light_%s/dim' % fixture, {'Metadata/Type': 'Reading', 'Metadata/System': 'Lighting'})

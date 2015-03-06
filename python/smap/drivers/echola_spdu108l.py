@@ -90,6 +90,7 @@ class EcholaActuator(actuate.SmapActuator):
         self.outlet = opts.get('outlet')
         self.readURL = opts.get('readURL')
         self.actURL = opts.get('actURL')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
         self.subscribe(opts.get('archiver'), opts.get('subscribe'))
 
     def get_state(self, request):

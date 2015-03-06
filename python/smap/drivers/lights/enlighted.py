@@ -44,18 +44,20 @@ class Enlighted(driver.SmapDriver):
         self.api = EnlightedAPI(self.ip, auth=(self.username, self.password))
         # Todo: how to get the sensor and zone metadata automatically?
         self.sensor_ids = opts.get('sensors')
+        actuator = opts.get('actuator')
+        archiver = opts.get('archiver')
         for sensor_id in self.sensor_ids:
             self.add_timeseries('/sensor_%s/occupancy_status' % sensor_id, 'state', data_type="long")
             self.set_metadata('/sensor_%s/occupancy_status' % sensor_id, {'Metadata/Sensor': 'Occupancy', 'Metadata/System': 'Monitoring'})
             self.add_timeseries('/sensor_%s/time_since_last_occupancy' % sensor_id, 'sec', data_type="long")
 
             bri = self.add_timeseries('/light_%s/bri' % sensor_id, '%', data_type="long")
-            bri.add_actuator(ContinuousIntegerActuator(ip=self.ip, sensor_id=sensor_id, range=[0,100], api=self.api))
+            bri.add_actuator(ContinuousIntegerActuator(ip=self.ip, sensor_id=sensor_id, range=[0,100], api=self.api, archiver=archiver))
             self.set_metadata('/light_%s/bri' % sensor_id, {'Metadata/Type': 'Reading', 'Metadata/System': 'Lighting'})
             self.set_metadata('/light_%s/bri_act' % sensor_id, {'Metadata/Type': 'Command', 'Metadata/System': 'Lighting'})
 
             on = self.add_timeseries('/light_%s/on' % sensor_id, '%', data_type="long")
-            on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api))
+            on.add_actuator(BinaryActuator(ip=self.ip, sensor_id=sensor_id, api=self.api, archiver=archiver))
             self.set_metadata('/light_%s/on' % sensor_id, {'Metadata/Type': 'Reading', 'Metadata/System': 'Lighting'})
             self.set_metadata('/light_%s/on_act' % sensor_id, {'Metadata/Type': 'Command', 'Metadata/System': 'Lighting'})
 
@@ -85,6 +87,8 @@ class Actuator(actuate.SmapActuator):
         self.ip = opts['ip']
         self.sensor_id = opts['sensor_id']
         self.api = opts['api']
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
     def get_state(self, request):
         return self.api.getSensorDimLevel(self.sensor_id)

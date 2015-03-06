@@ -76,7 +76,8 @@ class VirtualThermostatActuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.tstat = opts.get('tstat')
         self.path = opts.get('path')
-        self.subscribe(opts.get('archiver'),opts.get('subscribe'))
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
 class SetpointActuator(VirtualThermostatActuator, actuate.ContinuousIntegerActuator):
     def __init__(self, **opts):

@@ -18,6 +18,8 @@ class _Actuator(actuate.SmapActuator):
         self.destination_id = opts['destination_id']
        
         self.api = USB300(self.serial_port, self.usb_stick_id, self.baud_rate, self.destination_id)
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
     def get_state(self, request):
         return self.state
@@ -49,7 +51,9 @@ class EnoceanPlugController(driver.SmapDriver):
         setup={'usb_stick_id': opts.pop('usb_stick_id', 'ffe14001'),
                'serial_port': opts.pop('serial_port', '/dev/ttyUSB0'),
                'baud_rate': opts.pop('baud_rate', '57600'),
-               'destination_id': opts.pop('destination_id')
+               'destination_id': opts.pop('destination_id'),
+               'archiver': opts.get('archiver'),
+               'subscribe': opts.get('state')
         }
 
         state = self.add_timeseries('/state', 'On/Off', data_type='long')

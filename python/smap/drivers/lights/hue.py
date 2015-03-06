@@ -82,8 +82,10 @@ class HUE(driver.SmapDriver):
               option["unit"], data_type=option["data_type"], timezone=self.tz)
 
           setup={'model': option["act_type"], 'ip':self.ip,
-              'range': option.get("range"), 'user': self.user, 'id': light["id"],
-              'api': option["api"]}
+                 'range': option.get("range"), 'user': self.user, 'id': light["id"],
+                 'api': option["api"],
+                 'archiver': opts.get('archiver'),
+                 'subscribe': opts.get(light['name']+'/state/'+option['api']}
           if  option["act_type"] == "binary":
             setup['states'] = option.get("states")
             act = BinaryActuator(**setup)
@@ -119,6 +121,8 @@ class Actuator(actuate.SmapActuator):
     self.user = opts['user']
     self.id = opts['id']
     self.api = opts['api']
+    actuate.SmapActuator.__init__(self, opts.get('archiver'))
+    self.subscribe(opts.get('subscribe'))
 
   def get_state(self, request):
     r = requests.get("http://" + self.ip + "/api/"+self.user+"/lights/"+ self.id)

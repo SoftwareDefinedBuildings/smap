@@ -193,6 +193,7 @@ class ThermoActuator(actuate.SmapActuator):
         self.OID = opts['OID']
         self.devtosmap = opts['devtosmap']
         self.smaptodev = opts['smaptodev']
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
         self.subscribe(opts.get('archiver','http://localhost:8079'), opts.get('subscribe'))
 
     def get_state(self, request):

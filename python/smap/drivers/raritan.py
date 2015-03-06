@@ -99,6 +99,7 @@ class Raritan(driver.SmapDriver):
         self.console = ConsoleClient()
         self.console.connect_to_console(self.ip, self.port)
         self.rate = float(opts.get('rate', 1))
+        archiver = opts.get('archiver')
         o1 = self.add_timeseries('/outlet1/on', 'On/Off', data_type='long', timezone=self.tz)
         o2 = self.add_timeseries('/outlet2/on', 'On/Off', data_type='long', timezone=self.tz)
         o3 = self.add_timeseries('/outlet3/on', 'On/Off', data_type='long', timezone=self.tz)
@@ -106,12 +107,12 @@ class Raritan(driver.SmapDriver):
         o5 = self.add_timeseries('/outlet5/on', 'On/Off', data_type='long', timezone=self.tz)
         o6 = self.add_timeseries('/outlet6/on', 'On/Off', data_type='long', timezone=self.tz)
 
-        o1.add_actuator(OnOffActuator(outlet=1, console=self.console))
-        o2.add_actuator(OnOffActuator(outlet=2, console=self.console))
-        o3.add_actuator(OnOffActuator(outlet=3, console=self.console))
-        o4.add_actuator(OnOffActuator(outlet=4, console=self.console))
-        o5.add_actuator(OnOffActuator(outlet=5, console=self.console))
-        o6.add_actuator(OnOffActuator(outlet=6, console=self.console))
+        o1.add_actuator(OnOffActuator(outlet=1, console=self.console, archiver=archiver, subscribe=opts.get('/outlet1/on')))
+        o2.add_actuator(OnOffActuator(outlet=2, console=self.console, archiver=archiver, subscribe=opts.get('/outlet2/on')))
+        o3.add_actuator(OnOffActuator(outlet=3, console=self.console, archiver=archiver, subscribe=opts.get('/outlet3/on')))
+        o4.add_actuator(OnOffActuator(outlet=4, console=self.console, archiver=archiver, subscribe=opts.get('/outlet4/on')))
+        o5.add_actuator(OnOffActuator(outlet=5, console=self.console, archiver=archiver, subscribe=opts.get('/outlet5/on')))
+        o6.add_actuator(OnOffActuator(outlet=6, console=self.console, archiver=archiver, subscribe=opts.get('/outlet6/on')))
         
         self.set_metadata('/', {'Metadata/Device': 'General Controller',
                                 'Metadata/Model': 'Raritan',
@@ -143,6 +144,8 @@ class RaritanActuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.console = opts.get('console')
         self.outlet = opts.get('outlet')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
     def get_state(self, request):
         return 0

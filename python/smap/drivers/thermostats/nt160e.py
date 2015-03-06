@@ -216,6 +216,7 @@ class _NT160eActuator(actuate.SmapActuator):
         self.password = opts.get('password')
         self.OID = opts.get('OID')
         self.convert = opts.get('convert')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
 
     def get_state(self, request):
         pass

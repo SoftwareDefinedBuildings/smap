@@ -15,7 +15,7 @@ class VirtualController(driver.SmapDriver):
                                 'Metadata/Model': 'Virtual General Controller',
                                 'Metadata/Driver': __name__})
 
-        on.add_actuator(OnOffActuator(device=self))
+        on.add_actuator(OnOffActuator(device=self, archiver=opts.get('archiver'), subscribe=opts.get('on')))
 
         self.set_metadata('/on',{'Metadata/Type':'Reading'})
         self.set_metadata('/on_act',{'Metadata/Type':'Command'})
@@ -29,6 +29,8 @@ class VirtualController(driver.SmapDriver):
 class VirtualControllerActuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.device = opts.get('device')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
 class OnOffActuator(VirtualControllerActuator, actuate.BinaryActuator):
     def __init__(self, **opts):

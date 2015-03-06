@@ -21,10 +21,11 @@ class VirtualLight(driver.SmapDriver):
                                 'Metadata/Model': 'Virtual Light',
                                 'Metadata/Driver': __name__})
 
-        on.add_actuator(OnOffActuator(light=self))
-        bri.add_actuator(BrightnessActuator(light=self, range=(0,100)))
-        hue.add_actuator(HueActuator(light=self,range=(0,65535)))
-        sat.add_actuator(SatActuator(light=self,range=(0,100)))
+        archiver = opts.get('archiver')
+        on.add_actuator(OnOffActuator(light=self, archiver=archiver, subscribe=opts.get('on')))
+        bri.add_actuator(BrightnessActuator(light=self, range=(0,100), archiver=archiver, subscribe=opts.get('bri')))
+        hue.add_actuator(HueActuator(light=self,range=(0,65535), archiver=archiver, subscribe=opts.get('hue')))
+        sat.add_actuator(SatActuator(light=self,range=(0,100), archiver=archiver, subscribe=opts.get('sat')))
 
         metadata_type = [
                 ('/on','Reading'),
@@ -56,6 +57,8 @@ class VirtualLight(driver.SmapDriver):
 class VirtualLightActuator(actuate.SmapActuator):
     def __init__(self, **opts):
         self.light = opts.get('light')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
 
 class OnOffActuator(VirtualLightActuator, actuate.BinaryActuator):

@@ -116,12 +116,13 @@ class TCP(driver.SmapDriver):
         self.token = get_token(self.posturl)
         self.gateway_id, self.framework_version, self.serial_number = get_serverinfo(self.posturl, self.token)
         devices = get_states(self.posturl, self.token)
+        archiver = opts.get('archiver')
         for device in devices:
             on = self.add_timeseries('/'+str(device[0])+'/on', 'On/Off', data_type='long', timezone=self.tz)
             self.add_timeseries('/'+str(device[0])+'/power', 'V', data_type='double', timezone=self.tz)
             bri = self.add_timeseries('/'+str(device[0])+'/bri', 'Brightness', data_type='long', timezone=self.tz)
-            on.add_actuator(OnOffActuator(ip=self.ip, device_id=str(device[0])))
-            bri.add_actuator(BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100)))
+            on.add_actuator(OnOffActuator(ip=self.ip, device_id=str(device[0]), archiver=archiver, subscribe=opts.get(str(device[0])+'/on')))
+            bri.add_actuator(BrightnessActuator(ip=self.ip, device_id=str(device[0]), range=(0,100), archiver=archiver, subscribe=opts.get(str(device[0])+'/bri')))
             self.set_metadata('/{0}/on'.format(device[0]), {'Metadata/Type': 'Reading'})
             self.set_metadata('/{0}/power'.format(device[0]), {'Metadata/Type': 'Reading'})
             self.set_metadata('/{0}/power'.format(device[0]), {'Metadata/Sensor': 'Energy'})
@@ -152,6 +153,8 @@ class TCPLActuator(actuate.SmapActuator):
         self.posturl = 'http://{0}/gwr/gop.php'.format(self.ip)
         self.token = get_token(self.posturl)
         self.device_id = opts.get('device_id')
+        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        self.subscribe(opts.get('subscribe'))
 
     def get_state(self, request):
         states = get_states(self.posturl, self.token)
