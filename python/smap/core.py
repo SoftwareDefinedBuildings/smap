@@ -232,6 +232,9 @@ Can be called with 1, 2, or 3 arguments.  The forms are
         self['Actuator'] = {'uuid': act["uuid"],
                             'path': actuator_path}
         self.actuator = actuator_instance
+        # add a reference to the UUID to the actuator so that it can subscribe to itself
+        self.actuator._act_uuid = act['uuid']
+        actuator_instance._init_default()
 
     def __setitem__(self, attr, value):
         if attr in self.FIELDS:

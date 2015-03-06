@@ -79,6 +79,15 @@ class SmapActuator(object):
     control_type = None
     control_description = {}
 
+    def __init__(self, archiver_url=None):
+        self._subscriptions = {}
+        if not archiver_url:
+            archiver_url = 'http://localhost:8079'
+        self.archiver_url = archiver_url
+
+    def _init_default(self):
+        self.subscribe('Metadata/override = "{0}"'.format(self._act_uuid))
+
     def valid_state(self, state):
         raise NotImplementedError()
 
@@ -105,11 +114,10 @@ class SmapActuator(object):
           state = data[-1][-1][1] # get val of last reading
           self.set_state(None, state)
 
-    def subscribe(self, archiver_url, where):
+    def subscribe(self, where):
         if where:
-            archiver_url = archiver_url if archiver_url else 'http://localhost:8079'
-            self._republishclient = RepublishClient(archiver_url, self._republishcb, restrict=where)
-            self._republishclient.connect()
+            self._subscriptions[where] = RepublishClient(self.archiver_url, self._republishcb, restrict=where)
+            self._subscriptions[where].connect()
 
 class BinaryActuator(SmapActuator):
     """A BinaryActuator is a controller which has only two states,
