@@ -85,7 +85,7 @@ class HUE(driver.SmapDriver):
                  'range': option.get("range"), 'user': self.user, 'id': light["id"],
                  'api': option["api"],
                  'archiver': opts.get('archiver'),
-                 'subscribe': opts.get(light['name']+'/state/'+option['api']}
+                 'subscribe': opts.get(light['name']+'/state/'+option['api'])}
           if  option["act_type"] == "binary":
             setup['states'] = option.get("states")
             act = BinaryActuator(**setup)
