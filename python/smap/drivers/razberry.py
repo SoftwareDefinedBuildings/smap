@@ -170,18 +170,18 @@ class RazBerry(driver.SmapDriver):
 
 
     def setup(self, opts):
-        self.ip = opts.get('ip', None)
-        self.readrate = int(opts.get('readrate', 5))
+        self.ip = opts.get('ip', self.ip)
+        self.readrate = int(opts.get('readrate', self.readrate))
         self.tz = opts.get('Metadata/Timezone', None)
 
         response = urllib2.urlopen('http://' + self.ip + ':8083/ZWaveAPI/Data/0')
         self.jsondata = json.loads(response.read())        
         sensors = self.getSensorDescriptions(self.jsondata) 
 
-    for sensor in sensors:
-        print "Adding: " + str(sensor)
-        self.add_timeseries(sensor["name"].encode('ascii', 'ignore'), sensor["scale"].encode('ascii', 'ignore'), data_type='double', timezone=self.tz)
-        self.set_metadata(sensor["name"].encode('ascii', 'ignore'), {'Instrument/RazBerry' : sensor["description"].encode('ascii', 'ignore')})
+        for sensor in sensors:
+            print "Adding: " + str(sensor)
+            self.add_timeseries(sensor["name"].encode('ascii', 'ignore'), sensor["scale"].encode('ascii', 'ignore'), data_type='double', timezone=self.tz)
+            self.set_metadata(sensor["name"].encode('ascii', 'ignore'), {'Instrument/RazBerry' : sensor["description"].encode('ascii', 'ignore')})
 
     def start(self):
         util.periodicSequentialCall(self.read).start(self.readrate)
