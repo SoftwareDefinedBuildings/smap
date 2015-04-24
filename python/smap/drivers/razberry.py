@@ -170,8 +170,8 @@ class RazBerry(driver.SmapDriver):
 
 
     def setup(self, opts):
-        self.ip = opts.get('ip', None)
-        self.readrate = int(opts.get('readrate', 5))
+        self.ip = opts.get('ip', self.ip)
+        self.readrate = int(opts.get('readrate', self.readrate))
         self.tz = opts.get('Metadata/Timezone', None)
 
         response = urllib2.urlopen('http://' + self.ip + ':8083/ZWaveAPI/Data/0')
