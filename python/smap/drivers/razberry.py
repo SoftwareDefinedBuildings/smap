@@ -178,10 +178,10 @@ class RazBerry(driver.SmapDriver):
         self.jsondata = json.loads(response.read())        
         sensors = self.getSensorDescriptions(self.jsondata) 
 
-    for sensor in sensors:
-        print "Adding: " + str(sensor)
-        self.add_timeseries(sensor["name"].encode('ascii', 'ignore'), sensor["scale"].encode('ascii', 'ignore'), data_type='double', timezone=self.tz)
-        self.set_metadata(sensor["name"].encode('ascii', 'ignore'), {'Instrument/RazBerry' : sensor["description"].encode('ascii', 'ignore')})
+        for sensor in sensors:
+            print "Adding: " + str(sensor)
+            self.add_timeseries(sensor["name"].encode('ascii', 'ignore'), sensor["scale"].encode('ascii', 'ignore'), data_type='double', timezone=self.tz)
+            self.set_metadata(sensor["name"].encode('ascii', 'ignore'), {'Instrument/RazBerry' : sensor["description"].encode('ascii', 'ignore')})
 
     def start(self):
         util.periodicSequentialCall(self.read).start(self.readrate)
