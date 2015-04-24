@@ -8,6 +8,7 @@
     {"name" : "Instrument", "type" : ["null", "InstrumentMetadata"]},
     {"name" : "Location", "type" : ["null", "LocationMetadata"]},
     {"name" : "Operator", "type" : ["null", "OperatorMetadata"]},
+    {"name" : "BACnet", "type" : ["null", "BACnetMetadata", {"type" : "map", "values" : "string"} ] },
     {"name" : "Extra", "type" : ["null", { "type" : "map", "values" : "string"} ] }
   ]
 }

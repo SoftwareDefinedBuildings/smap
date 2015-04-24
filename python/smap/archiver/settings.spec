@@ -3,11 +3,15 @@ default backend = string(default="http://localhost:8079")
 location = string(default='')
 threadpool size = integer(default=30)
 
+[features]
+permissions = boolean(default=False)
+sketches = boolean(default=False)
+
 [server]
   [[__many__]]
   port = integer(default=8079)
   interface = string(default="0.0.0.0")
-  resources = list(default=list('add', 'api', 'republish'))
+  resources = list(default=list('add', 'api', 'republish', 'wsrepublish'))
 
     [[[ssl]]]
       cert = string()
@@ -28,3 +32,10 @@ module = string(default="readingdb")
 host = string(default="localhost")
 port = integer(default=4242)
 divisor = integer(default=1000)
+
+[mongo]
+enabled = boolean(default=False)
+host = string(default="localhost")
+port = integer(default=27017)
+keys = list(default=list())
+publish_all_private = boolean(default=False)

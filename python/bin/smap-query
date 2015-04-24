@@ -66,6 +66,8 @@ def run_query(opts, q):
             query['key'] = opts.key.split(',')
             if opts.private:
                 query['private'] = ['']
+        if opts.noop:
+            query['noop'] = 1
 
         qurl = opts.url + '?' + urllib.urlencode(query, doseq=True)
         print qurl
@@ -183,6 +185,9 @@ if __name__ == '__main__':
     parser.add_option('-n', '--no-dates', dest='dates',
                       default=True, action='store_false',
                       help='don\'t convert dates to string representation')
+    parser.add_option('-d', '--dry-run', dest='noop',
+                      default=False, action='store_true',
+                      help='mutations display their results but don\'t actually happen')
     opts, args = parser.parse_args()
 
     if len(args) > 0:
@@ -191,7 +196,8 @@ if __name__ == '__main__':
         q = sys.stdin.read()
         run_query(opts, q)
     else:
-        print >>sys.stderr, "Querying", opts.url
+        print >>sys.stderr, "Querying", opts.url,
+        print >>sys.stderr, "in dry run mode" if opts.noop else ""
         readline.parse_and_bind('tab: complete')
         readline.parse_and_bind('set editing-mode emacs')
         if hasattr(readline, "read_history_file"):

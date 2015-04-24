@@ -90,7 +90,7 @@ class SubscriptionResource(ApiResource):
                 (len(request.prepath) == 3 and request.prepath[-1] == ''):
             d = self.db.runQuery("""
 SELECT id, url, resource
-FROM subscription sub WHERE """ + build_authcheck(request))
+FROM subscription sub WHERE """ + build_authcheck(request, action='select'))
             d.addCallback(lambda x: self._done_subs(request, x))
             d.addErrback(makeErrback(request))
         else:
@@ -133,7 +133,7 @@ def build_inner_query(request, tags):
     inner_query = """
  (SELECT s.id FROM stream s, subscription sub
   WHERE s.subscription_id = sub.id AND (%s) AND (%s) AND s.metadata @> (%s))
-""" % (build_authcheck(request), uuid_clause, ' || '.join(clauses))
+""" % (build_authcheck(request, action='select'), uuid_clause, ' || '.join(clauses))
 
     return inner_query, clauses
 

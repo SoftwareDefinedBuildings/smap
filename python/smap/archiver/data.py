@@ -255,6 +255,12 @@ class DataRequester:
             kwargs = {
                 'limit': int(request.args.get('limit', [10000000])[0])
                 }
+
+            # only add a sketch if provided, to ensure backwards
+            # compatibility.
+            if request.args.get('sketch', None):
+                kwargs['sketch'] = request.args['sketch']
+
         else:
             if method == 'prev':
                 method = settings.rdb.db_prev

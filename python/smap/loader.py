@@ -143,6 +143,10 @@ contain a ``uuid`` key to set the root identifier for the source.
 
     # we need the root to have a uuid
     inst = core.SmapInstance(conf['/']['uuid'], **instargs)
+    if 'Properties/Timezone' in conf['/']:
+        print "Setting default timezone to", conf['/']['Properties/Timezone']
+        core.Timeseries.DEFAULTS['Properties/Timezone'] = conf['/']['Properties/Timezone']
+
     inst.loading = True
     reports = []
 
@@ -166,7 +170,7 @@ contain a ``uuid`` key to set the root identifier for the source.
                 'uuid' : inst.uuid(s),
                 'MaxAge' : max_age,
                 }
-            for o in ['MinPeriod', 'MaxPeriod']:
+            for o in ['MinPeriod', 'MaxPeriod', 'MongoDatabaseName', 'MongoCollectionName']:
                 if o in conf[s]:
                     reportinst[o] = conf[s][o]
             for o in ['ClientCertificateFile', 'ClientPrivateKeyFile', 'CAFile']:

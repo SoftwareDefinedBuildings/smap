@@ -34,17 +34,19 @@ import os
 import urlparse
 
 from twisted.internet import reactor, task, defer, threads
+from twisted.internet.endpoints import TCP6ClientEndpoint
+from twisted.web.error import SchemeNotSupported
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.python import log
 import logging
 
 import util
-import core
 import disklog
 import sjson as json
 from contrib import client
 from smap.formatters import get_formatter
+from smap.iface.plotly import PlotlyStream
 
 try:
     from smap.ssl import SslClientContextFactory
@@ -97,6 +99,16 @@ def reporting_map(rpt, col_cb, ts_cb):
 
 def is_https_url(url):
     return urlparse.urlparse(url).scheme == 'https'
+
+class Agent6(Agent):
+    def _getEndpoint(self, scheme, host, port):
+        try:
+            return super(Agent6, self)._getEndpoint(scheme, host, port)
+        except SchemeNotSupported:
+            if scheme == 'http6':
+                return TCP6ClientEndpoint(self._reactor, host, port)
+            else:
+                raise
 
 class DataBuffer:
     """Buffer outgoing data.
@@ -200,10 +212,63 @@ class DataBuffer:
             self.clear = True
             return self.data.head()
         else:
-            raise core.SmapException("No Pending Data!")
+            raise util.SmapException("No Pending Data!")
 
 
-class ReportInstance(dict):
+class MongoReportInstance(dict):
+    """Publish latest data to Mongo store
+    """
+    def __init__(self, datadir, *args):
+        from pymongo import MongoClient
+        dict.__init__(self, *args)
+        u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
+        url, port = u.netloc.split(':')
+        self['MongoClient'] = MongoClient(url, int(port))
+        if 'MongoDatabaseName' not in self:
+            self['MongoDatabaseName'] = 'meteor'
+        if 'MongoCollectionName' not in self:
+            self['MongoCollectionName'] = 'points'
+        self['MongoDatabase'] = getattr(self['MongoClient'], self['MongoDatabaseName'])
+        self['DataDir'] = datadir
+        self['PendingData'] = DataBuffer(datadir)
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['openbas']:
+                return False
+        return True
+
+    def deliverable(self):
+        return True
+
+    def insert_or_update(self, v):
+        db = self['MongoDatabase']
+        c = getattr(db, self['MongoCollectionName'])
+       
+        d = c.find_one({"uuid": v['uuid']})
+        if d is None:
+            c.insert(v)
+        else:
+            c.update({"uuid": v['uuid']}, { '$set': v })
+
+    def attempt(self):
+        data = self['PendingData'].read()
+        for key in data:
+            d = data[key]
+            if 'Readings' in d:
+                try: 
+                    latest = d['Readings'].pop()
+                    v = {'time': latest[0], 'value': latest[1], 'uuid': str(d['uuid']), 'Path': key}
+                    log.msg(v)
+                    self.insert_or_update(v)
+                except Exception, e:
+                    log.msg(e)
+        self['PendingData'].truncate()
+        if len(self['PendingData']) > 0:
+            self.attempt()
+
+class HttpReportInstance(dict):
     """Represent the stored state pending for one report destination
     """
     def __init__(self, datadir, *args):
@@ -218,6 +283,13 @@ class ReportInstance(dict):
         self['LastAttempt'] = 0
         self['LastSuccess'] = 0
         self['Busy'] = False
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['http', 'https', 'http6']:
+                return False
+        return True
 
     def deliverable(self):
         """Check if attempt should be called
@@ -302,9 +374,9 @@ class ReportInstance(dict):
 
         dest_url = self['ReportDeliveryLocation'][self['ReportDeliveryIdx']]
         if is_https_url(dest_url):
-            agent = Agent(reactor, SslClientContextFactory(self))
+            agent = Agent6(reactor, SslClientContextFactory(self))
         else:
-            agent = Agent(reactor)
+            agent = Agent6(reactor)
 
         try:
             formatter = get_formatter(self.get('Format', 'json'))
@@ -323,6 +395,51 @@ class ReportInstance(dict):
         d.addCallback(self._success)
         d.addErrback(self._failure)
         return d
+# default for backwards compatibility
+ReportInstance = HttpReportInstance
+
+
+class PlotlyReportInstance(dict):
+    def __init__(self, datadir, *args):
+        dict.__init__(self, *args)
+        self['PendingData'] = DataBuffer(datadir)
+        u = urlparse.urlparse(self['ReportDeliveryLocation'][0])
+        uri = "http://" + u.netloc 
+        streamid = u.path.lstrip('/')
+        print "Publishing plot.ly stream to", uri, "streamid:", streamid
+        self['Publisher'] = PlotlyStream(streamid, uri)
+
+    @staticmethod
+    def accepts(dests):
+        for d in dests:
+            if not d.scheme in ['plotly']:
+                return False
+        return True
+
+    def deliverable(self):
+        return True
+
+    def attempt(self):
+        data = self['PendingData'].read()
+        self['PendingData'].truncate()
+        if data is None: 
+            return
+        elif len(data) != 1:
+            log.msg("Plotly only supports a single stream -- specify a resource")
+            return
+        else:
+            data = data.values()[0]
+            if 'Readings' in data:
+                for ts, val in data['Readings']:
+                    self['Publisher'].add(ts, val)
+            
+
+def get_report_class(deliver_locations):
+    deliverylocs = map(urlparse.urlparse, deliver_locations)
+    report_instance = None
+    for report_class in [HttpReportInstance, PlotlyReportInstance, MongoReportInstance]:
+        if report_class.accepts(deliverylocs):
+            return report_class
 
 
 class Reporting:
@@ -368,7 +485,14 @@ class Reporting:
         dir = os.path.join(self.reportfile + '-reports',
                            str(rpt['uuid']))
         rpt['ReportDeliveryLocation'] = map(str, rpt['ReportDeliveryLocation'])
-        report_instance = ReportInstance(dir, rpt)
+
+        report_class = get_report_class(rpt['ReportDeliveryLocation'])
+        if report_class == None:
+            print "No report deliverer found for " + str(rpt['ReportDeliveryLocation'])
+            return 
+        else:
+            report_instance = report_class(dir, rpt)
+
         log.msg("Creating report -- dest is %s" % str(rpt['ReportDeliveryLocation']))
         self._update_subscriptions(report_instance)
         self.subscribers.append(report_instance)
@@ -400,11 +524,14 @@ class Reporting:
 
     def _update_subscriptions(self, sub):
         result = self.inst.lookup(sub['ReportResource'])
-        if isinstance(result, dict):
-            sub['Topics'] = set(result.iterkeys())
-        elif isinstance(result, dict) and 'uuid' in result:
+        if isinstance(result, dict) and 'uuid' in result:
+            # is a single time series
             sub['Topics'] = set([getattr(result, 'path')])
+        elif isinstance(result, dict):
+            # is a dict of {path: value}
+            sub['Topics'] = set(result.iterkeys())
         else:
+            # is nothing
             sub['Topics'] = set()
 
     def update_subscriptions(self):

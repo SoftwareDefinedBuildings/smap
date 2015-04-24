@@ -41,7 +41,6 @@ from twisted.internet import reactor, threads
 
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall
-import smap.core as core
 import smap.util as util
 import smap.iface.modbus.TCPModbusClient as TCPModbusClient
 
@@ -143,7 +142,7 @@ class Dent18(SmapDriver):
                     scale = None
                 if scale != None: break
             if scale == None:
-                raise core.SmapException("Could not read scale from dent: cannot proceed (%s)" %
+                raise util.SmapException("Could not read scale from dent: cannot proceed (%s)" %
                                          (str(self.serverloc)))
             self.elt_scales[i] = self.elt_scales[i][0], scale
         print self.elt_scales

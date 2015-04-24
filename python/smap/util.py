@@ -45,6 +45,16 @@ from twisted.internet.protocol import Protocol
 from twisted.python.lockfile import FilesystemLock
 from twisted.python import log, failure
 
+class SmapException(Exception):
+    """Generic error"""
+    def __init__(self, message, http_code=None):
+        Exception.__init__(self, message)
+        self.http_code = http_code
+
+class SmapSchemaException(SmapException):
+    """Exception generated if a json object doesn't validate as the
+appropriate kind of schema"""
+
 is_string = lambda x: isinstance(x, str) or isinstance(x, unicode)
 is_integer = lambda x: isinstance(x, int) or isinstance(x, long)
 def to_bool(s):

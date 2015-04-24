@@ -166,3 +166,6 @@ class WhereOperator(operators.Operator):
 
     def process(self, data):
         return [data[i] for i in self.takes]
+
+    def sketch(self):
+        return 'w'

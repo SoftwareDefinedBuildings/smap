@@ -42,6 +42,7 @@ __all__ = [
     'smap.ops.meter',
     'smap.ops.util',
     'smap.ops.ts',
+    'smap.ops.tags',
     ]
 map(__import__, __all__)
 

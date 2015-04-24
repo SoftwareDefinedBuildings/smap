@@ -114,6 +114,9 @@ class NullOperator(Operator):
     def process(self, inputs):
         return inputs
 
+    def sketch(self):
+        return 'null'
+
 
 class PrintOperator(NullOperator):
     """N-N operator which prints all the input data
@@ -170,30 +173,6 @@ class StripMetadata(Operator):
             for k, v in stream.iteritems():
                 if not k.startswith('Metadata/'):
                     outputs[i][k] = v
-        Operator.__init__(self, inputs, outputs)
-
-    def process(self, inputs):
-        return inputs
-
-class SetKeyOperator(Operator):
-    """Sets a key on all output streams
-
-    For instance, adding a:
-
-      set_key("Metadata/Extra/Name", "Foo")
-
-    To the operator pipeline will set the Metadata/Extra/Name tag to
-    "Foo" on all input streams.
-    """
-    name = 'set_key'
-    operator_name = 'set_key'
-    operator_constructors = [(str, str)]
-
-    def __init__(self, inputs, key, value):
-        # don't change uuids
-        outputs = copy.deepcopy(inputs)
-        for o in outputs:
-            o[key] = value
         Operator.__init__(self, inputs, outputs)
 
     def process(self, inputs):
@@ -286,23 +265,6 @@ class AddColumnOperator(Operator):
             rv.append(np.column_stack((d, newcols[0][:, 1:])))
         return rv
 
-
-class RenameOperator(Operator):
-    name = 'rename'
-    operator_name = 'rename'
-    operator_constructors = [(str, str)]
-
-    def __init__(self, inputs, tag, newname):
-        self.name = 'rename(%s, %s)' % (tag, newname)
-        output = copy.deepcopy(inputs)
-        for s in output:
-            if tag in s:
-                s[newname] = s[tag]
-                del s[tag]
-        Operator.__init__(self, inputs, output)
-
-    def process(self, data):
-        return data
 
 class MaskedDTList:
     """List which lazily performs datetime conversions, and memoizes

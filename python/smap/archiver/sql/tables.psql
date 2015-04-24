@@ -38,3 +38,30 @@ ALTER TABLE stream
   ALTER COLUMN id
     SET DEFAULT NEXTVAL('stream_id_seq');
 
+-- create a set of API keys and permissions
+CREATE TABLE permission (
+       id INT PRIMARY KEY,
+       key VARCHAR(36),
+       description VARCHAR(256),
+        
+       valid_after TIMESTAMP DEFAULT NULL,
+       valid_until TIMESTAMP DEFAULT NULL,
+       can_select BOOLEAN NOT NULL DEFAULT true,
+       can_delete BOOLEAN NOT NULL DEFAULT false,
+       can_set BOOLEAN NOT NULL DEFAULT false,
+);
+CREATE SEQUENCE permission_id_seq;
+ALTER TABLE permission
+  ALTER COLUMN id
+    SET DEFAULT NEXTVAL('permission_id_seq');
+
+-- contains permission -> set(subscription) that contains the
+-- subscriptions that the permission applies to
+CREATE TABLE permission_subscriptions (
+       subscription_id INT,
+       permission_id INT,
+
+       UNIQUE (permission_id, subscription_id),
+       FOREIGN KEY (subscription_id) REFERENCES subscription(id),
+       FOREIGN KEY (permission_id) REFERENCES permission(id)
+);

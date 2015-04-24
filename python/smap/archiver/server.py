@@ -30,7 +30,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
 """
 
-from twisted.internet import reactor
+import copy
+
+from twisted.internet import reactor, defer
 from twisted.web import resource, server, static
 from twisted.web.resource import NoResource
 from twisted.python import log
@@ -40,6 +42,7 @@ from smap import util
 from smap.server import RootResource, setResponseCode
 from smap.core import SmapException
 from smap.archiver import settings, data, api, republisher, transfer
+from smap.archiver.querygen import build_authcheck
 
 class DataResource(resource.Resource):
     """This resource manages the functionality of the add/ resource,
@@ -65,9 +68,14 @@ class DataResource(resource.Resource):
             public = subid[0][1]
             subid = subid[0][0]
             obj = transfer.read(request)
-            self.republisher.republish(request.prepath[-1], public, obj)
+
+            # we want to republish the non-munged version of the data,
+            # but then if that fails it may kill further processing.
+            d = self.republisher(request.prepath[-1], public, obj)
             util.push_metadata(obj)
-            return subid, obj
+            d.addCallback(lambda _: (subid, obj))
+
+            return d
         else:
             raise SmapException("Invalid key\n", 404)
 
@@ -104,20 +112,34 @@ class DataResource(resource.Resource):
         return server.NOT_DONE_YET
 
 def getSite(db, 
-            resources=['add', 'api', 'republish', 'static'],
-            repub=None):
+            resources=['add', 'api', 'republish', 'wsrepublish', 'static'],
+            http_repub=None, websocket_repub=None, mongo_repub=None):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': resources})
-    if not repub:
-        repub = republisher.ReResource(db)
+    if not http_repub:
+        http_repub = republisher.ReResource(db)
+    if not websocket_repub:
+        websocket_repub = republisher.WebSocketRepublishResource(db)
+
+    def repub_fn(*args):
+        dl = []
+        if 'republish' in resources:
+            http_repub.republish(*copy.deepcopy(args))
+        if 'wsrepublish' in resources:
+            websocket_repub.republish(*copy.deepcopy(args))
+        if mongo_repub:
+            dl.append(mongo_repub.republish(*copy.deepcopy(args)))
+        return defer.DeferredList(dl, fireOnOneErrback=True)
+
     if 'republish' in resources:
-        root.putChild('republish', repub)
+        root.putChild('republish', http_repub)
+    if 'wsrepublish' in resources:
+        root.putChild('wsrepublish', websocket_repub)
     if 'add' in resources:
-        root.putChild('add', DataResource(db, repub))
+        root.putChild('add', DataResource(db, repub_fn))
     if 'api' in resources:
         root.putChild('api', api.Api(db))
     if 'static' in resources:
-        print "static"
         root.putChild('static', static.File('static'))
     return server.Site(root)
 
