@@ -55,7 +55,8 @@ class CT80(SmapDriver):
     def setup(self, opts):
         self.tz = opts.get('Timezone', 'America/Los_Angeles')
         self.rate = float(opts.get('Rate', 5))
-        self.archiver = opts.get('archiver','http://localhost:8079')
+        self.archiver = opts.get('archiver_url','http://localhost:8079')
+        print 'driver',self.archiver
         self._temp_heat_subscription = opts.get('temp_heat','')
         self._temp_cool_subscription = opts.get('temp_cool','')
         self.ip = opts.get('ip', None)
@@ -177,7 +178,7 @@ class _CT80Actuator(actuate.SmapActuator):
         self.name = opts.get('name', None)
         self.driver = opts.get('driver')
         self.url = 'http://' + self.ip + '/tstat'
-        actuate.SmapActuator.__init__(self, opts.get('archiver'))
+        actuate.SmapActuator.__init__(self, opts.get('archiver_url'))
         self.subscribe(opts.get('subscribe'))
 
     def get_state(self, request):
