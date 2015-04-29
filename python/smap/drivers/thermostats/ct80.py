@@ -82,13 +82,13 @@ class CT80(SmapDriver):
                         {"smapname": "program_mode", "name": "program_mode", "unit": "Mode", "data_type": "double"}
                       ]
         self.actuators = [
-            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_heat_subscription, "archiver_url": self.archiver},
-            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_cool_subscription, "archiver_url": self.archiver},
-            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1,2,3], "subscribe":"", "archiver_url": self.archiver},
-            {"smapname": "fan_mode", "name": "fmode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":"", "archiver_url": self.archiver},
-            {"smapname": "override", "name": "override", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":"", "archiver_url": self.archiver},
-            {"smapname": "hold", "name": "hold", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":"", "archiver_url": self.archiver},
-            {"smapname": "program_mode", "name": "program_mode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":"", "archiver_url": self.archiver},
+            {"smapname": "temp_heat", "name": "t_heat", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_heat_subscription},
+            {"smapname": "temp_cool", "name": "t_cool", "act_type": "continuous", "unit": "F", "data_type": "double", "range": (40,100), "subscribe": self._temp_cool_subscription},
+            {"smapname": "hvac_mode", "name": "tmode", "act_type": "discrete", "unit": "F", "data_type": "double", "states": [0,1,2,3], "subscribe":""},
+            {"smapname": "fan_mode", "name": "fmode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "override", "name": "override", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "hold", "name": "hold", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
+            {"smapname": "program_mode", "name": "program_mode", "act_type": "binary", "unit": "F", "data_type": "double", "subscribe":""},
           ]
 
         ts = {}
@@ -105,7 +105,7 @@ class CT80(SmapDriver):
 
         # instantiate actuators
         for a in self.actuators:
-            setup = {'ip': self.ip, 'driver': self, 'name': a['name']}
+            setup = {'ip': self.ip, 'driver': self, 'name': a['name'], 'archiver_url': self.archiver}
             if a['subscribe']:
                 setup['subscribe'] = a['subscribe'] # skip empty subscriptions
             if a["act_type"] == "discrete":
