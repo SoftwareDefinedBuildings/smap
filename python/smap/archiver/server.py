@@ -113,7 +113,7 @@ class DataResource(resource.Resource):
 
 def getSite(db, 
             resources=['add', 'api', 'republish', 'wsrepublish', 'static'],
-            http_repub=None, websocket_repub=None, mongo_repub=None):
+            http_repub=None, websocket_repub=None, mongo_repub=None, pg_repub=None):
     """Get the twisted site for smap-archiver"""
     root = RootResource(value={'Contents': resources})
     if not http_repub:
@@ -129,6 +129,8 @@ def getSite(db,
             websocket_repub.republish(*copy.deepcopy(args))
         if mongo_repub:
             dl.append(mongo_repub.republish(*copy.deepcopy(args)))
+        if pg_repub:
+            dl.append(pg_repub.republish(*copy.deepcopy(args)))
         return defer.DeferredList(dl, fireOnOneErrback=True)
 
     if 'republish' in resources:

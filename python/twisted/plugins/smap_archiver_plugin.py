@@ -96,6 +96,12 @@ class ArchiverServiceMaker(object):
         else:
             mongo_repub = None
 
+        if settings.conf['database']['republish']:
+            print "enabling pg republishing"
+            pg_repub = republisher.PostgresEndpoint(cp)
+        else:
+            pg_repub = None
+
         service = MultiService()
         for svc in settings.conf['server']:
             scfg = settings.conf['server'][svc]
@@ -103,7 +109,8 @@ class ArchiverServiceMaker(object):
                            resources=scfg['resources'],
                            http_repub=http_repub, 
                            websocket_repub=websocket_repub,
-                           mongo_repub=mongo_repub)
+                           mongo_repub=mongo_repub,
+                           pg_repub=pg_repub)
 
             if not len(scfg['ssl']) > 1:
                 service.addService(internet.TCPServer(scfg['port'],

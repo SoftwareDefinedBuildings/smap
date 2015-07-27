@@ -58,7 +58,7 @@ class RepublishEndpoint(object):
     # fails.
     CLIENT_FAIL = False
 
-    def __init__(self, db, request):
+    def __init__(self, db, request=None):
         self.db = db
         self.request = request
         self.topics = None      # all topics
@@ -247,6 +247,30 @@ class WebSocketRepublishResource(WebSocketResource):
                 import traceback
                 traceback.print_exc()
 
+def _sanitize_keys(obj):
+    # hilariously, the Mongo "database" doesn't support keys
+    # starting with '$' or containing '.'
+    for k in obj.keys():
+        kprime = None
+        if k[0] == "$" or k.find(".") != -1:
+            kprime = k.replace(".", "_")
+            if kprime[0] == "$":
+                kprime = kprime[1:]
+            obj[kprime] = obj[k]
+            del obj[k]
+
+def sterilize_object(obj):
+    n = copy.deepcopy(obj)
+    for k in obj.iterkeys():
+        kprime = k
+        if kprime.startswith('$'):
+            kprime = k[1:]
+        kprime = kprime.replace('.', '__')
+        if k != kprime:
+            n[kprime] = n[k]
+            del n[k]
+    return n
+
 
 class MongoRepublisher(object):
     """Insert sMAP records into a MongoDB collection
@@ -261,19 +285,8 @@ class MongoRepublisher(object):
         import pymongo
         self.mongo = pymongo.MongoClient(settings.conf['mongo']['host'],
                                          settings.conf['mongo']['port'],
-                                         socketTimeoutMS=1000)
-
-    def _sanitize_keys(self, obj):
-        # hilariously, the Mongo "database" doesn't support keys
-        # starting with '$' or containing '.'
-        for k in obj.keys():
-            kprime = None
-            if k[0] == "$" or k.find(".") != -1:
-                kprime = k.replace(".", "_")
-                if kprime[0] == "$":
-                    kprime = kprime[1:]
-                obj[kprime] = obj[k]
-                del obj[k]
+                                         socketTimeoutMS=5000,
+                                         connectTimeoutMS=30000)
 
     def republish(self, key, public, obj):
         # check perms
@@ -284,8 +297,21 @@ class MongoRepublisher(object):
 
         col = self.mongo.smap.republish
         # pymongo mutates the argument ...
-        insert = copy.deepcopy(obj)
-        self._sanitize_keys(insert)
+        try:
+            insert = sterilize_object(obj)
+        except:
+            import traceback
+            traceback.print_exc()
+            raise
         insert['__submitted'] = int(time.time() * 1000)
         insert['__key'] = key
         return threads.deferToThread(col.save, insert)
+
+
+class PostgresEndpoint(RepublishEndpoint):
+    def republish(self, key, public, obj):
+        insert = sterilize_object(obj)
+        insert['__submitted'] = int(time.time() * 1000)
+        insert['__key'] = key
+        return self.db.runOperation("INSERT INTO republish (key, obj) VALUES (%s, %s)",
+                                    (key, json.dumps(insert)))
