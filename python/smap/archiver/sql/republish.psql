@@ -1,7 +1,7 @@
 -- -*- sql -*-
 -- sql table definition for the postgres republish client
 CREATE TABLE republish (
-       inserted_at DATETIME NOT NULL DEFAULT CURRENT_DATE,
+       inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        key VARCHAR(36),
        obj TEXT,
        sent BOOLEAN DEFAULT FALSE
