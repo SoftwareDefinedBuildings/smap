@@ -52,6 +52,7 @@ from smap.archiver.data import escape_string
 from smap.archiver.querydata import extract_data
 from smap.archiver import querygen as qg
 from smap.archiver import data, stream, help, ast, consumers
+from smap.archiver import settings
 
 import ply
 import ply.lex as lex
@@ -375,13 +376,16 @@ def p_query(t):
             t[0] = make_select_rv(t, t[2], t[4].render())
         elif len(t) == 3:
             t[0] = make_select_rv(t, t[2])
-        
+        settings.metrics.increment("select_count")
     elif t[1] == 'delete':
         t[0] = make_delete_rv(t)
+        settings.metrics.increment("delete_count")
     elif t[1] == 'set':
         t[0] = make_set_rv(t)
+        settings.metrics.increment("set_count")
     elif t[1] == 'apply':
         t[0] = t[2]
+        settings.metrics.increment("apply_count")
     elif t[1] == 'help':
         if len(t) == 2:
             t[0] = help.help(), None
@@ -914,6 +918,7 @@ class QueryParser:
         for ext_, q_ in zip(ext[1:], q[1:]):
             def print_time(result, start):
                 logging.getLogger('stats').info("Query took %0.6fs" % (time.time() - start))
+                settings.metrics.timing('query_time', time.time() - start)
                 return result
             if not ext_:
                 d = db.runOperation(q_)

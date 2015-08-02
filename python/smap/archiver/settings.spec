@@ -41,3 +41,7 @@ port = integer(default=27017)
 keys = list(default=list())
 publish_all_private = boolean(default=False)
 
+[statsd]
+host = string(default="127.0.0.1")
+port = integer(default=8125)
+prefix = string(default="localhost")

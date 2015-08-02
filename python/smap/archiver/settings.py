@@ -35,7 +35,20 @@ import os
 from configobj import ConfigObj
 from validate import Validator
 
+from twisted.internet import reactor
 from twisted.python import log
+
+from txstatsd.client import TwistedStatsDClient, StatsDClientProtocol
+from txstatsd.metrics.metrics import Metrics
+
+def setup_statsd(config):
+    global metrics
+    statsd = TwistedStatsDClient(config['statsd']['host'],
+                                 config['statsd']['port'])
+    metrics = Metrics(connection=statsd,
+                      namespace='smap-archiver.' + config['statsd']['prefix'])
+    protocol = StatsDClientProtocol(statsd)
+    reactor.listenUDP(0, protocol)
 
 def import_rdb(settings):
     global rdb
@@ -60,6 +73,7 @@ def load(conffile):
     config.validate(val)
     # import the readingdb module
     import_rdb(config)
+    setup_statsd(config)
     return config
 
 # try to load the site conf
