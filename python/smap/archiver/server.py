@@ -95,10 +95,12 @@ class DataResource(resource.Resource):
             if not x:
                 print x
                 request.setResponseCode(500)
+            settings.metrics.increment("add_count")
             request.finish()
         def add_error(x):
             # return a 500 so the sMAP server can hold onto the data
             # until things can be fixed.
+            settings.metrics.increment("add_error_count")
             try:
                 setResponseCode(request, x.value, 500)
                 request.write(str(x.value))

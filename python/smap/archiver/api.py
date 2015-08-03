@@ -168,7 +168,6 @@ FROM (
   WHERE id IN %s
 ) AS skeys ORDER BY skeys ASC""" % inner_query
 
-    log.msg(query)
     d = db.runQuery(query)
     d.addCallback(log_time, time.time())
     return d
@@ -368,8 +367,9 @@ class Api(resource.Resource):
                 request.setResponseCode(400)
                 request.finish()
                 return server.NOT_DONE_YET
-            path.append('uuid')            
+            path.append('uuid')
         if method == 'query':
+            settings.metrics.increment("rest_query_count")
             if 'q' in request.args:
                 return self.render_POST(request, request.args['q'][0])
             else:
@@ -382,6 +382,7 @@ class Api(resource.Resource):
                 d.addCallback(self.send_reply)
                 d.addErrback(lambda x: self.send_error(request, x))
         elif method == 'tags':
+            settings.metrics.increment("rest_tags_count")
             # retrieve tags
             d = build_tag_query(self.db,
                                 request, 
@@ -392,6 +393,7 @@ class Api(resource.Resource):
             d.addErrback(lambda x: self.send_error(request, x))
 
         elif method in ['data', 'next', 'prev']:
+            settings.metrics.increment("rest_data_count")
             # retrieve data
             d = self.db.runQuery("""SELECT uuid, id FROM stream WHERE
 id IN """ + build_inner_query(request,
@@ -405,6 +407,7 @@ id IN """ + build_inner_query(request,
         elif method == 'operators':
             self.send_reply((request, stream.installed_ops.keys()))
         else:
+            settings.metrics.increment("rest_404_count")
             request.setResponseCode(404)
             request.finish()
 
