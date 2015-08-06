@@ -101,12 +101,12 @@ def is_https_url(url):
     return urlparse.urlparse(url).scheme == 'https'
 
 class Agent6(Agent):
-    def _getEndpoint(self, scheme, host, port):
+    def _getEndpoint(self, uri):
         try:
-            return super(Agent6, self)._getEndpoint(scheme, host, port)
+            return super(Agent6, self)._getEndpoint(uri)
         except SchemeNotSupported:
-            if scheme == 'http6':
-                return TCP6ClientEndpoint(self._reactor, host, port)
+            if uri.scheme == 'http6':
+                return TCP6ClientEndpoint(self._reactor, uri.host, uri.port)
             else:
                 raise
 
