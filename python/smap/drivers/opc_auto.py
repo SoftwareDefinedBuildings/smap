@@ -1,5 +1,5 @@
 """
-Copyright (c) 2011, 2012, Regents of the University of California
+Copyright (c) 2011, 2012, 2013, 2014, 2015, Regents of the University of California
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
 @author Stephen Dawson-Haggerty <stevedh@eecs.berkeley.edu>
+@author Gabe Fierro <gtfierro@eecs.berkeley.edu>
 """
 
 import operator
@@ -35,6 +36,7 @@ import re
 from twisted.internet import task
 from twisted.python import log
 
+from smap import actuate
 from smap.driver import SmapDriver
 from smap.util import periodicSequentialCall, str_path
 from smap.contrib import dtutil
@@ -45,6 +47,7 @@ import OpenOPC
 PROP_FILTER_LIST = [u"Item Timestamp",
                     u"Item Value"]
 
+POINT_FILTER_LIST = [lambda x: "\\GATEWAY" not in x]
 
 def exclude(key):
     for exclude in PROP_FILTER_LIST:
@@ -59,6 +62,8 @@ class Driver(SmapDriver):
         self.points = {opts.get('OpcPoint', '*'): {}}
         self.opc_timefmt = opts.get("OpcTimeFormat", "%m/%d/%y %H:%M:%S")
         self.opc_timezone = opts.get("OpcTimezone", "Local")
+        self.archiver_url = opts.get('archiver_url', 'http://localhost:8079')
+        self.last_report_timestamp = {}
 
         self.rate = int(opts.get("Rate", 30))
         if 'OpcPointFile' in opts:
@@ -96,6 +101,8 @@ class Driver(SmapDriver):
         pointdfns = {}
         cur_tag = None
         for line in points:
+            if not all([pfilter(line) for pfilter in POINT_FILTER_LIST]):
+                continue
             line = re.sub("#(.*)$", "", line.rstrip())
             if not re.match("^[ ]+", line):
                 pointdfns[line] = {}
@@ -137,9 +144,21 @@ class Driver(SmapDriver):
             dtype = 'double'
             if not self.get_timeseries(name):
                 name = name.decode().encode('ascii','ignore')
-                self.add_timeseries(name, unit, data_type=dtype)
+                ts = self.add_timeseries(name, unit, data_type=dtype)
                 self.set_metadata(name, points[name])
+                canwrite = meta.get('OpcDA/ItemAccessRights')
+                dtype = meta.get('OpcDA/ItemCanonicalDataType')
+                setup = {'pointname': meta.get("OpcDA/ItemID(virtualproperty)"), 'client': self.opc, 'archiver_url': self.archiver_url} 
+                if 'Write' in canwrite:
+                    #print 'add actuator',dtype,name
+                    if dtype == 'VT_BOOL':
+                        ts.add_actuator(BinaryActuator(**setup))
+                    elif dtype == 'VT_UT1':
+                        setup['range'] = [0,100] #TODO: this is just a guess
+                        ts.add_actuator(ContinuousActuator(**setup))
         vals = self.opc.read(self.points.keys(), group="smap-points-group")
+        for key in self.points.keys():
+            self.last_report_timestamp[key] = -1
         self.updater = task.LoopingCall(self.update).start(self.rate)
 
     def _update(self):
@@ -154,7 +173,10 @@ class Driver(SmapDriver):
                 ts = dtutil.dt2ts(ts)
             if self.get_timeseries(self.make_path(point)) and value is not None:
                 if isinstance(value, bool): value = int(value)
-                self._add(self.make_path(point), ts, float(value))
+                #print point, ts, value 
+                if ts > self.last_report_timestamp[point]:
+                    self.last_report_timestamp[point] = ts
+                    self._add(self.make_path(point), ts, float(value))
 
     def update(self):
         try:
@@ -176,3 +198,30 @@ class Driver(SmapDriver):
             except:
                 pass
             del self.opc
+
+class OPCActuator(actuate.SmapActuator):
+    def __init__(self, **opts):
+        self.client = opts.get('client', None)
+        self.pointname = opts.get('pointname', None)
+        actuate.SmapActuator.__init__(self, opts.get('archiver_url'))
+
+    def get_state(self, request):
+        value, quality, time = self.client.read(self.pointname)
+        if isinstance(value, bool): value = int(value)
+        #print value, quality, time
+	return float(value)
+
+    def set_state(self, request, state):
+        print self.pointname, state
+        self.client.write((self.pointname, state))
+        return self.get_state(request)
+
+class BinaryActuator(OPCActuator, actuate.BinaryActuator):
+    def __init__(self, **opts):
+        actuate.BinaryActuator.__init__(self)
+        OPCActuator.__init__(self, **opts)
+
+class ContinuousActuator(OPCActuator, actuate.ContinuousActuator):
+    def __init__(self, **opts):
+        actuate.ContinuousActuator.__init__(self, opts['range'])
+        OPCActuator.__init__(self, **opts)
