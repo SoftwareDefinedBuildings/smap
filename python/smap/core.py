@@ -433,7 +433,8 @@ sMAP reporting functionality."""
         if not namespace:
             namespace = self.root_uuid
         if key and namespace:
-            rv = uuid.uuid5(namespace, key)
+            rv = uuid.uuid5(util.unicode_to_str(namespace),
+                            util.unicode_to_str(key))
             if rv in self.OBJS_UUID:
                 raise SmapException("Duplicate UUID detected -- this probably "
                                     "means you specifed the same key twice in "
@@ -583,7 +584,6 @@ sMAP reporting functionality."""
         replace = kwargs.pop('replace', False)
         recurse = kwargs.pop('recurse', True)
         klass = kwargs.pop('klass', Timeseries)
-
         if len(args) == 0 or \
                 not ITimeseries.providedBy(args[0]) and not IActuator.providedBy(args[0]):
             if len(args) == 2:

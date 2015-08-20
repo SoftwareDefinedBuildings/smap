@@ -61,6 +61,9 @@ def makeErrback(request_):
             traceback.print_exc()
 
 def escape_string(s):
+    ## SDH : this is broken since it seems to use the default client
+    ## encoding (latin-1 on my machine) even though we switch to UTF8
+    ## otherwise.  
     return psycopg2.extensions.QuotedString(s).getquoted()
 
 class ReadingdbPool:
@@ -103,23 +106,21 @@ class SmapMetadata:
             if not util.is_string(path):
                 raise Exception("Invalid path: " + path)
 
-            tags = ["hstore('Path', %s)" % escape_string(path)]
+            tags = {u'Path': path} 
             for name, val in util.buildkv('', ts):
                 if name == 'Readings' or name == 'uuid': continue
-                name, val = escape_string(name), escape_string(str(val))
                 if not (util.is_string(name) and util.is_string(val)):
                     raise SmapException('Invalid metadata pair: "%s" -> "%s"' % (str(name),
                                                                                  str(val)),
                                         400)
-                tags.append("hstore(%s, %s)" % (name, val))
-
-            query = "UPDATE stream SET metadata = metadata || " + " || ".join(tags) + \
-                " WHERE uuid = %s" % escape_string(ts['uuid'])
-
+                tags[name] = val
+                
+            query = "UPDATE stream SET metadata = metadata || %s " \
+                " WHERE uuid = %s "
             # skip path updates if no other metadata
             if len(tags) == 1:
                 continue
-            yield self.db.runOperation(query)
+            yield self.db.runOperation(query, (tags, ts['uuid'],))
         logging.getLogger('stats').info("Metadata insert took %0.6fs" % (time.time() - tic))
 
 

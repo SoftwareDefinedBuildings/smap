@@ -436,3 +436,8 @@ class RateLimiter:
             rv = self.method_if_disallowed(*args, **kwargs)
         return allowed, rv
 
+def unicode_to_str(s):
+    if isinstance(s, unicode):
+        return s.encode("unicode-escape")
+    else:
+        return s

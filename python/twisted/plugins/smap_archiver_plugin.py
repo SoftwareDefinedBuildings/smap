@@ -33,6 +33,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import sys
 
+import psycopg2.extras
 from zope.interface import implements
 
 from twisted.python import usage
@@ -75,6 +76,12 @@ class ArchiverServiceMaker(object):
                 print '\n'.join(map(str, objgraph.most_common_types(limit=10)))
             task.LoopingCall(stats).start(2)
 
+
+        def connection_callback(conn):
+            # switch client charset to utf8 and enable hstore 
+            conn.set_client_encoding("UTF8")
+            psycopg2.extras.register_hstore(conn)
+            
         cp = adbapi.ConnectionPool(settings.conf['database']['module'],
                                    host=settings.conf['database']['host'],
                                    database=settings.conf['database']['db'],
@@ -82,7 +89,8 @@ class ArchiverServiceMaker(object):
                                    password=settings.conf['database']['password'],
                                    port=settings.conf['database']['port'],
                                    cp_min=5, cp_max=30,
-                                   cp_reconnect=True)
+                                   cp_reconnect=True,
+                                   cp_openfun=connection_callback)
 
         if options['subscribe']:
             subscribe(cp, settings)
