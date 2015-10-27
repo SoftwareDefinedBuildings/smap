@@ -27,6 +27,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import os
+import subprocess
 from distutils.core import setup, Extension
 
 # SDH : 10/22/2014 : to make setup.py work either in python/ or at the root of the git
@@ -69,8 +70,22 @@ bacnet_module = Extension('smap.iface.pybacnet._bacnet',
   library_dirs=[lib_path],
   include_dirs=inc_dir)
 
+
+def git_rev():
+    try:
+        # this works when building to add the git repo but when
+        # distributing, it's not in a git repo so we we stash the
+        # current version in VERSION, and include it in MANIFEST.in
+        version = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+        with open('VERSION', 'w') as fp:
+            print >>fp, version
+        return version
+    except subprocess.CalledProcessError, e:
+        return open('VERSION', 'r').read()
+
+
 setup(name="Smap",
-      version="2.0.08160b",
+      version='2.0.R' + git_rev()[:6],
       description="sMAP standard library and drivers",
       author="Stephen Dawson-Haggerty",
       author_email="stevedh@eecs.berkeley.edu",
