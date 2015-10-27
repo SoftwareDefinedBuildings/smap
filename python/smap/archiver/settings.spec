@@ -42,6 +42,6 @@ keys = list(default=list())
 publish_all_private = boolean(default=False)
 
 [statsd]
-host = string(default="127.0.0.1")
+host = string(default='')
 port = integer(default=8125)
 prefix = string(default="localhost")

@@ -38,10 +38,10 @@ from validate import Validator
 from twisted.internet import reactor
 from twisted.python import log
 
-from txstatsd.client import TwistedStatsDClient, StatsDClientProtocol
-from txstatsd.metrics.metrics import Metrics
 
 def setup_statsd(config):
+    from txstatsd.client import TwistedStatsDClient, StatsDClientProtocol
+    from txstatsd.metrics.metrics import Metrics
     global metrics
     statsd = TwistedStatsDClient(config['statsd']['host'],
                                  config['statsd']['port'])
@@ -73,7 +73,8 @@ def load(conffile):
     config.validate(val)
     # import the readingdb module
     import_rdb(config)
-    setup_statsd(config)
+    if config['statsd']['host']:
+        setup_statsd(config)
     return config
 
 # try to load the site conf
